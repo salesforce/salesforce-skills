@@ -1,0 +1,12 @@
+{
+  "name": "business-skills",
+  "owner": {
+    "name": "Salesforce, Inc."
+  },
+  "plugins": [
+    {
+      "name": "Sales",
+      "source": "./sales",
+    }
+  ]
+}
