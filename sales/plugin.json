@@ -1,0 +1,9 @@
+{
+  "name": "sales",
+  "version": "1.0.0-pilot.1",
+  "displayName": "Sales",
+  "description": "AI-assisted sales workflows for reps and leaders. Account research, call prep and follow-up, pipeline review, forecast and slip-scenario math, lead triage, outreach drafting, and guided approval-gated Salesforce updates - built on Salesforce, Google Drive, and Slack.",
+  "author": {
+    "name": "Salesforce, Inc."
+  }
+}
