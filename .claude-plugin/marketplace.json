@@ -1,12 +1,12 @@
 {
-  "name": "salesforce-skills",
+  "name": "Salesforce",
   "owner": {
     "name": "Salesforce, Inc."
   },
   "plugins": [
     {
-      "name": "sales",
-      "source": "./sales"
+      "name": "salesforce-for-sales",
+      "source": "./salesforce-for-sales"
     }
   ]
 }
