@@ -6,7 +6,7 @@
   "plugins": [
     {
       "name": "Sales",
-      "source": "./sales",
+      "source": "./sales"
     }
   ]
 }
