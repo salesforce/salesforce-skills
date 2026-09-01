@@ -2,12 +2,13 @@
   "mcpServers": {
     "salesforce-h360": {
       "type": "http",
-      "url": "https://api.salesforce.com/platform/mcp/v1/platform/headless-360",
+      "url": "https://test1.api.salesforce.com/platform/mcp/v1/d/orgfarm-9947244f4c.test1/test/platform/headless-360",
       "description": "Salesforce Headless 360 MCP server. Three tools: discover(query) - semantic search across Salesforce APIs to find available operations; describe(id) - full specification for a discovered operation or object; dispatch(method, url, queryParams, body) - execute any Salesforce REST API call (SOQL queries, sObject CRUD, UI API, Tooling API). Supports read and guided create/update on Accounts, Contacts, Opportunities, Leads, and activities."
     },
     "slack": {
       "type": "http",
       "url": "https://mcp.slack.com/mcp",
       "description": "Internal account chatter and team summaries"
-    }  }
+    }
+  }
 }

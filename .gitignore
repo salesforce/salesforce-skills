@@ -1,0 +1,10 @@
+# logs / os / editor
+*.log
+.DS_Store
+.vscode/
+.idea/
+
+# secrets — never commit consumer keys/secrets or tokens
+*.key
+*.secret
+.env
