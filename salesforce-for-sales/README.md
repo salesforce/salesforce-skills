@@ -17,7 +17,7 @@ Everything reads from your Salesforce freely. Writes are opt-in and gated: if yo
 **1. Install**
 ```
 /plugin marketplace add <this-repo>
-/plugin install sales
+/plugin install salesforce-for-sales
 ```
 
 **2. Connect Salesforce**

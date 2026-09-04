@@ -90,7 +90,7 @@ Skills ask which Slack channel to use when they need one, and you can point them
 Try the daily briefing:
 
 ```
-/headless-360-for-sales:daily-briefing
+/salesforce-for-sales:daily-briefing
 ```
 
 You should get today's calendar with SFDC context per meeting, opps closing in the next 14 days, and a count of unread customer emails. If any section is empty or errors, that connector needs attention.
