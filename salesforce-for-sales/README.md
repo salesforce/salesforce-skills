@@ -6,9 +6,9 @@ This is the external edition of the sales toolkit Anthropic's own sales team run
 
 ## What you get
 
-A rep opens their laptop and types `/sales:daily-briefing` - they get today's meetings with the SFDC account context for each one, the opps closing in two weeks with stale-flag warnings, and which customer emails are waiting. Before a call they type `/sales:call-prep` and get a one-page brief: who's in the room, what happened on the last call (pulled from the Drive transcript), and what to ask. After the call, `call-follow-up` turns the transcript into a email draft to the customer and a Slack summary for the team.
+A rep opens their laptop and types `/salesforce-for-sales:daily-briefing` - they get today's meetings with the SFDC account context for each one, the opps closing in two weeks with stale-flag warnings, and which customer emails are waiting. Before a call they type `/salesforce-for-sales:call-prep` and get a one-page brief: who's in the room, what happened on the last call (pulled from the Drive transcript), and what to ask. After the call, `call-follow-up` turns the transcript into a email draft to the customer and a Slack summary for the team.
 
-A leader types `/sales:team-pipeline` and gets the rollup, the deals that decide the quarter (each with a concrete "do this"), and Monday questions per rep grounded in their actual opps - not generic coaching prompts.
+A leader types `/salesforce-for-sales:team-pipeline` and gets the rollup, the deals that decide the quarter (each with a concrete "do this"), and Monday questions per rep grounded in their actual opps - not generic coaching prompts.
 
 Everything reads from your Salesforce freely. Writes are opt-in and gated: if your admin connects the read-write Salesforce server, `update-opportunity` and `log-activity` can apply stage changes, close-date moves, and activity logs - always proposed first, written only after you confirm, verified with a record link. On a read-only connector, the same suggestions come back as a checklist you apply yourself.
 
@@ -17,7 +17,7 @@ Everything reads from your Salesforce freely. Writes are opt-in and gated: if yo
 **1. Install**
 ```
 /plugin marketplace add <this-repo>
-/plugin install sales
+/plugin install salesforce-for-sales
 ```
 
 **2. Connect Salesforce**
@@ -27,7 +27,7 @@ The plugin talks to Salesforce through the Headless 360 MCP server - reads via `
 **3. Try it**
 
 ```
-/sales:daily-briefing
+/salesforce-for-sales:daily-briefing
 ```
 
 Full setup walkthrough in [SETUP.md](SETUP.md).

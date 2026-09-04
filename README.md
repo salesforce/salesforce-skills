@@ -14,4 +14,4 @@ We're open-sourcing 1 plugins built and inspired by our own work:
 
 | Plugin | How it helps | Connectors |
 |--------|-------------|------------|
-| **[sales](./sales)** | AI-assisted sales workflows for reps and leaders. Account research, call prep and follow-up, pipeline review, forecast and slip-scenario math, lead triage, outreach drafting, and guided approval-gated Salesforce updates - built on Salesforce, Google Drive, and Slack. | Slack, Google Calander, GMail, Salesforce H360 connector |
+| **[salesforce-for-sales](./salesforce-for-sales)** | AI-assisted sales workflows for reps and leaders. Account research, call prep and follow-up, pipeline review, forecast and slip-scenario math, lead triage, outreach drafting, and guided approval-gated Salesforce updates - built on Salesforce, Google Drive, and Slack. | Slack, Google Calander, GMail, Salesforce H360 connector |
