@@ -156,78 +156,138 @@ Tokens: `title` (account name in heading) Â· `subtitle` (one-line ARR summary) Â
     "componentOverrides": {
       "$": {
         "type": "mosaic",
-        "definition": "tile/mosaic",
+        "definition": "tile/widget",
         "children": [
           {
             "definition": "tile/row",
-            "attributes": { "gap": "sm", "align": "center", "justify": "between", "isWrapped": true },
+            "attributes": {
+              "gap": "sm",
+              "align": "center",
+              "isWrapped": false
+            },
             "children": [
               {
-                "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center" },
+                "definition": "tile/icon",
+                "attributes": {
+                  "name": "users",
+                  "size": "xl",
+                  "alt": ""
+                }
+              },
+              {
+                "definition": "tile/text",
+                "attributes": {
+                  "text": "{{title}}",
+                  "variant": "h1"
+                }
+              }
+            ]
+          },
+          {
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{subtitle}}",
+              "variant": "caption",
+              "color": "muted"
+            }
+          },
+          {
+            "definition": "tile/separator"
+          },
+          {
+            "definition": "tile/row",
+            "attributes": {
+              "gap": "lg",
+              "align": "stretch",
+              "isWrapped": false
+            },
+            "children": [
+              {
+                "definition": "tile/column",
+                "attributes": {
+                  "width": "lg"
+                },
                 "children": [
-                  { "definition": "tile/icon", "attributes": { "name": "users", "size": "lg", "alt": "" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{title}}", "variant": "page-title" } }
+                  {
+                    "definition": "tile/heatmap",
+                    "attributes": {
+                      "layout": "matrix",
+                      "caption": "{{heatmapCaption}}",
+                      "xLabels": "{{heatmapXLabels}}",
+                      "yLabels": "{{heatmapYLabels}}",
+                      "encode": "color",
+                      "scale": "sequential",
+                      "valueFormat": "currency",
+                      "domain": "{{heatmapDomain}}",
+                      "cells": "{{heatmapCells}}"
+                    }
+                  }
+                ]
+              },
+              {
+                "definition": "tile/column",
+                "attributes": {
+                  "width": "stretch"
+                },
+                "children": [
+                  {
+                    "definition": "tile/piechart",
+                    "attributes": {
+                      "caption": "{{piechartCaption}}",
+                      "variant": "donut",
+                      "valueFormat": "currency",
+                      "centerLabel": "{{piechartCenterLabel}}",
+                      "centerValue": "{{piechartCenterValue}}",
+                      "slices": "{{piechartSlices}}"
+                    }
+                  }
                 ]
               }
             ]
           },
-          { "definition": "tile/text", "attributes": { "text": "{{subtitle}}", "variant": "caption", "color": "muted" } },
-
-          { "definition": "tile/separator" },
-
-          {
-            "definition": "tile/row",
-            "attributes": { "gap": "lg", "align": "stretch", "isWrapped": false },
-            "children": [
-              {
-                "definition": "tile/heatmap",
-                "attributes": {
-                  "width": "lg",
-                  "layout": "matrix",
-                  "caption": "{{heatmapCaption}}",
-                  "xLabels": "{{heatmapXLabels}}",
-                  "yLabels": "{{heatmapYLabels}}",
-                  "encode": "color",
-                  "scale": "sequential",
-                  "valueFormat": "currency",
-                  "domain": "{{heatmapDomain}}",
-                  "cells": "{{heatmapCells}}"
-                }
-              },
-              {
-                "definition": "tile/piechart",
-                "attributes": {
-                  "width": "stretch",
-                  "caption": "{{piechartCaption}}",
-                  "variant": "donut",
-                  "valueFormat": "currency",
-                  "centerLabel": "{{piechartCenterLabel}}",
-                  "centerValue": "{{piechartCenterValue}}",
-                  "slices": "{{piechartSlices}}"
-                }
-              }
-            ]
-          },
-
           {
             "definition": "tile/datagrid",
             "attributes": {
               "caption": "{{datagridCaption}}",
               "appearance": "striped",
-              "defaultSort": { "key": "arr", "direction": "desc" },
+              "defaultSort": {
+                "key": "arr",
+                "direction": "desc"
+              },
               "columns": [
-                { "key": "play", "header": "Play", "type": "text" },
-                { "key": "unit", "header": "Business unit", "type": "text" },
-                { "key": "fit", "header": "Fit", "type": "number", "align": "right" },
-                { "key": "arr", "header": "ARR", "type": "currency", "align": "right", "sortable": true },
-                { "key": "motion", "header": "Next step", "type": "badge" }
+                {
+                  "key": "play",
+                  "header": "Play",
+                  "type": "text"
+                },
+                {
+                  "key": "unit",
+                  "header": "Business unit",
+                  "type": "text"
+                },
+                {
+                  "key": "fit",
+                  "header": "Fit",
+                  "type": "number",
+                  "align": "right"
+                },
+                {
+                  "key": "arr",
+                  "header": "ARR",
+                  "type": "currency",
+                  "align": "right",
+                  "sortable": true
+                },
+                {
+                  "key": "motion",
+                  "header": "Next step",
+                  "type": "badge"
+                }
               ],
               "rows": "{{datagridRows}}",
               "size": "sm"
             }
           },
-
           {
             "definition": "tile/callout",
             "attributes": {
@@ -238,22 +298,45 @@ Tokens: `title` (account name in heading) Â· `subtitle` (one-line ARR summary) Â
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center", "isWrapped": true },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center",
+                  "isWrapped": true
+                },
                 "children": [
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "{{primaryButtonLabel}}",
                       "variant": "primary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{primaryButtonContent}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{primaryButtonContent}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   },
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "View in Salesforce",
+                      "iconName": "open-in-new",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/openLink", "attributes": { "url": "{{accountUrl}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/openLink",
+                            "attributes": {
+                              "url": "{{accountUrl}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]

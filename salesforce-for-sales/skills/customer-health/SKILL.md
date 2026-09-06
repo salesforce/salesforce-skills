@@ -110,30 +110,66 @@ Tokens: `headerTitle headerStatus` (header — account name; `headerStatus` is a
     "componentOverrides": {
       "$": {
         "type": "mosaic",
-        "definition": "tile/mosaic",
+        "definition": "tile/widget",
         "children": [
           {
             "definition": "tile/row",
-            "attributes": { "gap": "sm", "align": "center", "justify": "between", "isWrapped": true },
+            "attributes": {
+              "gap": "sm",
+              "align": "center",
+              "justify": "between",
+              "isWrapped": true
+            },
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center" },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center"
+                },
                 "children": [
-                  { "definition": "tile/icon", "attributes": { "name": "activity", "size": "lg", "alt": "" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{headerTitle}}", "variant": "page-title" } }
+                  {
+                    "definition": "tile/icon",
+                    "attributes": {
+                      "name": "activity",
+                      "size": "xl",
+                      "alt": ""
+                    }
+                  },
+                  {
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{headerTitle}}",
+                      "variant": "h1"
+                    }
+                  }
                 ]
               },
-              { "definition": "tile/badge", "attributes": { "label": "{{headerStatus}}", "variant": "error" } }
+              {
+                "definition": "tile/badge",
+                "attributes": {
+                  "label": "{{headerStatus}}",
+                  "variant": "error"
+                }
+              }
             ]
           },
-          { "definition": "tile/text", "attributes": { "text": "{{headerSubtitle}}", "variant": "caption", "color": "muted" } },
-
-          { "definition": "tile/separator" },
-
           {
-            "definition": "tile/row",
-            "attributes": { "gap": "lg", "align": "stretch", "isWrapped": true },
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{headerSubtitle}}",
+              "variant": "caption",
+              "color": "muted"
+            }
+          },
+          {
+            "definition": "tile/separator"
+          },
+          {
+            "definition": "tile/column",
+            "attributes": {
+              "gap": "md"
+            },
             "children": [
               {
                 "definition": "tile/chart",
@@ -165,22 +201,37 @@ Tokens: `headerTitle headerStatus` (header — account name; `headerStatus` is a
               }
             ]
           },
-
           {
             "definition": "tile/datagrid",
             "attributes": {
               "caption": "{{gridCaption}}",
               "appearance": "striped",
               "columns": [
-                { "key": "signal", "header": "Signal", "type": "text" },
-                { "key": "now", "header": "Current", "type": "text", "align": "right" },
-                { "key": "trend", "header": "6-wk trend", "type": "sparkline" },
-                { "key": "note", "header": "Read", "type": "text" }
+                {
+                  "key": "signal",
+                  "header": "Signal",
+                  "type": "text"
+                },
+                {
+                  "key": "now",
+                  "header": "Current",
+                  "type": "text",
+                  "align": "right"
+                },
+                {
+                  "key": "trend",
+                  "header": "6-wk trend",
+                  "type": "sparkline"
+                },
+                {
+                  "key": "note",
+                  "header": "Read",
+                  "type": "text"
+                }
               ],
               "rows": "{{gridRows}}"
             }
           },
-
           {
             "definition": "tile/callout",
             "attributes": {
@@ -191,22 +242,45 @@ Tokens: `headerTitle headerStatus` (header — account name; `headerStatus` is a
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center", "isWrapped": true },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center",
+                  "isWrapped": true
+                },
                 "children": [
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "{{ctaPrimaryLabel}}",
                       "variant": "primary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{ctaPrimaryMsg}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{ctaPrimaryMsg}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   },
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "View in Salesforce",
+                      "iconName": "open-in-new",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/openLink", "attributes": { "url": "{{accountUrl}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/openLink",
+                            "attributes": {
+                              "url": "{{accountUrl}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]

@@ -37,7 +37,7 @@ The renewal you start 90 days out is a process; the one you notice 2 weeks out i
   ```
   **One match** → take its Id for OwnerId filter in step 3. **Several** → list them (Name · Email · active? · Id) and ask user to pick. **Zero** → ask user to clarify.
 - **Named account** → resolve Account by name, use AccountId filter in step 3
-- **Team** (default) → no owner filter
+- **Team** → no owner filter
 
 ## 2. Ground (hardcoded — Opportunity only)
 
@@ -145,80 +145,162 @@ Tokens: `{{pageTitle}}` (e.g. "Renewal radar — next 90 days"), `{{headerStatus
     "componentOverrides": {
       "$": {
         "type": "mosaic",
-        "definition": "tile/mosaic",
+        "definition": "tile/widget",
         "children": [
           {
             "definition": "tile/row",
-            "attributes": { "gap": "sm", "align": "center", "justify": "between", "isWrapped": true },
+            "attributes": {
+              "gap": "sm",
+              "align": "center",
+              "justify": "between",
+              "isWrapped": true
+            },
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center" },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center"
+                },
                 "children": [
-                  { "definition": "tile/icon", "attributes": { "name": "refresh", "size": "lg", "alt": "" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{pageTitle}}", "variant": "page-title" } }
+                  {
+                    "definition": "tile/icon",
+                    "attributes": {
+                      "name": "refresh",
+                      "size": "xl",
+                      "alt": ""
+                    }
+                  },
+                  {
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{pageTitle}}",
+                      "variant": "h1"
+                    }
+                  }
                 ]
               },
-              { "definition": "tile/badge", "attributes": { "label": "{{headerStatus}}", "variant": "warning" } }
-            ]
-          },
-          { "definition": "tile/text", "attributes": { "text": "{{subtitle}}", "variant": "caption", "color": "muted" } },
-
-          { "definition": "tile/separator" },
-
-          {
-            "definition": "tile/row",
-            "attributes": { "gap": "lg", "align": "stretch", "isWrapped": true },
-            "children": [
               {
-                "definition": "tile/meter",
+                "definition": "tile/badge",
                 "attributes": {
-                  "label": "At-risk ARR share",
-                  "value": "{{riskValue}}",
-                  "min": 0,
-                  "max": 100,
-                  "target": "{{riskTarget}}",
-                  "valueFormat": "percent",
-                  "valueLabel": "{{riskValueLabel}}",
-                  "targetLabel": "{{riskTargetLabel}}",
-                  "status": "{{riskStatus}}",
-                  "bands": "{{riskBands}}",
-                  "size": "lg"
-                }
-              },
-              {
-                "definition": "tile/piechart",
-                "attributes": {
-                  "caption": "Renewal ARR by risk verdict",
-                  "variant": "donut",
-                  "valueFormat": "currency",
-                  "centerLabel": "ARR",
-                  "centerValue": "{{pieCenter}}",
-                  "slices": "{{pieSlices}}"
+                  "label": "{{headerStatus}}",
+                  "variant": "warning"
                 }
               }
             ]
           },
-
+          {
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{subtitle}}",
+              "variant": "caption",
+              "color": "muted"
+            }
+          },
+          {
+            "definition": "tile/separator"
+          },
+          {
+            "definition": "tile/row",
+            "attributes": {
+              "gap": "lg",
+              "align": "stretch",
+              "isWrapped": true
+            },
+            "children": [
+              {
+                "definition": "tile/column",
+                "attributes": {
+                  "width": "stretch"
+                },
+                "children": [
+                  {
+                    "definition": "tile/meter",
+                    "attributes": {
+                      "label": "At-risk ARR share",
+                      "value": "{{riskValue}}",
+                      "min": 0,
+                      "max": 100,
+                      "target": "{{riskTarget}}",
+                      "valueFormat": "percent",
+                      "valueLabel": "{{riskValueLabel}}",
+                      "targetLabel": "{{riskTargetLabel}}",
+                      "status": "{{riskStatus}}",
+                      "bands": "{{riskBands}}",
+                      "size": "lg"
+                    }
+                  }
+                ]
+              },
+              {
+                "definition": "tile/column",
+                "attributes": {
+                  "width": "stretch"
+                },
+                "children": [
+                  {
+                    "definition": "tile/piechart",
+                    "attributes": {
+                      "caption": "Renewal ARR by risk verdict",
+                      "variant": "donut",
+                      "valueFormat": "currency",
+                      "centerLabel": "ARR",
+                      "centerValue": "{{pieCenter}}",
+                      "slices": "{{pieSlices}}"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
           {
             "definition": "tile/datagrid",
             "attributes": {
               "caption": "Renewals in the next 90 days, soonest and riskiest first",
               "appearance": "striped",
-              "defaultSort": { "key": "close", "direction": "asc" },
+              "defaultSort": {
+                "key": "close",
+                "direction": "asc"
+              },
               "columns": [
-                { "key": "account", "header": "Account", "type": "text" },
-                { "key": "arr", "header": "ARR", "type": "currency", "align": "right", "sortable": true },
-                { "key": "close", "header": "Renews", "type": "date", "sortable": true },
-                { "key": "usage", "header": "Usage trend", "type": "sparkline" },
-                { "key": "verdict", "header": "Verdict", "type": "badge" },
-                { "key": "action", "header": "Play", "type": "text" }
+                {
+                  "key": "account",
+                  "header": "Account",
+                  "type": "text"
+                },
+                {
+                  "key": "arr",
+                  "header": "ARR",
+                  "type": "currency",
+                  "align": "right",
+                  "sortable": true
+                },
+                {
+                  "key": "close",
+                  "header": "Renews",
+                  "type": "date",
+                  "sortable": true
+                },
+                {
+                  "key": "usage",
+                  "header": "Usage trend",
+                  "type": "sparkline"
+                },
+                {
+                  "key": "verdict",
+                  "header": "Verdict",
+                  "type": "badge"
+                },
+                {
+                  "key": "action",
+                  "header": "Play",
+                  "type": "text"
+                }
               ],
               "rows": "{{gridRows}}",
               "totalRows": "{{totalRenewals}}"
             }
           },
-
           {
             "definition": "tile/callout",
             "attributes": {
@@ -229,22 +311,45 @@ Tokens: `{{pageTitle}}` (e.g. "Renewal radar — next 90 days"), `{{headerStatus
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center", "isWrapped": true },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center",
+                  "isWrapped": true
+                },
                 "children": [
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "{{primaryLabel}}",
                       "variant": "primary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{primaryPrompt}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{primaryPrompt}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   },
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "View in Salesforce",
+                      "iconName": "open-in-new",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/openLink", "attributes": { "url": "{{criticalRenewalsUrl}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/openLink",
+                            "attributes": {
+                              "url": "{{criticalRenewalsUrl}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]

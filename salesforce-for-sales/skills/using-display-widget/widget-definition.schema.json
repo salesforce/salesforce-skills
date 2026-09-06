@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://salesforce.com/anthropicforce/widget-definition.schema.json",
   "title": "Widget definition for display_widget dynamic mode",
-  "description": "The declarative renderer envelope an agent authors and passes to the display_widget tool in dynamic mode. The server echoes it to the native Mosaic renderer, which reads renderer.componentOverrides.$ : a tile/mosaic root whose children are the tile blocks rendered top to bottom. Author fully-hydrated literals; there is no expression compilation on this path. This schema documents the recommended full-envelope form (the server also accepts shorthands: a bare mosaic root, a plain array of blocks, or a single block).",
+  "description": "The declarative renderer envelope an agent authors and passes to the display_widget tool in dynamic mode. The server echoes it to the native Mosaic renderer, which reads renderer.componentOverrides.$ : a tile/widget root whose children are the tile blocks rendered top to bottom. Author fully-hydrated literals; there is no expression compilation on this path. This schema documents the recommended full-envelope form (the server also accepts shorthands: a bare mosaic root, a plain array of blocks, or a single block).",
   "type": "object",
   "required": [
     "renderer"
@@ -11,7 +11,7 @@
   "properties": {
     "renderer": {
       "type": "object",
-      "description": "The renderer envelope. Supply componentOverrides.$ (a tile/mosaic root); body is an accepted alternative slot for a tile tree.",
+      "description": "The renderer envelope. Supply componentOverrides.$ (a tile/widget root); body is an accepted alternative slot for a tile tree.",
       "anyOf": [
         {
           "required": [
@@ -47,7 +47,7 @@
   "$defs": {
     "mosaicRoot": {
       "type": "object",
-      "description": "The tile/mosaic root. Its children are the top-level tile blocks, rendered in order.",
+      "description": "The tile/widget root. Its children are the top-level tile blocks, rendered in order.",
       "required": [
         "definition",
         "children"
@@ -58,8 +58,11 @@
           "description": "Root type discriminator. Set to mosaic."
         },
         "definition": {
-          "const": "tile/mosaic",
-          "description": "Root definition. Set to tile/mosaic."
+          "enum": [
+            "tile/widget",
+            "tile/mosaic"
+          ],
+          "description": "Root definition. Set to tile/widget. tile/mosaic is the legacy spelling, still accepted (the server emits it when normalizing the shorthand input forms)."
         },
         "children": {
           "type": "array",
@@ -87,11 +90,10 @@
             "tile/link",
             "tile/callout",
             "tile/separator",
-            "tile/card",
             "tile/column",
             "tile/row",
             "tile/list",
-            "tile/listitem",
+            "tile/listItem",
             "tile/container",
             "tile/table",
             "tile/image",
@@ -103,10 +105,10 @@
             "tile/spinner",
             "tile/spacer",
             "tile/accordion",
-            "tile/accordionitem",
-            "tile/textfield",
+            "tile/accordionItem",
+            "tile/textField",
             "tile/textarea",
-            "tile/numberfield",
+            "tile/numberField",
             "tile/select",
             "tile/checkbox",
             "tile/radio",
@@ -134,7 +136,7 @@
         },
         "children": {
           "type": "array",
-          "description": "Nested blocks, for layout/container blocks (tile/card, tile/row, tile/column, tile/list, tile/listitem, tile/container, tile/accordion).",
+          "description": "Nested blocks, for layout/container blocks (tile/container, tile/row, tile/column, tile/list, tile/listItem, tile/accordion).",
           "items": {
             "$ref": "#/$defs/block"
           }
@@ -259,7 +261,7 @@
           "if": {
             "properties": {
               "definition": {
-                "const": "tile/card"
+                "const": "tile/container"
               }
             },
             "required": [
@@ -269,7 +271,7 @@
           "then": {
             "properties": {
               "attributes": {
-                "$ref": "#/$defs/cardAttributes"
+                "$ref": "#/$defs/containerAttributes"
               }
             }
           }
@@ -582,10 +584,10 @@
     },
     "buttonAttributes": {
       "type": "object",
-      "description": "Attributes for a tile/button block: a real, clickable call to action. Every button must carry an onClick action; there are no decorative buttons.",
+      "description": "Attributes for a tile/button block: a real, clickable call to action. Every button must carry an actions.click action; there are no decorative buttons.",
       "required": [
         "label",
-        "onClick"
+        "actions"
       ],
       "properties": {
         "label": {
@@ -607,15 +609,28 @@
           "$ref": "#/$defs/iconName",
           "description": "Optional icon name shown before the label (e.g. send, link)."
         },
-        "onClick": {
-          "$ref": "#/$defs/buttonAction",
-          "description": "The action fired on click. Required. Either a sendMessage (post a chat message back to the agent) or an openLink (navigate to a URL in a new tab)."
+        "actions": {
+          "type": "object",
+          "description": "The actions fired by the button, keyed by event. Required. Currently only the click event is supported; its value is a non-empty array of actions run in order when the button is clicked.",
+          "required": [
+            "click"
+          ],
+          "properties": {
+            "click": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/buttonAction"
+              },
+              "description": "Actions fired on click, in order. Each is either a sendMessage (post a chat message back to the agent) or an openLink (navigate to a URL in a new tab)."
+            }
+          }
         }
       }
     },
     "buttonAction": {
       "type": "object",
-      "description": "A tile/button onClick action. Discriminated by definition: action/sendMessage posts a chat message back to the agent; action/openLink opens a URL. Author fully-resolved literals in attributes (no {{token}} placeholders remain after hydration).",
+      "description": "A tile/button click action. Discriminated by definition: action/sendMessage posts a chat message back to the agent; action/openLink opens a URL. Author fully-resolved literals in attributes (no {{token}} placeholders remain after hydration).",
       "required": [
         "definition",
         "attributes"
@@ -1076,34 +1091,25 @@
         }
       }
     },
-    "cardAttributes": {
+    "containerAttributes": {
       "type": "object",
-      "description": "Attributes for a tile/card block: a bordered or elevated panel. Put content blocks in children.",
+      "description": "Attributes for a tile/container block: a panel with a rounded border. Put content blocks in children. Takes no width/padding of its own — to make a container fill or share a wrapped row, wrap it in a tile/column carrying width (and, for reflow control, minWidth).",
       "properties": {
+        "borderless": {
+          "type": "boolean",
+          "description": "Omit the container's rounded border. Defaults to false."
+        },
         "variant": {
           "type": "string",
           "enum": [
             "default",
-            "elevated",
-            "outlined"
+            "emphasis",
+            "info",
+            "warning",
+            "error",
+            "success"
           ],
-          "description": "Card surface style. Defaults to default."
-        },
-        "padding": {
-          "type": "string",
-          "description": "Inner padding, as a size token (none, xs, sm, md, lg, xl) or a CSS length."
-        },
-        "width": {
-          "type": "string",
-          "description": "Card width, as a size token or a CSS length. Use \"stretch\" for cards that share a wrapped row."
-        },
-        "maxWidth": {
-          "type": "string",
-          "description": "Maximum card width, as a size token or a CSS length."
-        },
-        "minWidth": {
-          "type": "string",
-          "description": "Minimum card width, as a size token (xs, sm, md, lg, xl) or a CSS length. Sets the reflow floor for a stretch card in a wrapped row: e.g. minWidth \"md\" makes four stretch KPI cards reflow to a 2x2 grid at chat width instead of squeezing into one tight row."
+          "description": "Container surface style. \"default\" matches the background; \"emphasis\" is a subtle neutral shade; the semantic variants (info/warning/error/success) tint the fill and border. Defaults to default."
         }
       }
     },
@@ -1173,7 +1179,7 @@
     },
     "listAttributes": {
       "type": "object",
-      "description": "Attributes for a tile/list block. Its children are tile/listitem blocks.",
+      "description": "Attributes for a tile/list block. Its children are tile/listItem blocks.",
       "properties": {
         "marker": {
           "type": "string",

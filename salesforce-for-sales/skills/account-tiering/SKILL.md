@@ -118,79 +118,146 @@ The widget template is embedded below — a widget-definition envelope whose lea
     "componentOverrides": {
       "$": {
         "type": "mosaic",
-        "definition": "tile/mosaic",
+        "definition": "tile/widget",
         "children": [
           {
             "definition": "tile/row",
-            "attributes": { "gap": "sm", "align": "center", "justify": "between", "isWrapped": true },
+            "attributes": {
+              "gap": "sm",
+              "align": "center",
+              "isWrapped": false
+            },
             "children": [
               {
-                "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center" },
+                "definition": "tile/icon",
+                "attributes": {
+                  "name": "layers",
+                  "size": "xl",
+                  "alt": ""
+                }
+              },
+              {
+                "definition": "tile/text",
+                "attributes": {
+                  "text": "{{title}}",
+                  "variant": "h1"
+                }
+              }
+            ]
+          },
+          {
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{subtitle}}",
+              "variant": "caption",
+              "color": "muted"
+            }
+          },
+          {
+            "definition": "tile/separator"
+          },
+          {
+            "definition": "tile/row",
+            "attributes": {
+              "gap": "lg",
+              "align": "stretch",
+              "isWrapped": false
+            },
+            "children": [
+              {
+                "definition": "tile/column",
+                "attributes": {
+                  "width": "stretch"
+                },
                 "children": [
-                  { "definition": "tile/icon", "attributes": { "name": "layers", "size": "lg", "alt": "" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{title}}", "variant": "page-title" } }
+                  {
+                    "definition": "tile/heatmap",
+                    "attributes": {
+                      "layout": "matrix",
+                      "caption": "{{heatmapCaption}}",
+                      "xLabels": "{{heatmapXLabels}}",
+                      "yLabels": "{{heatmapYLabels}}",
+                      "encode": "color",
+                      "scale": "sequential",
+                      "valueFormat": "number",
+                      "domain": "{{heatmapDomain}}",
+                      "cells": "{{heatmapCells}}"
+                    }
+                  }
+                ]
+              },
+              {
+                "definition": "tile/column",
+                "attributes": {
+                  "width": "stretch"
+                },
+                "children": [
+                  {
+                    "definition": "tile/piechart",
+                    "attributes": {
+                      "caption": "{{piechartCaption}}",
+                      "variant": "donut",
+                      "valueFormat": "number",
+                      "centerLabel": "{{piechartCenterLabel}}",
+                      "centerValue": "{{piechartCenterValue}}",
+                      "slices": "{{piechartSlices}}"
+                    }
+                  }
                 ]
               }
             ]
           },
-          { "definition": "tile/text", "attributes": { "text": "{{subtitle}}", "variant": "caption", "color": "muted" } },
-
-          { "definition": "tile/separator" },
-
-          {
-            "definition": "tile/row",
-            "attributes": { "gap": "lg", "align": "stretch", "isWrapped": false },
-            "children": [
-              {
-                "definition": "tile/heatmap",
-                "attributes": {
-                  "width": "stretch",
-                  "layout": "matrix",
-                  "caption": "{{heatmapCaption}}",
-                  "xLabels": "{{heatmapXLabels}}",
-                  "yLabels": "{{heatmapYLabels}}",
-                  "encode": "color",
-                  "scale": "sequential",
-                  "valueFormat": "number",
-                  "domain": "{{heatmapDomain}}",
-                  "cells": "{{heatmapCells}}"
-                }
-              },
-              {
-                "definition": "tile/piechart",
-                "attributes": {
-                  "width": "stretch",
-                  "caption": "{{piechartCaption}}",
-                  "variant": "donut",
-                  "valueFormat": "number",
-                  "centerLabel": "{{piechartCenterLabel}}",
-                  "centerValue": "{{piechartCenterValue}}",
-                  "slices": "{{piechartSlices}}"
-                }
-              }
-            ]
-          },
-
           {
             "definition": "tile/datagrid",
             "attributes": {
               "caption": "{{datagridCaption}}",
               "appearance": "striped",
               "size": "sm",
-              "defaultSort": { "key": "fit", "direction": "desc" },
+              "defaultSort": {
+                "key": "fit",
+                "direction": "desc"
+              },
               "columns": [
-                { "key": "account", "header": "Account", "type": "text" },
-                { "key": "fit", "header": "ICP fit", "type": "number", "align": "right", "sortable": true },
-                { "key": "engage", "header": "Engagement", "type": "databar", "target": 100 },
-                { "key": "arr", "header": "ARR", "type": "currency", "align": "right", "sortable": true },
-                { "key": "white", "header": "Whitespace", "type": "currency", "align": "right" },
-                { "key": "motion", "header": "Motion", "type": "badge" }
+                {
+                  "key": "account",
+                  "header": "Account",
+                  "type": "text"
+                },
+                {
+                  "key": "fit",
+                  "header": "ICP fit",
+                  "type": "number",
+                  "align": "right",
+                  "sortable": true
+                },
+                {
+                  "key": "engage",
+                  "header": "Engagement",
+                  "type": "databar",
+                  "target": 100
+                },
+                {
+                  "key": "arr",
+                  "header": "ARR",
+                  "type": "currency",
+                  "align": "right",
+                  "sortable": true
+                },
+                {
+                  "key": "white",
+                  "header": "Whitespace",
+                  "type": "currency",
+                  "align": "right"
+                },
+                {
+                  "key": "motion",
+                  "header": "Motion",
+                  "type": "badge"
+                }
               ],
               "rows": "{{datagridRows}}"
             }
           },
-
           {
             "definition": "tile/callout",
             "attributes": {
@@ -201,22 +268,45 @@ The widget template is embedded below — a widget-definition envelope whose lea
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center", "isWrapped": true },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center",
+                  "isWrapped": true
+                },
                 "children": [
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "{{primaryButtonLabel}}",
                       "variant": "primary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{primaryButtonMsg}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{primaryButtonMsg}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   },
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "View in Salesforce",
+                      "iconName": "open-in-new",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/openLink", "attributes": { "url": "{{salesforceUrl}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/openLink",
+                            "attributes": {
+                              "url": "{{salesforceUrl}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]

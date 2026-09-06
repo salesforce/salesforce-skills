@@ -107,25 +107,58 @@ If `display_widget` is available (Cowork/desktop/web), the widget IS the output;
     "componentOverrides": {
       "$": {
         "type": "mosaic",
-        "definition": "tile/mosaic",
+        "definition": "tile/widget",
         "children": [
           {
             "definition": "tile/row",
-            "attributes": { "gap": "sm", "align": "center", "justify": "between", "isWrapped": true },
+            "attributes": {
+              "gap": "sm",
+              "align": "center",
+              "justify": "between",
+              "isWrapped": true
+            },
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center" },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center"
+                },
                 "children": [
-                  { "definition": "tile/icon", "attributes": { "name": "briefcase", "size": "lg", "alt": "" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{dealName}}", "variant": "page-title" } }
+                  {
+                    "definition": "tile/icon",
+                    "attributes": {
+                      "name": "briefcase",
+                      "size": "xl",
+                      "alt": ""
+                    }
+                  },
+                  {
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{dealName}}",
+                      "variant": "h1"
+                    }
+                  }
                 ]
               },
-              { "definition": "tile/badge", "attributes": { "label": "{{headerStatus}}", "variant": "error" } }
+              {
+                "definition": "tile/badge",
+                "attributes": {
+                  "label": "{{headerStatus}}",
+                  "variant": "error"
+                }
+              }
             ]
           },
-          { "definition": "tile/text", "attributes": { "text": "{{healthLine}}", "variant": "caption", "color": "muted" } },
-
+          {
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{healthLine}}",
+              "variant": "caption",
+              "color": "muted"
+            }
+          },
           {
             "definition": "tile/callout",
             "attributes": {
@@ -137,14 +170,27 @@ If `display_widget` is available (Cowork/desktop/web), the widget IS the output;
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center", "isWrapped": true },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center",
+                  "isWrapped": true
+                },
                 "children": [
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "Draft legal push",
                       "variant": "primary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{recMoveMsg}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{recMoveMsg}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   },
                   {
@@ -152,7 +198,16 @@ If `display_widget` is available (Cowork/desktop/web), the widget IS the output;
                     "attributes": {
                       "label": "Reconfirm champion",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{recMoveChampMsg}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{recMoveChampMsg}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   },
                   {
@@ -160,118 +215,308 @@ If `display_widget` is available (Cowork/desktop/web), the widget IS the output;
                     "attributes": {
                       "label": "Open deal",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{recMoveOpenMsg}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{recMoveOpenMsg}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]
               }
             ]
           },
-
-          { "definition": "tile/separator" },
-
+          {
+            "definition": "tile/separator"
+          },
           {
             "definition": "tile/row",
-            "attributes": { "gap": "sm", "align": "stretch", "isWrapped": true },
+            "attributes": {
+              "gap": "sm",
+              "align": "stretch",
+              "isWrapped": true
+            },
             "children": [
               {
-                "definition": "tile/card",
-                "attributes": { "variant": "outlined", "padding": "md", "width": "stretch", "minWidth": "md" },
+                "definition": "tile/column",
+                "attributes": {
+                  "width": "stretch"
+                },
                 "children": [
                   {
-                    "definition": "tile/column",
-                    "attributes": { "gap": "xs" },
+                    "definition": "tile/container",
+                    "attributes": {},
                     "children": [
-                      { "definition": "tile/text", "attributes": { "text": "AMOUNT", "variant": "eyebrow", "color": "muted" } },
                       {
-                        "definition": "tile/row",
-                        "attributes": { "gap": "xs", "align": "baseline" },
+                        "definition": "tile/column",
+                        "attributes": {
+                          "gap": "xs"
+                        },
                         "children": [
-                          { "definition": "tile/text", "attributes": { "text": "{{kpiAmountNum}}", "variant": "display" } }
+                          {
+                            "definition": "tile/text",
+                            "attributes": {
+                              "text": "AMOUNT",
+                              "weight": "semibold",
+                              "color": "muted",
+                              "variant": "caption"
+                            }
+                          },
+                          {
+                            "definition": "tile/row",
+                            "attributes": {
+                              "gap": "xs",
+                              "align": "baseline"
+                            },
+                            "children": [
+                              {
+                                "definition": "tile/text",
+                                "attributes": {
+                                  "text": "{{kpiAmountNum}}",
+                                  "variant": "display"
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "definition": "tile/text",
+                            "attributes": {
+                              "text": "{{kpiAmountSub}}",
+                              "variant": "caption",
+                              "color": "muted"
+                            }
+                          }
                         ]
-                      },
-                      { "definition": "tile/text", "attributes": { "text": "{{kpiAmountSub}}", "variant": "caption", "color": "muted" } }
+                      }
                     ]
                   }
                 ]
               },
               {
-                "definition": "tile/card",
-                "attributes": { "variant": "outlined", "padding": "md", "width": "stretch", "minWidth": "md" },
+                "definition": "tile/column",
+                "attributes": {
+                  "width": "stretch"
+                },
                 "children": [
                   {
-                    "definition": "tile/column",
-                    "attributes": { "gap": "xs" },
+                    "definition": "tile/container",
+                    "attributes": {},
                     "children": [
-                      { "definition": "tile/text", "attributes": { "text": "STAGE", "variant": "eyebrow", "color": "muted" } },
                       {
-                        "definition": "tile/row",
-                        "attributes": { "gap": "xs", "align": "baseline", "isWrapped": true },
+                        "definition": "tile/column",
+                        "attributes": {
+                          "gap": "xs"
+                        },
                         "children": [
-                          { "definition": "tile/text", "attributes": { "text": "{{kpiStageNum}}", "variant": "display" } },
-                          { "definition": "tile/text", "attributes": { "text": "{{kpiStageLabel}}", "variant": "section-title", "color": "muted" } }
+                          {
+                            "definition": "tile/text",
+                            "attributes": {
+                              "text": "STAGE",
+                              "weight": "semibold",
+                              "color": "muted",
+                              "variant": "caption"
+                            }
+                          },
+                          {
+                            "definition": "tile/row",
+                            "attributes": {
+                              "gap": "xs",
+                              "align": "baseline",
+                              "isWrapped": true
+                            },
+                            "children": [
+                              {
+                                "definition": "tile/text",
+                                "attributes": {
+                                  "text": "{{kpiStageNum}}",
+                                  "variant": "display"
+                                }
+                              },
+                              {
+                                "definition": "tile/text",
+                                "attributes": {
+                                  "text": "{{kpiStageLabel}}",
+                                  "variant": "section-title",
+                                  "color": "muted"
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "definition": "tile/text",
+                            "attributes": {
+                              "text": "{{kpiStageSub}}",
+                              "variant": "caption",
+                              "color": "muted"
+                            }
+                          }
                         ]
-                      },
-                      { "definition": "tile/text", "attributes": { "text": "{{kpiStageSub}}", "variant": "caption", "color": "muted" } }
+                      }
                     ]
                   }
                 ]
               },
               {
-                "definition": "tile/card",
-                "attributes": { "variant": "outlined", "padding": "md", "width": "stretch", "minWidth": "md" },
+                "definition": "tile/column",
+                "attributes": {
+                  "width": "stretch"
+                },
                 "children": [
                   {
-                    "definition": "tile/column",
-                    "attributes": { "gap": "xs" },
+                    "definition": "tile/container",
+                    "attributes": {},
                     "children": [
-                      { "definition": "tile/text", "attributes": { "text": "CLOSE", "variant": "eyebrow", "color": "muted" } },
                       {
-                        "definition": "tile/row",
-                        "attributes": { "gap": "xs", "align": "baseline" },
+                        "definition": "tile/column",
+                        "attributes": {
+                          "gap": "xs"
+                        },
                         "children": [
-                          { "definition": "tile/text", "attributes": { "text": "{{kpiCloseNum}}", "variant": "display", "color": "error" } },
-                          { "definition": "tile/text", "attributes": { "text": "{{kpiCloseUnit}}", "variant": "section-title", "color": "muted" } }
+                          {
+                            "definition": "tile/text",
+                            "attributes": {
+                              "text": "CLOSE",
+                              "weight": "semibold",
+                              "color": "muted",
+                              "variant": "caption"
+                            }
+                          },
+                          {
+                            "definition": "tile/row",
+                            "attributes": {
+                              "gap": "xs",
+                              "align": "baseline"
+                            },
+                            "children": [
+                              {
+                                "definition": "tile/text",
+                                "attributes": {
+                                  "text": "{{kpiCloseNum}}",
+                                  "variant": "display",
+                                  "color": "error"
+                                }
+                              },
+                              {
+                                "definition": "tile/text",
+                                "attributes": {
+                                  "text": "{{kpiCloseUnit}}",
+                                  "variant": "section-title",
+                                  "color": "muted"
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "definition": "tile/text",
+                            "attributes": {
+                              "text": "{{kpiCloseSub}}",
+                              "variant": "caption",
+                              "color": "muted"
+                            }
+                          }
                         ]
-                      },
-                      { "definition": "tile/text", "attributes": { "text": "{{kpiCloseSub}}", "variant": "caption", "color": "muted" } }
+                      }
                     ]
                   }
                 ]
               },
               {
-                "definition": "tile/card",
-                "attributes": { "variant": "outlined", "padding": "md", "width": "stretch", "minWidth": "md" },
+                "definition": "tile/column",
+                "attributes": {
+                  "width": "stretch"
+                },
                 "children": [
                   {
-                    "definition": "tile/column",
-                    "attributes": { "gap": "xs" },
+                    "definition": "tile/container",
+                    "attributes": {},
                     "children": [
-                      { "definition": "tile/text", "attributes": { "text": "QUALIFICATION", "variant": "eyebrow", "color": "muted" } },
                       {
-                        "definition": "tile/row",
-                        "attributes": { "gap": "xs", "align": "baseline" },
+                        "definition": "tile/column",
+                        "attributes": {
+                          "gap": "xs"
+                        },
                         "children": [
-                          { "definition": "tile/text", "attributes": { "text": "{{kpiQualNum}}", "variant": "display", "color": "warning" } },
-                          { "definition": "tile/text", "attributes": { "text": "{{kpiQualUnit}}", "variant": "section-title", "color": "muted" } }
+                          {
+                            "definition": "tile/text",
+                            "attributes": {
+                              "text": "QUALIFICATION",
+                              "weight": "semibold",
+                              "color": "muted",
+                              "variant": "caption"
+                            }
+                          },
+                          {
+                            "definition": "tile/row",
+                            "attributes": {
+                              "gap": "xs",
+                              "align": "baseline"
+                            },
+                            "children": [
+                              {
+                                "definition": "tile/text",
+                                "attributes": {
+                                  "text": "{{kpiQualNum}}",
+                                  "variant": "display",
+                                  "color": "warning"
+                                }
+                              },
+                              {
+                                "definition": "tile/text",
+                                "attributes": {
+                                  "text": "{{kpiQualUnit}}",
+                                  "variant": "section-title",
+                                  "color": "muted"
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "definition": "tile/text",
+                            "attributes": {
+                              "text": "{{kpiQualSub}}",
+                              "variant": "caption",
+                              "color": "muted"
+                            }
+                          }
                         ]
-                      },
-                      { "definition": "tile/text", "attributes": { "text": "{{kpiQualSub}}", "variant": "caption", "color": "muted" } }
+                      }
                     ]
                   }
                 ]
               }
             ]
           },
-
-          { "definition": "tile/separator" },
-
+          {
+            "definition": "tile/separator"
+          },
           {
             "definition": "tile/row",
-            "attributes": { "gap": "sm", "align": "center", "justify": "between", "isWrapped": true },
+            "attributes": {
+              "gap": "sm",
+              "align": "center",
+              "justify": "between",
+              "isWrapped": true
+            },
             "children": [
-              { "definition": "tile/text", "attributes": { "text": "MEDDIC qualification", "variant": "section-title" } },
-              { "definition": "tile/badge", "attributes": { "label": "{{qualBadge}}", "variant": "warning" } }
+              {
+                "definition": "tile/text",
+                "attributes": {
+                  "text": "MEDDIC qualification",
+                  "variant": "section-title"
+                }
+              },
+              {
+                "definition": "tile/badge",
+                "attributes": {
+                  "label": "{{qualBadge}}",
+                  "variant": "warning"
+                }
+              }
             ]
           },
           {
@@ -281,66 +526,135 @@ If `display_widget` is available (Cowork/desktop/web), the widget IS the output;
               "appearance": "striped",
               "size": "sm",
               "columns": [
-                { "key": "crit", "header": "Criterion", "type": "text" },
-                { "key": "state", "header": "State", "type": "badge" },
-                { "key": "detail", "header": "Detail", "type": "text" }
+                {
+                  "key": "crit",
+                  "header": "Criterion",
+                  "type": "text"
+                },
+                {
+                  "key": "state",
+                  "header": "State",
+                  "type": "badge"
+                },
+                {
+                  "key": "detail",
+                  "header": "Detail",
+                  "type": "text"
+                }
               ],
               "rows": "{{qualRows}}"
             }
           },
-
-          { "definition": "tile/separator" },
-
           {
-            "definition": "tile/card",
-            "attributes": { "variant": "outlined", "padding": "md" },
+            "definition": "tile/separator"
+          },
+          {
+            "definition": "tile/container",
+            "attributes": {},
             "children": [
               {
                 "definition": "tile/column",
-                "attributes": { "gap": "md" },
+                "attributes": {
+                  "gap": "md"
+                },
                 "children": [
                   {
                     "definition": "tile/row",
-                    "attributes": { "gap": "md", "align": "start", "justify": "between", "isWrapped": true },
+                    "attributes": {
+                      "gap": "md",
+                      "align": "start",
+                      "justify": "between",
+                      "isWrapped": true
+                    },
                     "children": [
                       {
                         "definition": "tile/column",
-                        "attributes": { "gap": "xs", "width": "stretch" },
+                        "attributes": {
+                          "gap": "xs",
+                          "width": "stretch"
+                        },
                         "children": [
-                          { "definition": "tile/text", "attributes": { "text": "{{dealAccount}}", "variant": "h4", "weight": "semibold" } },
+                          {
+                            "definition": "tile/text",
+                            "attributes": {
+                              "text": "{{dealAccount}}",
+                              "variant": "h4",
+                              "weight": "semibold"
+                            }
+                          },
                           {
                             "definition": "tile/row",
-                            "attributes": { "gap": "xs", "align": "center", "isWrapped": true },
+                            "attributes": {
+                              "gap": "xs",
+                              "align": "center",
+                              "isWrapped": true
+                            },
                             "children": [
-                              { "definition": "tile/badge", "attributes": { "label": "{{dealStage}}", "variant": "secondary" } },
-                              { "definition": "tile/badge", "attributes": { "label": "{{dealTiming}}", "variant": "error" } }
+                              {
+                                "definition": "tile/badge",
+                                "attributes": {
+                                  "label": "{{dealStage}}",
+                                  "variant": "secondary"
+                                }
+                              },
+                              {
+                                "definition": "tile/badge",
+                                "attributes": {
+                                  "label": "{{dealTiming}}",
+                                  "variant": "error"
+                                }
+                              }
                             ]
                           }
                         ]
                       },
                       {
                         "definition": "tile/column",
-                        "attributes": { "gap": "xs", "align": "end" },
+                        "attributes": {
+                          "gap": "xs",
+                          "align": "end"
+                        },
                         "children": [
-                          { "definition": "tile/text", "attributes": { "text": "{{dealAmount}}", "variant": "h3", "weight": "bold" } },
+                          {
+                            "definition": "tile/text",
+                            "attributes": {
+                              "text": "{{dealAmount}}",
+                              "variant": "h3",
+                              "weight": "bold"
+                            }
+                          },
                           {
                             "definition": "tile/button",
                             "attributes": {
                               "label": "View in Salesforce",
+                              "iconName": "open-in-new",
                               "variant": "secondary",
-                              "onClick": { "definition": "action/openLink", "attributes": { "url": "{{dealUrl}}" } }
+                              "actions": {
+                                "click": [
+                                  {
+                                    "definition": "action/openLink",
+                                    "attributes": {
+                                      "url": "{{dealUrl}}"
+                                    }
+                                  }
+                                ]
+                              }
                             }
                           }
                         ]
                       }
                     ]
                   },
-
-                  { "definition": "tile/separator" },
-
+                  {
+                    "definition": "tile/separator"
+                  },
                   {
                     "definition": "tile/callout",
-                    "attributes": { "variant": "error", "title": "{{blockerTitle}}", "description": "{{blockerDesc}}" }
+                    "attributes": {
+                      "variant": "error",
+                      "title": "{{blockerTitle}}",
+                      "description": "{{blockerDesc}}"
+                    }
                   }
                 ]
               }

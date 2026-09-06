@@ -101,7 +101,7 @@ Before calling, verify: no `{{…}}`/`{!…}` remain; `{{chartCategories}}`/`{{c
     "componentOverrides": {
       "$": {
         "type": "mosaic",
-        "definition": "tile/mosaic",
+        "definition": "tile/widget",
         "children": [
           {
             "definition": "tile/row",
@@ -111,8 +111,8 @@ Before calling, verify: no `{{…}}`/`{!…}` remain; `{{chartCategories}}`/`{{c
                 "definition": "tile/row",
                 "attributes": { "gap": "sm", "align": "center" },
                 "children": [
-                  { "definition": "tile/icon", "attributes": { "name": "activity", "size": "lg", "alt": "" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{title}}", "variant": "page-title" } }
+                  { "definition": "tile/icon", "attributes": { "name": "activity", "size": "xl", "alt": "" } },
+                  { "definition": "tile/text", "attributes": { "text": "{{title}}", "variant": "h1" } }
                 ]
               },
               { "definition": "tile/badge", "attributes": { "label": "{{headerStatus}}", "variant": "success" } }
@@ -124,8 +124,8 @@ Before calling, verify: no `{{…}}`/`{!…}` remain; `{{chartCategories}}`/`{{c
           { "definition": "tile/separator" },
 
           {
-            "definition": "tile/row",
-            "attributes": { "gap": "lg", "align": "stretch", "isWrapped": true },
+            "definition": "tile/column",
+            "attributes": { "gap": "md" },
             "children": [
               {
                 "definition": "tile/chart",
@@ -190,15 +190,16 @@ Before calling, verify: no `{{…}}`/`{!…}` remain; `{{chartCategories}}`/`{{c
                     "attributes": {
                       "label": "{{primaryButtonLabel}}",
                       "variant": "primary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{primaryButtonContent}}" } }
+                      "actions": { "click": [ { "definition": "action/sendMessage", "attributes": { "content": "{{primaryButtonContent}}" } } ] }
                     }
                   },
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "View in Salesforce",
+                      "iconName": "open-in-new",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/openLink", "attributes": { "url": "{{oppUrl}}" } }
+                      "actions": { "click": [ { "definition": "action/openLink", "attributes": { "url": "{{oppUrl}}" } } ] }
                     }
                   }
                 ]

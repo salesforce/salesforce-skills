@@ -88,45 +88,91 @@ The widget template is embedded below — a widget-definition envelope whose lea
     "componentOverrides": {
       "$": {
         "type": "mosaic",
-        "definition": "tile/mosaic",
+        "definition": "tile/widget",
         "children": [
           {
             "definition": "tile/row",
-            "attributes": { "gap": "sm", "align": "center", "justify": "between", "isWrapped": true },
+            "attributes": {
+              "gap": "sm",
+              "align": "center",
+              "isWrapped": false
+            },
             "children": [
               {
-                "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center" },
-                "children": [
-                  { "definition": "tile/icon", "attributes": { "name": "inbox", "size": "lg", "alt": "" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{headerTitle}}", "variant": "page-title" } }
-                ]
+                "definition": "tile/icon",
+                "attributes": {
+                  "name": "inbox",
+                  "size": "xl",
+                  "alt": ""
+                }
+              },
+              {
+                "definition": "tile/text",
+                "attributes": {
+                  "text": "{{headerTitle}}",
+                  "variant": "h1"
+                }
               }
             ]
           },
-          { "definition": "tile/text", "attributes": { "text": "{{headerSubtitle}}", "variant": "caption", "color": "muted" } },
-
-          { "definition": "tile/separator" },
-
+          {
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{headerSubtitle}}",
+              "variant": "caption",
+              "color": "muted"
+            }
+          },
+          {
+            "definition": "tile/separator"
+          },
           {
             "definition": "tile/datagrid",
             "attributes": {
               "caption": "Reply queue, highest-leverage first",
               "appearance": "striped",
-              "defaultSort": { "key": "value", "direction": "desc" },
+              "defaultSort": {
+                "key": "value",
+                "direction": "desc"
+              },
               "totalRows": "{{totalRows}}",
               "columns": [
-                { "key": "from", "header": "From", "type": "avatar" },
-                { "key": "subject", "header": "Subject", "type": "text" },
-                { "key": "deal", "header": "Deal", "type": "text" },
-                { "key": "value", "header": "Deal value", "type": "currency", "align": "right", "sortable": true },
-                { "key": "wait", "header": "Waiting", "type": "badge" },
-                { "key": "action", "header": "Suggested reply", "type": "text" }
+                {
+                  "key": "from",
+                  "header": "From",
+                  "type": "avatar"
+                },
+                {
+                  "key": "subject",
+                  "header": "Subject",
+                  "type": "text"
+                },
+                {
+                  "key": "deal",
+                  "header": "Deal",
+                  "type": "text"
+                },
+                {
+                  "key": "value",
+                  "header": "Deal value",
+                  "type": "currency",
+                  "align": "right",
+                  "sortable": true
+                },
+                {
+                  "key": "wait",
+                  "header": "Waiting",
+                  "type": "badge"
+                },
+                {
+                  "key": "action",
+                  "header": "Suggested reply",
+                  "type": "text"
+                }
               ],
               "rows": "{{queueRows}}"
             }
           },
-
           {
             "definition": "tile/callout",
             "attributes": {
@@ -137,22 +183,45 @@ The widget template is embedded below — a widget-definition envelope whose lea
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center", "isWrapped": true },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center",
+                  "isWrapped": true
+                },
                 "children": [
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "{{ctaPrimaryLabel}}",
                       "variant": "primary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{ctaPrimaryMsg}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{ctaPrimaryMsg}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   },
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "View in Salesforce",
+                      "iconName": "open-in-new",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/openLink", "attributes": { "url": "{{salesforceUrl}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/openLink",
+                            "attributes": {
+                              "url": "{{salesforceUrl}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]

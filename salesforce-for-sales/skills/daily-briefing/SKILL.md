@@ -134,19 +134,35 @@ Tokens: `dateEyebrow briefingTitle` (header) · `topMove topMoveDetail topMoveDr
     "componentOverrides": {
       "$": {
         "type": "mosaic",
-        "definition": "tile/mosaic",
+        "definition": "tile/widget",
         "children": [
           {
             "definition": "tile/column",
-            "attributes": { "gap": "sm" },
+            "attributes": {
+              "gap": "sm"
+            },
             "children": [
-              { "definition": "tile/text", "attributes": { "text": "{{dateEyebrow}}", "variant": "eyebrow" } },
-              { "definition": "tile/text", "attributes": { "text": "{{briefingTitle}}", "variant": "page-title" } }
+              {
+                "definition": "tile/text",
+                "attributes": {
+                  "text": "{{dateEyebrow}}",
+                  "weight": "semibold",
+                  "color": "muted",
+                  "variant": "caption"
+                }
+              },
+              {
+                "definition": "tile/text",
+                "attributes": {
+                  "text": "{{briefingTitle}}",
+                  "variant": "h1"
+                }
+              }
             ]
           },
-
-          { "definition": "tile/separator" },
-
+          {
+            "definition": "tile/separator"
+          },
           {
             "definition": "tile/callout",
             "attributes": {
@@ -161,184 +177,406 @@ Tokens: `dateEyebrow briefingTitle` (header) · `topMove topMoveDetail topMoveDr
                 "attributes": {
                   "label": "Draft next step",
                   "variant": "primary",
-                  "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{topMoveDraftMsg}}" } }
+                  "actions": {
+                    "click": [
+                      {
+                        "definition": "action/sendMessage",
+                        "attributes": {
+                          "content": "{{topMoveDraftMsg}}"
+                        }
+                      }
+                    ]
+                  }
                 }
               }
             ]
           },
-
           {
             "definition": "tile/row",
-            "attributes": { "gap": "md", "align": "stretch", "isWrapped": true },
+            "attributes": {
+              "gap": "md",
+              "align": "stretch",
+              "isWrapped": true
+            },
             "children": [
               {
                 "definition": "tile/column",
-                "attributes": { "gap": "none" },
+                "attributes": {
+                  "gap": "none"
+                },
                 "children": [
-                  { "definition": "tile/text", "attributes": { "text": "{{kpiEventsLine}}", "variant": "h4" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{kpiEventsSub}}", "variant": "caption", "color": "muted" } }
+                  {
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{kpiEventsLine}}",
+                      "variant": "h4"
+                    }
+                  },
+                  {
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{kpiEventsSub}}",
+                      "variant": "caption",
+                      "color": "muted"
+                    }
+                  }
                 ]
               },
               {
                 "definition": "tile/column",
-                "attributes": { "gap": "none" },
+                "attributes": {
+                  "gap": "none"
+                },
                 "children": [
-                  { "definition": "tile/text", "attributes": { "text": "{{kpiPipelineLine}}", "variant": "h4" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{kpiPipelineSub}}", "variant": "caption", "color": "muted" } }
+                  {
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{kpiPipelineLine}}",
+                      "variant": "h4"
+                    }
+                  },
+                  {
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{kpiPipelineSub}}",
+                      "variant": "caption",
+                      "color": "muted"
+                    }
+                  }
                 ]
               },
               {
                 "definition": "tile/column",
-                "attributes": { "gap": "none" },
+                "attributes": {
+                  "gap": "none"
+                },
                 "children": [
-                  { "definition": "tile/text", "attributes": { "text": "{{kpiGapsLine}}", "variant": "h4", "color": "error" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{kpiGapsSub}}", "variant": "caption", "color": "muted" } }
+                  {
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{kpiGapsLine}}",
+                      "variant": "h4",
+                      "color": "error"
+                    }
+                  },
+                  {
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{kpiGapsSub}}",
+                      "variant": "caption",
+                      "color": "muted"
+                    }
+                  }
                 ]
               },
               {
                 "definition": "tile/column",
-                "attributes": { "gap": "none" },
+                "attributes": {
+                  "gap": "none"
+                },
                 "children": [
-                  { "definition": "tile/text", "attributes": { "text": "{{kpiFollowupsLine}}", "variant": "h4" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{kpiFollowupsSub}}", "variant": "caption", "color": "muted" } }
+                  {
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{kpiFollowupsLine}}",
+                      "variant": "h4"
+                    }
+                  },
+                  {
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{kpiFollowupsSub}}",
+                      "variant": "caption",
+                      "color": "muted"
+                    }
+                  }
                 ]
               }
             ]
           },
-
-          { "definition": "tile/separator" },
-
-          { "definition": "tile/text", "attributes": { "text": "Needs your attention", "variant": "section-title" } },
+          {
+            "definition": "tile/separator"
+          },
+          {
+            "definition": "tile/text",
+            "attributes": {
+              "text": "Needs your attention",
+              "variant": "section-title"
+            }
+          },
           {
             "definition": "tile/column",
-            "attributes": { "gap": "sm" },
+            "attributes": {
+              "gap": "sm"
+            },
             "children": [
               {
                 "definition": "tile/callout",
-                "attributes": { "variant": "error", "title": "{{flag1Title}}", "description": "{{flag1Sub}}" },
+                "attributes": {
+                  "variant": "error",
+                  "title": "{{flag1Title}}",
+                  "description": "{{flag1Sub}}"
+                },
                 "children": [
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "Draft next step",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{flag1Msg}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{flag1Msg}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]
               },
               {
                 "definition": "tile/callout",
-                "attributes": { "variant": "error", "title": "{{flag2Title}}", "description": "{{flag2Sub}}" },
+                "attributes": {
+                  "variant": "error",
+                  "title": "{{flag2Title}}",
+                  "description": "{{flag2Sub}}"
+                },
                 "children": [
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "Draft CFO ask",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{flag2Msg}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{flag2Msg}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]
               },
               {
                 "definition": "tile/callout",
-                "attributes": { "variant": "warning", "title": "{{flag3Title}}", "description": "{{flag3Sub}}" },
+                "attributes": {
+                  "variant": "warning",
+                  "title": "{{flag3Title}}",
+                  "description": "{{flag3Sub}}"
+                },
                 "children": [
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "Nudge signer",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{flag3Msg}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{flag3Msg}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]
               },
               {
                 "definition": "tile/callout",
-                "attributes": { "variant": "warning", "title": "{{flag4Title}}", "description": "{{flag4Sub}}" }
+                "attributes": {
+                  "variant": "warning",
+                  "title": "{{flag4Title}}",
+                  "description": "{{flag4Sub}}"
+                }
               }
             ]
           },
-
-          { "definition": "tile/separator" },
-
-          { "definition": "tile/text", "attributes": { "text": "{{meetingsHeading}}", "variant": "section-title" } },
+          {
+            "definition": "tile/separator"
+          },
+          {
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{meetingsHeading}}",
+              "variant": "section-title"
+            }
+          },
           {
             "definition": "tile/column",
-            "attributes": { "gap": "sm" },
+            "attributes": {
+              "gap": "sm"
+            },
             "children": [
               {
                 "definition": "tile/callout",
-                "attributes": { "variant": "recommended", "eyebrow": "{{meeting1Time}} · WALK IN ASKING", "title": "{{meeting1Title}}", "description": "{{meeting1Ask}}" }
+                "attributes": {
+                  "variant": "recommended",
+                  "eyebrow": "{{meeting1Time}} · WALK IN ASKING",
+                  "title": "{{meeting1Title}}",
+                  "description": "{{meeting1Ask}}"
+                }
               },
               {
                 "definition": "tile/callout",
-                "attributes": { "variant": "recommended", "eyebrow": "{{meeting2Time}} · WALK IN ASKING", "title": "{{meeting2Title}}", "description": "{{meeting2Ask}}" }
+                "attributes": {
+                  "variant": "recommended",
+                  "eyebrow": "{{meeting2Time}} · WALK IN ASKING",
+                  "title": "{{meeting2Title}}",
+                  "description": "{{meeting2Ask}}"
+                }
               },
-              { "definition": "tile/text", "attributes": { "text": "{{meeting3Line}}", "variant": "body" } },
-              { "definition": "tile/text", "attributes": { "text": "{{meeting4Line}}", "variant": "body" } }
+              {
+                "definition": "tile/text",
+                "attributes": {
+                  "text": "{{meeting3Line}}",
+                  "variant": "body"
+                }
+              },
+              {
+                "definition": "tile/text",
+                "attributes": {
+                  "text": "{{meeting4Line}}",
+                  "variant": "body"
+                }
+              }
             ]
           },
-
-          { "definition": "tile/separator" },
-
-          { "definition": "tile/text", "attributes": { "text": "{{oweHeading}}", "variant": "section-title" } },
+          {
+            "definition": "tile/separator"
+          },
+          {
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{oweHeading}}",
+              "variant": "section-title"
+            }
+          },
           {
             "definition": "tile/column",
-            "attributes": { "gap": "sm" },
+            "attributes": {
+              "gap": "sm"
+            },
             "children": [
               {
                 "definition": "tile/callout",
-                "attributes": { "title": "{{owe1Title}}", "description": "{{owe1Meta}}" },
+                "attributes": {
+                  "title": "{{owe1Title}}",
+                  "description": "{{owe1Meta}}"
+                },
                 "children": [
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "Draft email",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{owe1Msg}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{owe1Msg}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]
               },
               {
                 "definition": "tile/callout",
-                "attributes": { "title": "{{owe2Title}}", "description": "{{owe2Meta}}" },
+                "attributes": {
+                  "title": "{{owe2Title}}",
+                  "description": "{{owe2Meta}}"
+                },
                 "children": [
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "Draft CFO ask",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{owe2Msg}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{owe2Msg}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]
               },
-              { "definition": "tile/text", "attributes": { "text": "{{inboxClear}}", "variant": "caption", "color": "muted" } }
+              {
+                "definition": "tile/text",
+                "attributes": {
+                  "text": "{{inboxClear}}",
+                  "variant": "caption",
+                  "color": "muted"
+                }
+              }
             ]
           },
-
-          { "definition": "tile/separator" },
-
+          {
+            "definition": "tile/separator"
+          },
           {
             "definition": "tile/accordion",
             "children": [
               {
-                "definition": "tile/accordionitem",
-                "attributes": { "title": "Opportunities", "subtitle": "{{oppsSummary}}", "iconName": "briefcase", "isExpanded": true },
+                "definition": "tile/accordionItem",
+                "attributes": {
+                  "title": "Opportunities",
+                  "subtitle": "{{oppsSummary}}",
+                  "iconName": "briefcase",
+                  "isExpanded": true
+                },
                 "children": [
-                  { "definition": "tile/text", "attributes": { "text": "{{closingLabel}}", "variant": "body", "weight": "semibold" } },
                   {
-                    "definition": "tile/datagrid",
-                    "attributes": { "appearance": "striped", "size": "sm", "columns": "{{gridColumns}}", "rows": "{{closingRows}}" }
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{closingLabel}}",
+                      "variant": "body",
+                      "weight": "semibold"
+                    }
                   },
-                  { "definition": "tile/text", "attributes": { "text": "{{pastDueLabel}}", "variant": "body", "weight": "semibold" } },
                   {
                     "definition": "tile/datagrid",
-                    "attributes": { "appearance": "striped", "size": "sm", "columns": "{{gridColumns}}", "rows": "{{pastDueRows}}" }
+                    "attributes": {
+                      "appearance": "striped",
+                      "size": "sm",
+                      "columns": "{{gridColumns}}",
+                      "rows": "{{closingRows}}"
+                    }
+                  },
+                  {
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{pastDueLabel}}",
+                      "variant": "body",
+                      "weight": "semibold"
+                    }
+                  },
+                  {
+                    "definition": "tile/datagrid",
+                    "attributes": {
+                      "appearance": "striped",
+                      "size": "sm",
+                      "columns": "{{gridColumns}}",
+                      "rows": "{{pastDueRows}}"
+                    }
                   }
                 ]
               }
