@@ -122,27 +122,62 @@ The widget template is embedded below. Call `display_widget` in **dynamic** mode
     "componentOverrides": {
       "$": {
         "type": "mosaic",
-        "definition": "tile/mosaic",
+        "definition": "tile/widget",
         "children": [
           {
             "definition": "tile/row",
-            "attributes": { "gap": "sm", "align": "center", "justify": "between", "isWrapped": true },
+            "attributes": {
+              "gap": "sm",
+              "align": "center",
+              "justify": "between",
+              "isWrapped": true
+            },
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center" },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center",
+                  "isWrapped": false
+                },
                 "children": [
-                  { "definition": "tile/icon", "attributes": { "name": "search", "size": "lg", "alt": "" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{prospectTitle}}", "variant": "page-title" } }
+                  {
+                    "definition": "tile/icon",
+                    "attributes": {
+                      "name": "search",
+                      "size": "xl",
+                      "alt": ""
+                    }
+                  },
+                  {
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{prospectTitle}}",
+                      "variant": "h1"
+                    }
+                  }
                 ]
               },
-              { "definition": "tile/badge", "attributes": { "label": "{{fitStatus}}", "variant": "success" } }
+              {
+                "definition": "tile/badge",
+                "attributes": {
+                  "label": "{{fitStatus}}",
+                  "variant": "success"
+                }
+              }
             ]
           },
-          { "definition": "tile/text", "attributes": { "text": "{{prospectSubtitle}}", "variant": "caption", "color": "muted" } },
-
-          { "definition": "tile/separator" },
-
+          {
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{prospectSubtitle}}",
+              "variant": "caption",
+              "color": "muted"
+            }
+          },
+          {
+            "definition": "tile/separator"
+          },
           {
             "definition": "tile/meter",
             "attributes": {
@@ -158,7 +193,6 @@ The widget template is embedded below. Call `display_widget` in **dynamic** mode
               "bands": "{{icpBands}}"
             }
           },
-
           {
             "definition": "tile/datagrid",
             "attributes": {
@@ -166,14 +200,25 @@ The widget template is embedded below. Call `display_widget` in **dynamic** mode
               "appearance": "striped",
               "size": "sm",
               "columns": [
-                { "key": "topic", "header": "Signal", "type": "text" },
-                { "key": "tag", "header": "Read", "type": "badge" },
-                { "key": "note", "header": "Detail", "type": "text" }
+                {
+                  "key": "topic",
+                  "header": "Signal",
+                  "type": "text"
+                },
+                {
+                  "key": "tag",
+                  "header": "Read",
+                  "type": "badge"
+                },
+                {
+                  "key": "note",
+                  "header": "Detail",
+                  "type": "text"
+                }
               ],
               "rows": "{{signalRows}}"
             }
           },
-
           {
             "definition": "tile/callout",
             "attributes": {
@@ -184,22 +229,45 @@ The widget template is embedded below. Call `display_widget` in **dynamic** mode
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center", "isWrapped": true },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center",
+                  "isWrapped": true
+                },
                 "children": [
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "{{ctaLabel}}",
                       "variant": "primary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{ctaMsg}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{ctaMsg}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   },
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "View in Salesforce",
+                      "iconName": "open-in-new",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/openLink", "attributes": { "url": "{{prospectUrl}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/openLink",
+                            "attributes": {
+                              "url": "{{prospectUrl}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]

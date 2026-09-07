@@ -107,54 +107,112 @@ Tokens: `title` (page-title text, e.g. "Win / loss review — last 2 quarters") 
     "componentOverrides": {
       "$": {
         "type": "mosaic",
-        "definition": "tile/mosaic",
+        "definition": "tile/widget",
         "children": [
           {
             "definition": "tile/row",
-            "attributes": { "gap": "sm", "align": "center", "justify": "between", "isWrapped": true },
+            "attributes": {
+              "gap": "sm",
+              "align": "center",
+              "isWrapped": false
+            },
             "children": [
               {
-                "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center" },
-                "children": [
-                  { "definition": "tile/icon", "attributes": { "name": "trending-up", "size": "lg", "alt": "" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{title}}", "variant": "page-title" } }
-                ]
-              }
-            ]
-          },
-          { "definition": "tile/text", "attributes": { "text": "{{subtitle}}", "variant": "caption", "color": "muted" } },
-
-          { "definition": "tile/separator" },
-
-          {
-            "definition": "tile/row",
-            "attributes": { "gap": "lg", "align": "center", "isWrapped": false },
-            "children": [
-              {
-                "definition": "tile/piechart",
+                "definition": "tile/icon",
                 "attributes": {
-                  "variant": "donut",
-                  "caption": "{{pieCaption}}",
-                  "valueFormat": "number",
-                  "showLegend": false,
-                  "slices": "{{pieSlices}}"
+                  "name": "trending-up",
+                  "size": "xl",
+                  "alt": ""
                 }
               },
               {
-                "definition": "tile/row",
-                "attributes": { "gap": "xs", "align": "start", "direction": "column", "width": "stretch" },
+                "definition": "tile/text",
+                "attributes": {
+                  "text": "{{title}}",
+                  "variant": "h1"
+                }
+              }
+            ]
+          },
+          {
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{subtitle}}",
+              "variant": "caption",
+              "color": "muted"
+            }
+          },
+          {
+            "definition": "tile/separator"
+          },
+          {
+            "definition": "tile/row",
+            "attributes": {
+              "gap": "lg",
+              "align": "center",
+              "isWrapped": false
+            },
+            "children": [
+              {
+                "definition": "tile/column",
+                "attributes": {
+                  "width": "auto"
+                },
                 "children": [
-                  { "definition": "tile/text", "attributes": { "text": "{{donutAsideTitle}}", "variant": "section-title" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{donutAside}}", "variant": "body", "color": "muted" } }
+                  {
+                    "definition": "tile/piechart",
+                    "attributes": {
+                      "variant": "donut",
+                      "caption": "{{pieCaption}}",
+                      "valueFormat": "number",
+                      "showLegend": false,
+                      "slices": "{{pieSlices}}"
+                    }
+                  }
+                ]
+              },
+              {
+                "definition": "tile/column",
+                "attributes": {
+                  "gap": "sm",
+                  "align": "start",
+                  "width": "stretch"
+                },
+                "children": [
+                  {
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{donutAsideTitle}}",
+                      "variant": "section-title"
+                    }
+                  },
+                  {
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{donutAside}}",
+                      "variant": "body",
+                      "color": "muted"
+                    }
+                  }
                 ]
               }
             ]
           },
-
-          { "definition": "tile/text", "attributes": { "text": "{{chartAsideTitle}}", "variant": "section-title" } },
-          { "definition": "tile/text", "attributes": { "text": "{{chartAside}}", "variant": "body", "color": "muted" } },
-
+          {
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{chartAsideTitle}}",
+              "variant": "section-title"
+            }
+          },
+          {
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{chartAside}}",
+              "variant": "body",
+              "color": "muted"
+            }
+          },
           {
             "definition": "tile/chart",
             "attributes": {
@@ -167,25 +225,48 @@ Tokens: `title` (page-title text, e.g. "Win / loss review — last 2 quarters") 
               "showLegend": false
             }
           },
-
           {
             "definition": "tile/datagrid",
             "attributes": {
               "caption": "{{datagridCaption}}",
               "appearance": "striped",
               "size": "sm",
-              "defaultSort": { "key": "amount", "direction": "desc" },
+              "defaultSort": {
+                "key": "amount",
+                "direction": "desc"
+              },
               "columns": [
-                { "key": "name", "header": "Opportunity", "type": "text" },
-                { "key": "amount", "header": "Amount", "type": "currency", "align": "right", "sortable": true },
-                { "key": "stage", "header": "Died at", "type": "badge" },
-                { "key": "reason", "header": "Reason", "type": "text" },
-                { "key": "comp", "header": "Lost to", "type": "text" }
+                {
+                  "key": "name",
+                  "header": "Opportunity",
+                  "type": "text"
+                },
+                {
+                  "key": "amount",
+                  "header": "Amount",
+                  "type": "currency",
+                  "align": "right",
+                  "sortable": true
+                },
+                {
+                  "key": "stage",
+                  "header": "Died at",
+                  "type": "badge"
+                },
+                {
+                  "key": "reason",
+                  "header": "Reason",
+                  "type": "text"
+                },
+                {
+                  "key": "comp",
+                  "header": "Lost to",
+                  "type": "text"
+                }
               ],
               "rows": "{{lossRows}}"
             }
           },
-
           {
             "definition": "tile/callout",
             "attributes": {
@@ -196,22 +277,45 @@ Tokens: `title` (page-title text, e.g. "Win / loss review — last 2 quarters") 
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center", "isWrapped": true },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center",
+                  "isWrapped": true
+                },
                 "children": [
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "{{button1Label}}",
                       "variant": "primary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{button1Content}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{button1Content}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   },
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "View in Salesforce",
+                      "iconName": "open-in-new",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/openLink", "attributes": { "url": "{{reportUrl}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/openLink",
+                            "attributes": {
+                              "url": "{{reportUrl}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]

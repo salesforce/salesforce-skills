@@ -110,27 +110,61 @@ Tokens: `planTitle` (header title, "Mutual close plan — [Account]") + `headerS
     "componentOverrides": {
       "$": {
         "type": "mosaic",
-        "definition": "tile/mosaic",
+        "definition": "tile/widget",
         "children": [
           {
             "definition": "tile/row",
-            "attributes": { "gap": "sm", "align": "center", "justify": "between", "isWrapped": true },
+            "attributes": {
+              "gap": "sm",
+              "align": "center",
+              "justify": "between",
+              "isWrapped": true
+            },
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center" },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center"
+                },
                 "children": [
-                  { "definition": "tile/icon", "attributes": { "name": "check-circle", "size": "lg", "alt": "" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{planTitle}}", "variant": "page-title" } }
+                  {
+                    "definition": "tile/icon",
+                    "attributes": {
+                      "name": "check-circle",
+                      "size": "xl",
+                      "alt": ""
+                    }
+                  },
+                  {
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{planTitle}}",
+                      "variant": "h1"
+                    }
+                  }
                 ]
               },
-              { "definition": "tile/badge", "attributes": { "label": "{{headerStatus}}", "variant": "warning" } }
+              {
+                "definition": "tile/badge",
+                "attributes": {
+                  "label": "{{headerStatus}}",
+                  "variant": "warning"
+                }
+              }
             ]
           },
-          { "definition": "tile/text", "attributes": { "text": "{{subtitle}}", "variant": "caption", "color": "muted" } },
-
-          { "definition": "tile/separator" },
-
+          {
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{subtitle}}",
+              "variant": "caption",
+              "color": "muted"
+            }
+          },
+          {
+            "definition": "tile/separator"
+          },
           {
             "definition": "tile/meter",
             "attributes": {
@@ -147,7 +181,6 @@ Tokens: `planTitle` (header title, "Mutual close plan — [Account]") + `headerS
               "bands": "{{progressBands}}"
             }
           },
-
           {
             "definition": "tile/datagrid",
             "attributes": {
@@ -155,16 +188,35 @@ Tokens: `planTitle` (header title, "Mutual close plan — [Account]") + `headerS
               "appearance": "striped",
               "size": "sm",
               "columns": [
-                { "key": "step", "header": "Step", "type": "text" },
-                { "key": "side", "header": "Side", "type": "badge" },
-                { "key": "owner", "header": "Owner", "type": "avatar" },
-                { "key": "due", "header": "Due", "type": "date" },
-                { "key": "state", "header": "State", "type": "badge" }
+                {
+                  "key": "step",
+                  "header": "Step",
+                  "type": "text"
+                },
+                {
+                  "key": "side",
+                  "header": "Side",
+                  "type": "badge"
+                },
+                {
+                  "key": "owner",
+                  "header": "Owner",
+                  "type": "avatar"
+                },
+                {
+                  "key": "due",
+                  "header": "Due",
+                  "type": "date"
+                },
+                {
+                  "key": "state",
+                  "header": "State",
+                  "type": "badge"
+                }
               ],
               "rows": "{{pathRows}}"
             }
           },
-
           {
             "definition": "tile/callout",
             "attributes": {
@@ -175,22 +227,45 @@ Tokens: `planTitle` (header title, "Mutual close plan — [Account]") + `headerS
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center", "isWrapped": true },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center",
+                  "isWrapped": true
+                },
                 "children": [
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "{{ctaLabel}}",
                       "variant": "primary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{ctaMsg}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{ctaMsg}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   },
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "View in Salesforce",
+                      "iconName": "open-in-new",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/openLink", "attributes": { "url": "{{oppUrl}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/openLink",
+                            "attributes": {
+                              "url": "{{oppUrl}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]

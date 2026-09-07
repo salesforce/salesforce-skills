@@ -126,56 +126,114 @@ The widget template is embedded below. Call `display_widget` in **dynamic** mode
     "componentOverrides": {
       "$": {
         "type": "mosaic",
-        "definition": "tile/mosaic",
+        "definition": "tile/widget",
         "children": [
           {
             "definition": "tile/row",
-            "attributes": { "gap": "sm", "align": "center", "justify": "between", "isWrapped": true },
+            "attributes": {
+              "gap": "sm",
+              "align": "center",
+              "isWrapped": false
+            },
             "children": [
               {
-                "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center" },
-                "children": [
-                  { "definition": "tile/icon", "attributes": { "name": "user", "size": "lg", "alt": "" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{headerTitle}}", "variant": "page-title" } }
-                ]
-              }
-            ]
-          },
-          { "definition": "tile/text", "attributes": { "text": "{{headerSubtitle}}", "variant": "caption", "color": "muted" } },
-
-          { "definition": "tile/separator" },
-
-          {
-            "definition": "tile/row",
-            "attributes": { "gap": "lg", "align": "center", "isWrapped": false },
-            "children": [
-              {
-                "definition": "tile/piechart",
+                "definition": "tile/icon",
                 "attributes": {
-                  "caption": "Leads by tier",
-                  "variant": "donut",
-                  "valueFormat": "number",
-                  "showLegend": false,
-                  "centerLabel": "New leads",
-                  "centerValue": "{{centerValue}}",
-                  "slices": "{{slices}}"
+                  "name": "user",
+                  "size": "xl",
+                  "alt": ""
                 }
               },
               {
-                "definition": "tile/row",
-                "attributes": { "gap": "xs", "align": "start", "direction": "column", "width": "stretch" },
+                "definition": "tile/text",
+                "attributes": {
+                  "text": "{{headerTitle}}",
+                  "variant": "h1"
+                }
+              }
+            ]
+          },
+          {
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{headerSubtitle}}",
+              "variant": "caption",
+              "color": "muted"
+            }
+          },
+          {
+            "definition": "tile/separator"
+          },
+          {
+            "definition": "tile/row",
+            "attributes": {
+              "gap": "lg",
+              "align": "center",
+              "isWrapped": false
+            },
+            "children": [
+              {
+                "definition": "tile/column",
+                "attributes": {
+                  "width": "auto"
+                },
                 "children": [
-                  { "definition": "tile/text", "attributes": { "text": "{{donutAsideTitle}}", "variant": "section-title" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{donutAside}}", "variant": "body", "color": "muted" } }
+                  {
+                    "definition": "tile/piechart",
+                    "attributes": {
+                      "caption": "Leads by tier",
+                      "variant": "donut",
+                      "valueFormat": "number",
+                      "showLegend": false,
+                      "centerLabel": "New leads",
+                      "centerValue": "{{centerValue}}",
+                      "slices": "{{slices}}"
+                    }
+                  }
+                ]
+              },
+              {
+                "definition": "tile/column",
+                "attributes": {
+                  "gap": "sm",
+                  "align": "start",
+                  "width": "stretch"
+                },
+                "children": [
+                  {
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{donutAsideTitle}}",
+                      "variant": "section-title"
+                    }
+                  },
+                  {
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{donutAside}}",
+                      "variant": "body",
+                      "color": "muted"
+                    }
+                  }
                 ]
               }
             ]
           },
-
-          { "definition": "tile/text", "attributes": { "text": "{{chartAsideTitle}}", "variant": "section-title" } },
-          { "definition": "tile/text", "attributes": { "text": "{{chartAside}}", "variant": "body", "color": "muted" } },
-
+          {
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{chartAsideTitle}}",
+              "variant": "section-title"
+            }
+          },
+          {
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{chartAside}}",
+              "variant": "body",
+              "color": "muted"
+            }
+          },
           {
             "definition": "tile/chart",
             "attributes": {
@@ -188,25 +246,48 @@ The widget template is embedded below. Call `display_widget` in **dynamic** mode
               "showLegend": false
             }
           },
-
           {
             "definition": "tile/datagrid",
             "attributes": {
               "caption": "Work these first — hot leads by score",
               "appearance": "striped",
-              "defaultSort": { "key": "score", "direction": "desc" },
+              "defaultSort": {
+                "key": "score",
+                "direction": "desc"
+              },
               "totalRows": "{{totalRows}}",
               "columns": [
-                { "key": "lead", "header": "Lead", "type": "text" },
-                { "key": "co", "header": "Company", "type": "text" },
-                { "key": "score", "header": "Fit score", "type": "databar", "target": 100, "sortable": true },
-                { "key": "src", "header": "Source", "type": "badge" },
-                { "key": "next", "header": "Next step", "type": "text" }
+                {
+                  "key": "lead",
+                  "header": "Lead",
+                  "type": "text"
+                },
+                {
+                  "key": "co",
+                  "header": "Company",
+                  "type": "text"
+                },
+                {
+                  "key": "score",
+                  "header": "Fit score",
+                  "type": "databar",
+                  "target": 100,
+                  "sortable": true
+                },
+                {
+                  "key": "src",
+                  "header": "Source",
+                  "type": "badge"
+                },
+                {
+                  "key": "next",
+                  "header": "Next step",
+                  "type": "text"
+                }
               ],
               "rows": "{{hotRows}}"
             }
           },
-
           {
             "definition": "tile/callout",
             "attributes": {
@@ -217,22 +298,45 @@ The widget template is embedded below. Call `display_widget` in **dynamic** mode
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center", "isWrapped": true },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center",
+                  "isWrapped": true
+                },
                 "children": [
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "{{ctaPrimaryLabel}}",
                       "variant": "primary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{ctaPrimaryMsg}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{ctaPrimaryMsg}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   },
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "View in Salesforce",
+                      "iconName": "open-in-new",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/openLink", "attributes": { "url": "{{salesforceUrl}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/openLink",
+                            "attributes": {
+                              "url": "{{salesforceUrl}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]

@@ -123,27 +123,61 @@ The widget template is embedded below — a widget-definition envelope whose lea
     "componentOverrides": {
       "$": {
         "type": "mosaic",
-        "definition": "tile/mosaic",
+        "definition": "tile/widget",
         "children": [
           {
             "definition": "tile/row",
-            "attributes": { "gap": "sm", "align": "center", "justify": "between", "isWrapped": true },
+            "attributes": {
+              "gap": "sm",
+              "align": "center",
+              "justify": "between",
+              "isWrapped": true
+            },
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center" },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center"
+                },
                 "children": [
-                  { "definition": "tile/icon", "attributes": { "name": "trending-up", "size": "lg", "alt": "" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{headerTitle}}", "variant": "page-title" } }
+                  {
+                    "definition": "tile/icon",
+                    "attributes": {
+                      "name": "trending-up",
+                      "size": "xl",
+                      "alt": ""
+                    }
+                  },
+                  {
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{headerTitle}}",
+                      "variant": "h1"
+                    }
+                  }
                 ]
               },
-              { "definition": "tile/badge", "attributes": { "label": "{{headerStatus}}", "variant": "warning" } }
+              {
+                "definition": "tile/badge",
+                "attributes": {
+                  "label": "{{headerStatus}}",
+                  "variant": "warning"
+                }
+              }
             ]
           },
-          { "definition": "tile/text", "attributes": { "text": "{{headerSubtitle}}", "variant": "caption", "color": "muted" } },
-
-          { "definition": "tile/separator" },
-
+          {
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{headerSubtitle}}",
+              "variant": "caption",
+              "color": "muted"
+            }
+          },
+          {
+            "definition": "tile/separator"
+          },
           {
             "definition": "tile/meter",
             "attributes": {
@@ -160,7 +194,6 @@ The widget template is embedded below — a widget-definition envelope whose lea
               "bands": "{{meterBands}}"
             }
           },
-
           {
             "definition": "tile/datagrid",
             "attributes": {
@@ -168,15 +201,30 @@ The widget template is embedded below — a widget-definition envelope whose lea
               "appearance": "striped",
               "size": "sm",
               "columns": [
-                { "key": "item", "header": "Exit criterion", "type": "text" },
-                { "key": "owner", "header": "Owner", "type": "avatar" },
-                { "key": "due", "header": "Due", "type": "date" },
-                { "key": "state", "header": "State", "type": "badge" }
+                {
+                  "key": "item",
+                  "header": "Exit criterion",
+                  "type": "text"
+                },
+                {
+                  "key": "owner",
+                  "header": "Owner",
+                  "type": "avatar"
+                },
+                {
+                  "key": "due",
+                  "header": "Due",
+                  "type": "date"
+                },
+                {
+                  "key": "state",
+                  "header": "State",
+                  "type": "badge"
+                }
               ],
               "rows": "{{gridRows}}"
             }
           },
-
           {
             "definition": "tile/callout",
             "attributes": {
@@ -187,22 +235,45 @@ The widget template is embedded below — a widget-definition envelope whose lea
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center", "isWrapped": true },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center",
+                  "isWrapped": true
+                },
                 "children": [
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "{{ctaPrimaryLabel}}",
                       "variant": "primary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{ctaPrimaryMsg}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{ctaPrimaryMsg}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   },
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "View in Salesforce",
+                      "iconName": "open-in-new",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/openLink", "attributes": { "url": "{{oppUrl}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/openLink",
+                            "attributes": {
+                              "url": "{{oppUrl}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]

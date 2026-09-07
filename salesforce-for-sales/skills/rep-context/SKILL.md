@@ -101,7 +101,7 @@ The widget template is embedded below — a widget-definition envelope whose lea
     "componentOverrides": {
       "$": {
         "type": "mosaic",
-        "definition": "tile/mosaic",
+        "definition": "tile/widget",
         "children": [
           {
             "definition": "tile/row",
@@ -111,8 +111,8 @@ The widget template is embedded below — a widget-definition envelope whose lea
                 "definition": "tile/row",
                 "attributes": { "gap": "sm", "align": "center" },
                 "children": [
-                  { "definition": "tile/icon", "attributes": { "name": "users", "size": "lg", "alt": "" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{pageTitle}}", "variant": "page-title" } }
+                  { "definition": "tile/icon", "attributes": { "name": "users", "size": "xl", "alt": "" } },
+                  { "definition": "tile/text", "attributes": { "text": "{{pageTitle}}", "variant": "h1" } }
                 ]
               },
               { "definition": "tile/badge", "attributes": { "label": "{{headerStatus}}", "variant": "error" } }
@@ -123,8 +123,8 @@ The widget template is embedded below — a widget-definition envelope whose lea
           { "definition": "tile/separator" },
 
           {
-            "definition": "tile/row",
-            "attributes": { "gap": "lg", "align": "stretch", "isWrapped": true },
+            "definition": "tile/column",
+            "attributes": { "gap": "md" },
             "children": [
               {
                 "definition": "tile/chart",
@@ -186,7 +186,7 @@ The widget template is embedded below — a widget-definition envelope whose lea
                     "attributes": {
                       "label": "{{primaryLabel}}",
                       "variant": "primary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{primaryPrompt}}" } }
+                      "actions": { "click": [ { "definition": "action/sendMessage", "attributes": { "content": "{{primaryPrompt}}" } } ] }
                     }
                   },
                   {
@@ -194,7 +194,7 @@ The widget template is embedded below — a widget-definition envelope whose lea
                     "attributes": {
                       "label": "{{secondaryLabel}}",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{secondaryPrompt}}" } }
+                      "actions": { "click": [ { "definition": "action/sendMessage", "attributes": { "content": "{{secondaryPrompt}}" } } ] }
                     }
                   }
                 ]

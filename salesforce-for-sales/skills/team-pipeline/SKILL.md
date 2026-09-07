@@ -195,30 +195,66 @@ Chart series are FORECAST categories (Proposal / Negotiation / Closing), not sal
     "componentOverrides": {
       "$": {
         "type": "mosaic",
-        "definition": "tile/mosaic",
+        "definition": "tile/widget",
         "children": [
           {
             "definition": "tile/row",
-            "attributes": { "gap": "sm", "align": "center", "justify": "between", "isWrapped": true },
+            "attributes": {
+              "gap": "sm",
+              "align": "center",
+              "justify": "between",
+              "isWrapped": true
+            },
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center" },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center"
+                },
                 "children": [
-                  { "definition": "tile/icon", "attributes": { "name": "dashboard", "size": "lg", "alt": "" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{title}}", "variant": "page-title" } }
+                  {
+                    "definition": "tile/icon",
+                    "attributes": {
+                      "name": "dashboard",
+                      "size": "xl",
+                      "alt": ""
+                    }
+                  },
+                  {
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{title}}",
+                      "variant": "h1"
+                    }
+                  }
                 ]
               },
-              { "definition": "tile/badge", "attributes": { "label": "{{headerStatus}}", "variant": "warning" } }
+              {
+                "definition": "tile/badge",
+                "attributes": {
+                  "label": "{{headerStatus}}",
+                  "variant": "warning"
+                }
+              }
             ]
           },
-          { "definition": "tile/text", "attributes": { "text": "{{subtitle}}", "variant": "caption", "color": "muted" } },
-
-          { "definition": "tile/separator" },
-
           {
-            "definition": "tile/row",
-            "attributes": { "gap": "lg", "align": "stretch", "isWrapped": true },
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{subtitle}}",
+              "variant": "caption",
+              "color": "muted"
+            }
+          },
+          {
+            "definition": "tile/separator"
+          },
+          {
+            "definition": "tile/column",
+            "attributes": {
+              "gap": "md"
+            },
             "children": [
               {
                 "definition": "tile/chart",
@@ -249,26 +285,58 @@ Chart series are FORECAST categories (Proposal / Negotiation / Closing), not sal
               }
             ]
           },
-
           {
             "definition": "tile/datagrid",
             "attributes": {
               "caption": "{{datagridCaption}}",
               "appearance": "striped",
               "size": "sm",
-              "defaultSort": { "key": "gap", "direction": "asc" },
+              "defaultSort": {
+                "key": "gap",
+                "direction": "asc"
+              },
               "columns": [
-                { "key": "rep", "header": "Rep", "type": "avatar" },
-                { "key": "plan", "header": "Plan", "type": "currency", "align": "right" },
-                { "key": "closed", "header": "Closed", "type": "currency", "align": "right", "sortable": true },
-                { "key": "commit", "header": "Commit", "type": "currency", "align": "right" },
-                { "key": "gap", "header": "Gap to plan", "type": "currency", "align": "right", "sortable": true },
-                { "key": "attain", "header": "Attainment", "type": "databar", "target": 100 }
+                {
+                  "key": "rep",
+                  "header": "Rep",
+                  "type": "avatar"
+                },
+                {
+                  "key": "plan",
+                  "header": "Plan",
+                  "type": "currency",
+                  "align": "right"
+                },
+                {
+                  "key": "closed",
+                  "header": "Closed",
+                  "type": "currency",
+                  "align": "right",
+                  "sortable": true
+                },
+                {
+                  "key": "commit",
+                  "header": "Commit",
+                  "type": "currency",
+                  "align": "right"
+                },
+                {
+                  "key": "gap",
+                  "header": "Gap to plan",
+                  "type": "currency",
+                  "align": "right",
+                  "sortable": true
+                },
+                {
+                  "key": "attain",
+                  "header": "Attainment",
+                  "type": "databar",
+                  "target": 100
+                }
               ],
               "rows": "{{datagridRows}}"
             }
           },
-
           {
             "definition": "tile/callout",
             "attributes": {
@@ -279,14 +347,27 @@ Chart series are FORECAST categories (Proposal / Negotiation / Closing), not sal
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center", "isWrapped": true },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center",
+                  "isWrapped": true
+                },
                 "children": [
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "{{ctaPrimaryLabel}}",
                       "variant": "primary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{ctaPrimaryMsg}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{ctaPrimaryMsg}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   },
                   {
@@ -294,7 +375,16 @@ Chart series are FORECAST categories (Proposal / Negotiation / Closing), not sal
                     "attributes": {
                       "label": "{{ctaSecondaryLabel}}",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{ctaSecondaryMsg}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{ctaSecondaryMsg}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]

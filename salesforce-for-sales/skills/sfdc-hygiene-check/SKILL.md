@@ -85,57 +85,131 @@ Tokens: `hygieneTitle` (plain string — e.g. "Pipeline hygiene — Dana Ruiz") 
     "componentOverrides": {
       "$": {
         "type": "mosaic",
-        "definition": "tile/mosaic",
+        "definition": "tile/widget",
         "children": [
           {
             "definition": "tile/row",
-            "attributes": { "gap": "sm", "align": "center", "justify": "between", "isWrapped": true },
+            "attributes": {
+              "gap": "sm",
+              "align": "center",
+              "justify": "between",
+              "isWrapped": true
+            },
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center" },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center"
+                },
                 "children": [
-                  { "definition": "tile/icon", "attributes": { "name": "check-circle", "size": "lg", "alt": "" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{hygieneTitle}}", "variant": "page-title" } }
+                  {
+                    "definition": "tile/icon",
+                    "attributes": {
+                      "name": "check-circle",
+                      "size": "xl",
+                      "alt": ""
+                    }
+                  },
+                  {
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{hygieneTitle}}",
+                      "variant": "h1"
+                    }
+                  }
                 ]
               },
-              { "definition": "tile/badge", "attributes": { "label": "{{oppCountBadge}}", "variant": "info" } }
+              {
+                "definition": "tile/badge",
+                "attributes": {
+                  "label": "{{oppCountBadge}}",
+                  "variant": "info"
+                }
+              }
             ]
           },
-          { "definition": "tile/text", "attributes": { "text": "{{hygieneSubtitle}}", "variant": "caption", "color": "muted" } },
-
-          { "definition": "tile/separator" },
-
+          {
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{hygieneSubtitle}}",
+              "variant": "caption",
+              "color": "muted"
+            }
+          },
+          {
+            "definition": "tile/separator"
+          },
           {
             "definition": "tile/row",
-            "attributes": { "gap": "lg", "align": "center", "isWrapped": false },
+            "attributes": {
+              "gap": "lg",
+              "align": "center",
+              "isWrapped": false
+            },
             "children": [
               {
-                "definition": "tile/piechart",
+                "definition": "tile/column",
                 "attributes": {
-                  "variant": "donut",
-                  "caption": "Opps by hygiene state",
-                  "valueFormat": "number",
-                  "showLegend": false,
-                  "centerLabel": "Open opps",
-                  "centerValue": "{{totalOpps}}",
-                  "slices": "{{hygieneSlices}}"
-                }
+                  "width": "auto"
+                },
+                "children": [
+                  {
+                    "definition": "tile/piechart",
+                    "attributes": {
+                      "variant": "donut",
+                      "caption": "Opps by hygiene state",
+                      "valueFormat": "number",
+                      "showLegend": false,
+                      "centerLabel": "Open opps",
+                      "centerValue": "{{totalOpps}}",
+                      "slices": "{{hygieneSlices}}"
+                    }
+                  }
+                ]
               },
               {
-                "definition": "tile/row",
-                "attributes": { "gap": "xs", "align": "start", "direction": "column", "width": "stretch" },
+                "definition": "tile/column",
+                "attributes": {
+                  "gap": "sm",
+                  "align": "start",
+                  "width": "stretch"
+                },
                 "children": [
-                  { "definition": "tile/text", "attributes": { "text": "{{donutAsideTitle}}", "variant": "section-title" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{donutAside}}", "variant": "body", "color": "muted" } }
+                  {
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{donutAsideTitle}}",
+                      "variant": "section-title"
+                    }
+                  },
+                  {
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{donutAside}}",
+                      "variant": "body",
+                      "color": "muted"
+                    }
+                  }
                 ]
               }
             ]
           },
-
-          { "definition": "tile/text", "attributes": { "text": "{{chartAsideTitle}}", "variant": "section-title" } },
-          { "definition": "tile/text", "attributes": { "text": "{{chartAside}}", "variant": "body", "color": "muted" } },
-
+          {
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{chartAsideTitle}}",
+              "variant": "section-title"
+            }
+          },
+          {
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{chartAside}}",
+              "variant": "body",
+              "color": "muted"
+            }
+          },
           {
             "definition": "tile/chart",
             "attributes": {
@@ -148,25 +222,48 @@ Tokens: `hygieneTitle` (plain string — e.g. "Pipeline hygiene — Dana Ruiz") 
               "showLegend": false
             }
           },
-
           {
             "definition": "tile/datagrid",
             "attributes": {
               "caption": "Flagged opps with the specific fix, most severe first",
               "appearance": "striped",
               "size": "sm",
-              "defaultSort": { "key": "amount", "direction": "desc" },
+              "defaultSort": {
+                "key": "amount",
+                "direction": "desc"
+              },
               "columns": [
-                { "key": "name", "header": "Opportunity", "type": "text" },
-                { "key": "amount", "header": "Amount", "type": "currency", "align": "right", "sortable": true },
-                { "key": "close", "header": "Close", "type": "date" },
-                { "key": "issue", "header": "Issue", "type": "badge" },
-                { "key": "fix", "header": "Suggested fix", "type": "text" }
+                {
+                  "key": "name",
+                  "header": "Opportunity",
+                  "type": "text"
+                },
+                {
+                  "key": "amount",
+                  "header": "Amount",
+                  "type": "currency",
+                  "align": "right",
+                  "sortable": true
+                },
+                {
+                  "key": "close",
+                  "header": "Close",
+                  "type": "date"
+                },
+                {
+                  "key": "issue",
+                  "header": "Issue",
+                  "type": "badge"
+                },
+                {
+                  "key": "fix",
+                  "header": "Suggested fix",
+                  "type": "text"
+                }
               ],
               "rows": "{{flaggedRows}}"
             }
           },
-
           {
             "definition": "tile/callout",
             "attributes": {
@@ -177,22 +274,45 @@ Tokens: `hygieneTitle` (plain string — e.g. "Pipeline hygiene — Dana Ruiz") 
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center", "isWrapped": true },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center",
+                  "isWrapped": true
+                },
                 "children": [
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "{{ctaLabel}}",
                       "variant": "primary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{ctaMsg}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{ctaMsg}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   },
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "View in Salesforce",
+                      "iconName": "open-in-new",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/openLink", "attributes": { "url": "{{hygieneUrl}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/openLink",
+                            "attributes": {
+                              "url": "{{hygieneUrl}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]

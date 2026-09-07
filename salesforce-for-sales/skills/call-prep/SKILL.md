@@ -177,26 +177,44 @@ The widget template is embedded below. It is a skeleton: replace every `{{token}
     "componentOverrides": {
       "$": {
         "type": "mosaic",
-        "definition": "tile/mosaic",
+        "definition": "tile/widget",
         "children": [
           {
             "definition": "tile/row",
-            "attributes": { "gap": "sm", "align": "center", "justify": "between", "isWrapped": true },
+            "attributes": {
+              "gap": "sm",
+              "align": "center",
+              "isWrapped": false
+            },
             "children": [
               {
-                "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center" },
-                "children": [
-                  { "definition": "tile/icon", "attributes": { "name": "phone", "size": "lg", "alt": "" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{title}}", "variant": "page-title" } }
-                ]
+                "definition": "tile/icon",
+                "attributes": {
+                  "name": "phone",
+                  "size": "xl",
+                  "alt": ""
+                }
+              },
+              {
+                "definition": "tile/text",
+                "attributes": {
+                  "text": "{{title}}",
+                  "variant": "h1"
+                }
               }
             ]
           },
-          { "definition": "tile/text", "attributes": { "text": "{{subtitle}}", "variant": "caption", "color": "muted" } },
-
-          { "definition": "tile/separator" },
-
+          {
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{subtitle}}",
+              "variant": "caption",
+              "color": "muted"
+            }
+          },
+          {
+            "definition": "tile/separator"
+          },
           {
             "definition": "tile/datagrid",
             "attributes": {
@@ -204,15 +222,30 @@ The widget template is embedded below. It is a skeleton: replace every `{{token}
               "appearance": "striped",
               "size": "sm",
               "columns": [
-                { "key": "name", "header": "Attendee", "type": "avatar" },
-                { "key": "role", "header": "Role", "type": "text" },
-                { "key": "stance", "header": "Stance", "type": "badge" },
-                { "key": "watch", "header": "Watch for", "type": "text" }
+                {
+                  "key": "name",
+                  "header": "Attendee",
+                  "type": "avatar"
+                },
+                {
+                  "key": "role",
+                  "header": "Role",
+                  "type": "text"
+                },
+                {
+                  "key": "stance",
+                  "header": "Stance",
+                  "type": "badge"
+                },
+                {
+                  "key": "watch",
+                  "header": "Watch for",
+                  "type": "text"
+                }
               ],
               "rows": "{{attendeeRows}}"
             }
           },
-
           {
             "definition": "tile/datagrid",
             "attributes": {
@@ -220,14 +253,25 @@ The widget template is embedded below. It is a skeleton: replace every `{{token}
               "appearance": "striped",
               "size": "sm",
               "columns": [
-                { "key": "topic", "header": "Topic", "type": "text" },
-                { "key": "state", "header": "State", "type": "badge" },
-                { "key": "ask", "header": "Your ask", "type": "text" }
+                {
+                  "key": "topic",
+                  "header": "Topic",
+                  "type": "text"
+                },
+                {
+                  "key": "state",
+                  "header": "State",
+                  "type": "badge"
+                },
+                {
+                  "key": "ask",
+                  "header": "Your ask",
+                  "type": "text"
+                }
               ],
               "rows": "{{topicRows}}"
             }
           },
-
           {
             "definition": "tile/callout",
             "attributes": {
@@ -238,22 +282,45 @@ The widget template is embedded below. It is a skeleton: replace every `{{token}
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center", "isWrapped": true },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center",
+                  "isWrapped": true
+                },
                 "children": [
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "{{ctaLabel}}",
                       "variant": "primary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{ctaMsg}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{ctaMsg}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   },
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "View in Salesforce",
+                      "iconName": "open-in-new",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/openLink", "attributes": { "url": "{{oppUrl}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/openLink",
+                            "attributes": {
+                              "url": "{{oppUrl}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]

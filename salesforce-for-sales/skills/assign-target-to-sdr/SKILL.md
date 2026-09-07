@@ -1,6 +1,6 @@
 ---
 name: assign-target-to-sdr
-description: Assign a Contact or Lead to an Agentforce Lead Nurturing agent (formerly Agentforce SDR / SDR) so it can qualify the prospect and run email outreach. Resolves the target record, lists the org's active Lead Nurturing agents, confirms the choice, then invokes the assignTargetToSdr standard action. Use when the user says "assign [contact/lead] to the SDR", "hand [name] to Agentforce SDR", "have the lead nurturing agent work [prospect]", or "put [lead] into SDR outreach".
+description: Assign a Contact or Lead to an Agentforce Engagement Agent (formerly Agentforce Lead Nurturing agent / Agentforce SDR / SDR) so it can qualify the prospect and run email outreach. Resolves the target record, lists the org's active Engagement Agents, confirms the choice, then invokes the assignTargetToSdr standard action. Use when the user says "assign [contact/lead] to the SDR", "hand [name] to Agentforce SDR", "have the engagement agent work [prospect]", or "put [lead] into SDR outreach".
 model: claude-sonnet-4-6
 effort: medium
 ---
@@ -54,7 +54,7 @@ dispatch_readonly(method: "GET", url: "/services/data/v63.0/query",
 ## 2. Confirm
 
 ```
-## Assign to Agentforce Lead Nurturing agent
+## Assign to Agentforce Engagement Agent
 | | |
 |---|---|
 | Target | [Name] ([Contact/Lead], [Account/Company]) - [link] |
@@ -78,7 +78,7 @@ Success = the assignment record was created — ignore downstream email-delivery
 
 ```
 ✅ Assigned [Target Name] to [Agent MasterLabel]
-The Lead Nurturing agent will qualify and reach out by email.
+The Engagement Agent will qualify and reach out by email.
 Record: [link to the Contact/Lead]
 ```
 

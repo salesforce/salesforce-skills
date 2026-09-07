@@ -154,30 +154,66 @@ The widget template is embedded below — a widget-definition envelope whose lea
     "componentOverrides": {
       "$": {
         "type": "mosaic",
-        "definition": "tile/mosaic",
+        "definition": "tile/widget",
         "children": [
           {
             "definition": "tile/row",
-            "attributes": { "gap": "sm", "align": "center", "justify": "between", "isWrapped": true },
+            "attributes": {
+              "gap": "sm",
+              "align": "center",
+              "justify": "between",
+              "isWrapped": true
+            },
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center" },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center"
+                },
                 "children": [
-                  { "definition": "tile/icon", "attributes": { "name": "alert-triangle", "size": "lg", "alt": "" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{title}}", "variant": "page-title" } }
+                  {
+                    "definition": "tile/icon",
+                    "attributes": {
+                      "name": "alert-triangle",
+                      "size": "xl",
+                      "alt": ""
+                    }
+                  },
+                  {
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{title}}",
+                      "variant": "h1"
+                    }
+                  }
                 ]
               },
-              { "definition": "tile/badge", "attributes": { "label": "{{headerStatus}}", "variant": "error" } }
+              {
+                "definition": "tile/badge",
+                "attributes": {
+                  "label": "{{headerStatus}}",
+                  "variant": "error"
+                }
+              }
             ]
           },
-          { "definition": "tile/text", "attributes": { "text": "{{subtitle}}", "variant": "caption", "color": "muted" } },
-
-          { "definition": "tile/separator" },
-
           {
-            "definition": "tile/row",
-            "attributes": { "gap": "lg", "align": "stretch", "isWrapped": true },
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{subtitle}}",
+              "variant": "caption",
+              "color": "muted"
+            }
+          },
+          {
+            "definition": "tile/separator"
+          },
+          {
+            "definition": "tile/column",
+            "attributes": {
+              "gap": "md"
+            },
             "children": [
               {
                 "definition": "tile/meter",
@@ -208,24 +244,48 @@ The widget template is embedded below — a widget-definition envelope whose lea
               }
             ]
           },
-
           {
             "definition": "tile/datagrid",
             "attributes": {
               "caption": "{{datagridCaption}}",
               "appearance": "striped",
-              "defaultSort": { "key": "amount", "direction": "desc" },
+              "defaultSort": {
+                "key": "amount",
+                "direction": "desc"
+              },
               "columns": [
-                { "key": "deal", "header": "Deal", "type": "text" },
-                { "key": "amount", "header": "Commit", "type": "currency", "align": "right", "sortable": true },
-                { "key": "close", "header": "Close", "type": "date" },
-                { "key": "prob", "header": "Slip risk", "type": "databar", "target": 100 },
-                { "key": "block", "header": "What's blocking", "type": "text" }
+                {
+                  "key": "deal",
+                  "header": "Deal",
+                  "type": "text"
+                },
+                {
+                  "key": "amount",
+                  "header": "Commit",
+                  "type": "currency",
+                  "align": "right",
+                  "sortable": true
+                },
+                {
+                  "key": "close",
+                  "header": "Close",
+                  "type": "date"
+                },
+                {
+                  "key": "prob",
+                  "header": "Slip risk",
+                  "type": "databar",
+                  "target": 100
+                },
+                {
+                  "key": "block",
+                  "header": "What's blocking",
+                  "type": "text"
+                }
               ],
               "rows": "{{datagridRows}}"
             }
           },
-
           {
             "definition": "tile/callout",
             "attributes": {
@@ -236,14 +296,27 @@ The widget template is embedded below — a widget-definition envelope whose lea
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center", "isWrapped": true },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center",
+                  "isWrapped": true
+                },
                 "children": [
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "{{primaryButtonLabel}}",
                       "variant": "primary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{primaryButtonContent}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{primaryButtonContent}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   },
                   {
@@ -251,7 +324,16 @@ The widget template is embedded below — a widget-definition envelope whose lea
                     "attributes": {
                       "label": "{{secondaryButtonLabel}}",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{secondaryButtonContent}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{secondaryButtonContent}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]
