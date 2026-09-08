@@ -97,71 +97,130 @@ Every token is backed by the Step 3 subquery: `ActivityDate` drives both the hea
     "componentOverrides": {
       "$": {
         "type": "mosaic",
-        "definition": "tile/mosaic",
+        "definition": "tile/widget",
         "children": [
           {
             "definition": "tile/row",
-            "attributes": { "gap": "sm", "align": "center", "justify": "between", "isWrapped": true },
+            "attributes": {
+              "gap": "sm",
+              "align": "center",
+              "isWrapped": false
+            },
             "children": [
               {
-                "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center" },
-                "children": [
-                  { "definition": "tile/icon", "attributes": { "name": "activity", "size": "lg", "alt": "" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{pageTitle}}", "variant": "page-title" } }
-                ]
-              }
-            ]
-          },
-          { "definition": "tile/text", "attributes": { "text": "{{pageSubtitle}}", "variant": "caption", "color": "muted" } },
-
-          { "definition": "tile/separator" },
-
-          {
-            "definition": "tile/row",
-            "attributes": { "gap": "lg", "align": "start", "isWrapped": false },
-            "children": [
-              {
-                "definition": "tile/heatmap",
+                "definition": "tile/icon",
                 "attributes": {
-                  "width": "md",
-                  "layout": "calendar",
-                  "caption": "{{heatmapCaption}}",
-                  "encode": "color",
-                  "scale": "sequential",
-                  "valueFormat": "number",
-                  "domain": "{{heatmapDomain}}",
-                  "days": "{{heatmapDays}}"
+                  "name": "activity",
+                  "size": "xl",
+                  "alt": ""
                 }
               },
               {
-                "definition": "tile/callout",
+                "definition": "tile/text",
                 "attributes": {
-                  "width": "stretch",
-                  "variant": "{{calloutVariant}}",
-                  "title": "{{calloutTitle}}",
-                  "description": "{{calloutDescription}}"
+                  "text": "{{pageTitle}}",
+                  "variant": "h1"
+                }
+              }
+            ]
+          },
+          {
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{pageSubtitle}}",
+              "variant": "caption",
+              "color": "muted"
+            }
+          },
+          {
+            "definition": "tile/separator"
+          },
+          {
+            "definition": "tile/row",
+            "attributes": {
+              "gap": "lg",
+              "align": "start",
+              "isWrapped": false
+            },
+            "children": [
+              {
+                "definition": "tile/column",
+                "attributes": {
+                  "width": "md"
                 },
                 "children": [
                   {
-                    "definition": "tile/row",
-                    "attributes": { "gap": "sm", "align": "center", "isWrapped": true },
+                    "definition": "tile/heatmap",
+                    "attributes": {
+                      "layout": "calendar",
+                      "caption": "{{heatmapCaption}}",
+                      "encode": "color",
+                      "scale": "sequential",
+                      "valueFormat": "number",
+                      "domain": "{{heatmapDomain}}",
+                      "days": "{{heatmapDays}}"
+                    }
+                  }
+                ]
+              },
+              {
+                "definition": "tile/column",
+                "attributes": {
+                  "width": "stretch"
+                },
+                "children": [
+                  {
+                    "definition": "tile/callout",
+                    "attributes": {
+                      "variant": "{{calloutVariant}}",
+                      "title": "{{calloutTitle}}",
+                      "description": "{{calloutDescription}}"
+                    },
                     "children": [
                       {
-                        "definition": "tile/button",
+                        "definition": "tile/row",
                         "attributes": {
-                          "label": "{{primaryButtonLabel}}",
-                          "variant": "primary",
-                          "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{primaryButtonMsg}}" } }
-                        }
-                      },
-                      {
-                        "definition": "tile/button",
-                        "attributes": {
-                          "label": "View in Salesforce",
-                          "variant": "secondary",
-                          "onClick": { "definition": "action/openLink", "attributes": { "url": "{{viewRecordUrl}}" } }
-                        }
+                          "gap": "sm",
+                          "align": "center",
+                          "isWrapped": true
+                        },
+                        "children": [
+                          {
+                            "definition": "tile/button",
+                            "attributes": {
+                              "label": "{{primaryButtonLabel}}",
+                              "variant": "primary",
+                              "actions": {
+                                "click": [
+                                  {
+                                    "definition": "action/sendMessage",
+                                    "attributes": {
+                                      "content": "{{primaryButtonMsg}}"
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          {
+                            "definition": "tile/button",
+                            "attributes": {
+                              "label": "View in Salesforce",
+                              "iconName": "open-in-new",
+                              "variant": "secondary",
+                              "actions": {
+                                "click": [
+                                  {
+                                    "definition": "action/openLink",
+                                    "attributes": {
+                                      "url": "{{viewRecordUrl}}"
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        ]
                       }
                     ]
                   }
@@ -169,7 +228,6 @@ Every token is backed by the Step 3 subquery: `ActivityDate` drives both the hea
               }
             ]
           },
-
           {
             "definition": "tile/datagrid",
             "attributes": {
@@ -177,10 +235,26 @@ Every token is backed by the Step 3 subquery: `ActivityDate` drives both the hea
               "appearance": "striped",
               "totalRows": "{{datagridTotalRows}}",
               "columns": [
-                { "key": "date", "header": "Date", "type": "date" },
-                { "key": "type", "header": "Type", "type": "badge" },
-                { "key": "who", "header": "With", "type": "text" },
-                { "key": "note", "header": "Summary", "type": "text" }
+                {
+                  "key": "date",
+                  "header": "Date",
+                  "type": "date"
+                },
+                {
+                  "key": "type",
+                  "header": "Type",
+                  "type": "badge"
+                },
+                {
+                  "key": "who",
+                  "header": "With",
+                  "type": "text"
+                },
+                {
+                  "key": "note",
+                  "header": "Summary",
+                  "type": "text"
+                }
               ],
               "rows": "{{datagridRows}}"
             }

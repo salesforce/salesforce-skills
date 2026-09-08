@@ -178,27 +178,62 @@ The growth meter and objectives are synthesized from what you already gathered â
     "componentOverrides": {
       "$": {
         "type": "mosaic",
-        "definition": "tile/mosaic",
+        "definition": "tile/widget",
         "children": [
           {
             "definition": "tile/row",
-            "attributes": { "gap": "sm", "align": "center", "justify": "between", "isWrapped": true },
+            "attributes": {
+              "gap": "sm",
+              "align": "center",
+              "justify": "between",
+              "isWrapped": true
+            },
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center" },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center",
+                  "isWrapped": false
+                },
                 "children": [
-                  { "definition": "tile/icon", "attributes": { "name": "target", "size": "lg", "alt": "" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{planTitle}}", "variant": "page-title" } }
+                  {
+                    "definition": "tile/icon",
+                    "attributes": {
+                      "name": "target",
+                      "size": "xl",
+                      "alt": ""
+                    }
+                  },
+                  {
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{planTitle}}",
+                      "variant": "h1"
+                    }
+                  }
                 ]
               },
-              { "definition": "tile/badge", "attributes": { "label": "{{headerStatus}}", "variant": "warning" } }
+              {
+                "definition": "tile/badge",
+                "attributes": {
+                  "label": "{{headerStatus}}",
+                  "variant": "warning"
+                }
+              }
             ]
           },
-          { "definition": "tile/text", "attributes": { "text": "{{planSubtitle}}", "variant": "caption", "color": "muted" } },
-
-          { "definition": "tile/separator" },
-
+          {
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{planSubtitle}}",
+              "variant": "caption",
+              "color": "muted"
+            }
+          },
+          {
+            "definition": "tile/separator"
+          },
           {
             "definition": "tile/meter",
             "attributes": {
@@ -215,7 +250,6 @@ The growth meter and objectives are synthesized from what you already gathered â
               "bands": "{{growthBands}}"
             }
           },
-
           {
             "definition": "tile/datagrid",
             "attributes": {
@@ -223,16 +257,36 @@ The growth meter and objectives are synthesized from what you already gathered â
               "appearance": "striped",
               "size": "sm",
               "columns": [
-                { "key": "obj", "header": "Objective", "type": "text" },
-                { "key": "prog", "header": "Progress", "type": "databar", "target": 100 },
-                { "key": "owner", "header": "Owner", "type": "avatar" },
-                { "key": "due", "header": "Due", "type": "date" },
-                { "key": "state", "header": "State", "type": "badge" }
+                {
+                  "key": "obj",
+                  "header": "Objective",
+                  "type": "text"
+                },
+                {
+                  "key": "prog",
+                  "header": "Progress",
+                  "type": "databar",
+                  "target": 100
+                },
+                {
+                  "key": "owner",
+                  "header": "Owner",
+                  "type": "avatar"
+                },
+                {
+                  "key": "due",
+                  "header": "Due",
+                  "type": "date"
+                },
+                {
+                  "key": "state",
+                  "header": "State",
+                  "type": "badge"
+                }
               ],
               "rows": "{{objRows}}"
             }
           },
-
           {
             "definition": "tile/callout",
             "attributes": {
@@ -243,22 +297,45 @@ The growth meter and objectives are synthesized from what you already gathered â
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center", "isWrapped": true },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center",
+                  "isWrapped": true
+                },
                 "children": [
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "{{ctaLabel}}",
                       "variant": "primary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{ctaMsg}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{ctaMsg}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   },
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "View in Salesforce",
+                      "iconName": "open-in-new",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/openLink", "attributes": { "url": "{{planUrl}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/openLink",
+                            "attributes": {
+                              "url": "{{planUrl}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]

@@ -117,26 +117,44 @@ The widget template is embedded below — a widget-definition envelope whose lea
     "componentOverrides": {
       "$": {
         "type": "mosaic",
-        "definition": "tile/mosaic",
+        "definition": "tile/widget",
         "children": [
           {
             "definition": "tile/row",
-            "attributes": { "gap": "sm", "align": "center", "justify": "between", "isWrapped": true },
+            "attributes": {
+              "gap": "sm",
+              "align": "center",
+              "isWrapped": false
+            },
             "children": [
               {
-                "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center" },
-                "children": [
-                  { "definition": "tile/icon", "attributes": { "name": "users", "size": "lg", "alt": "" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{title}}", "variant": "page-title" } }
-                ]
+                "definition": "tile/icon",
+                "attributes": {
+                  "name": "users",
+                  "size": "xl",
+                  "alt": ""
+                }
+              },
+              {
+                "definition": "tile/text",
+                "attributes": {
+                  "text": "{{title}}",
+                  "variant": "h1"
+                }
               }
             ]
           },
-          { "definition": "tile/text", "attributes": { "text": "{{subtitle}}", "variant": "caption", "color": "muted" } },
-
-          { "definition": "tile/separator" },
-
+          {
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{subtitle}}",
+              "variant": "caption",
+              "color": "muted"
+            }
+          },
+          {
+            "definition": "tile/separator"
+          },
           {
             "definition": "tile/heatmap",
             "attributes": {
@@ -152,23 +170,41 @@ The widget template is embedded below — a widget-definition envelope whose lea
               "cells": "{{cells}}"
             }
           },
-
           {
             "definition": "tile/datagrid",
             "attributes": {
               "caption": "{{datagridCaption}}",
               "appearance": "striped",
               "columns": [
-                { "key": "name", "header": "Stakeholder", "type": "avatar" },
-                { "key": "role", "header": "Role", "type": "text" },
-                { "key": "stance", "header": "Stance", "type": "badge" },
-                { "key": "last", "header": "Last touch", "type": "date" },
-                { "key": "next", "header": "Next move", "type": "text" }
+                {
+                  "key": "name",
+                  "header": "Stakeholder",
+                  "type": "avatar"
+                },
+                {
+                  "key": "role",
+                  "header": "Role",
+                  "type": "text"
+                },
+                {
+                  "key": "stance",
+                  "header": "Stance",
+                  "type": "badge"
+                },
+                {
+                  "key": "last",
+                  "header": "Last touch",
+                  "type": "date"
+                },
+                {
+                  "key": "next",
+                  "header": "Next move",
+                  "type": "text"
+                }
               ],
               "rows": "{{rows}}"
             }
           },
-
           {
             "definition": "tile/callout",
             "attributes": {
@@ -179,22 +215,45 @@ The widget template is embedded below — a widget-definition envelope whose lea
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center", "isWrapped": true },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center",
+                  "isWrapped": true
+                },
                 "children": [
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "{{ctaPrimaryLabel}}",
                       "variant": "primary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{ctaPrimaryMsg}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{ctaPrimaryMsg}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   },
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "View in Salesforce",
+                      "iconName": "open-in-new",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/openLink", "attributes": { "url": "{{salesforceUrl}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/openLink",
+                            "attributes": {
+                              "url": "{{salesforceUrl}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]

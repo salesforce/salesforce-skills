@@ -136,29 +136,49 @@ Tokens: `pageTitle` (e.g. "Pipeline review — Dana Ruiz"), `pageSubtitle` (one-
     "componentOverrides": {
       "$": {
         "type": "mosaic",
-        "definition": "tile/mosaic",
+        "definition": "tile/widget",
         "children": [
           {
             "definition": "tile/row",
-            "attributes": { "gap": "sm", "align": "center", "justify": "between", "isWrapped": true },
+            "attributes": {
+              "gap": "sm",
+              "align": "center",
+              "isWrapped": false
+            },
             "children": [
               {
-                "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center" },
-                "children": [
-                  { "definition": "tile/icon", "attributes": { "name": "dashboard", "size": "lg", "alt": "" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{pageTitle}}", "variant": "page-title" } }
-                ]
+                "definition": "tile/icon",
+                "attributes": {
+                  "name": "dashboard",
+                  "size": "xl",
+                  "alt": ""
+                }
+              },
+              {
+                "definition": "tile/text",
+                "attributes": {
+                  "text": "{{pageTitle}}",
+                  "variant": "h1"
+                }
               }
             ]
           },
-          { "definition": "tile/text", "attributes": { "text": "{{pageSubtitle}}", "variant": "caption", "color": "muted" } },
-
-          { "definition": "tile/separator" },
-
           {
-            "definition": "tile/row",
-            "attributes": { "gap": "lg", "align": "stretch", "isWrapped": true },
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{pageSubtitle}}",
+              "variant": "caption",
+              "color": "muted"
+            }
+          },
+          {
+            "definition": "tile/separator"
+          },
+          {
+            "definition": "tile/column",
+            "attributes": {
+              "gap": "md"
+            },
             "children": [
               {
                 "definition": "tile/chart",
@@ -188,25 +208,54 @@ Tokens: `pageTitle` (e.g. "Pipeline review — Dana Ruiz"), `pageSubtitle` (one-
               }
             ]
           },
-
           {
             "definition": "tile/datagrid",
             "attributes": {
               "caption": "{{datagridCaption}}",
               "appearance": "striped",
-              "defaultSort": { "key": "amount", "direction": "desc" },
+              "defaultSort": {
+                "key": "amount",
+                "direction": "desc"
+              },
               "columns": [
-                { "key": "name", "header": "Opportunity", "type": "text" },
-                { "key": "stage", "header": "Stage", "type": "badge" },
-                { "key": "amount", "header": "Amount", "type": "currency", "align": "right", "sortable": true },
-                { "key": "age", "header": "Days in stage", "type": "number", "align": "right", "sortable": true },
-                { "key": "close", "header": "Close", "type": "date" },
-                { "key": "risk", "header": "Risk", "type": "text" }
+                {
+                  "key": "name",
+                  "header": "Opportunity",
+                  "type": "text"
+                },
+                {
+                  "key": "stage",
+                  "header": "Stage",
+                  "type": "badge"
+                },
+                {
+                  "key": "amount",
+                  "header": "Amount",
+                  "type": "currency",
+                  "align": "right",
+                  "sortable": true
+                },
+                {
+                  "key": "age",
+                  "header": "Days in stage",
+                  "type": "number",
+                  "align": "right",
+                  "sortable": true
+                },
+                {
+                  "key": "close",
+                  "header": "Close",
+                  "type": "date"
+                },
+                {
+                  "key": "risk",
+                  "header": "Risk",
+                  "type": "text"
+                }
               ],
               "rows": "{{datagridRows}}"
             }
           },
-
           {
             "definition": "tile/callout",
             "attributes": {
@@ -217,22 +266,45 @@ Tokens: `pageTitle` (e.g. "Pipeline review — Dana Ruiz"), `pageSubtitle` (one-
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center", "isWrapped": true },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center",
+                  "isWrapped": true
+                },
                 "children": [
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "{{primaryButtonLabel}}",
                       "variant": "primary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{primaryButtonMsg}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{primaryButtonMsg}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   },
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "View in Salesforce",
+                      "iconName": "open-in-new",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/openLink", "attributes": { "url": "{{viewOppsUrl}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/openLink",
+                            "attributes": {
+                              "url": "{{viewOppsUrl}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]

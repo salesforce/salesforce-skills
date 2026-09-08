@@ -97,26 +97,44 @@ The widget template is embedded below. Call `display_widget` in **dynamic** mode
     "componentOverrides": {
       "$": {
         "type": "mosaic",
-        "definition": "tile/mosaic",
+        "definition": "tile/widget",
         "children": [
           {
             "definition": "tile/row",
-            "attributes": { "gap": "sm", "align": "center", "justify": "between", "isWrapped": true },
+            "attributes": {
+              "gap": "sm",
+              "align": "center",
+              "isWrapped": false
+            },
             "children": [
               {
-                "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center" },
-                "children": [
-                  { "definition": "tile/icon", "attributes": { "name": "calendar", "size": "lg", "alt": "" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{title}}", "variant": "page-title" } }
-                ]
+                "definition": "tile/icon",
+                "attributes": {
+                  "name": "calendar",
+                  "size": "xl",
+                  "alt": ""
+                }
+              },
+              {
+                "definition": "tile/text",
+                "attributes": {
+                  "text": "{{title}}",
+                  "variant": "h1"
+                }
               }
             ]
           },
-          { "definition": "tile/text", "attributes": { "text": "{{subtitle}}", "variant": "caption", "color": "muted" } },
-
-          { "definition": "tile/separator" },
-
+          {
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{subtitle}}",
+              "variant": "caption",
+              "color": "muted"
+            }
+          },
+          {
+            "definition": "tile/separator"
+          },
           {
             "definition": "tile/datagrid",
             "attributes": {
@@ -124,16 +142,36 @@ The widget template is embedded below. Call `display_widget` in **dynamic** mode
               "appearance": "striped",
               "size": "sm",
               "columns": [
-                { "key": "time", "header": "Time", "type": "text" },
-                { "key": "title", "header": "Meeting", "type": "text" },
-                { "key": "deal", "header": "Deal", "type": "text" },
-                { "key": "value", "header": "Value", "type": "currency", "align": "right" },
-                { "key": "prep", "header": "Prep", "type": "badge" }
+                {
+                  "key": "time",
+                  "header": "Time",
+                  "type": "text"
+                },
+                {
+                  "key": "title",
+                  "header": "Meeting",
+                  "type": "text"
+                },
+                {
+                  "key": "deal",
+                  "header": "Deal",
+                  "type": "text"
+                },
+                {
+                  "key": "value",
+                  "header": "Value",
+                  "type": "currency",
+                  "align": "right"
+                },
+                {
+                  "key": "prep",
+                  "header": "Prep",
+                  "type": "badge"
+                }
               ],
               "rows": "{{datagridRows}}"
             }
           },
-
           {
             "definition": "tile/callout",
             "attributes": {
@@ -144,22 +182,45 @@ The widget template is embedded below. Call `display_widget` in **dynamic** mode
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center", "isWrapped": true },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center",
+                  "isWrapped": true
+                },
                 "children": [
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "{{primaryButtonLabel}}",
                       "variant": "primary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{primaryButtonMsg}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{primaryButtonMsg}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   },
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "View in Salesforce",
+                      "iconName": "open-in-new",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/openLink", "attributes": { "url": "{{salesforceUrl}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/openLink",
+                            "attributes": {
+                              "url": "{{salesforceUrl}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]

@@ -54,7 +54,7 @@ Empty `edges` → broaden `%NAME%`. **Prior-contact detection reads BOTH childre
 
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Account(where: { Name: { like: \\\"%COMPANY%\\\" } }, first: 1) { edges { node { Id Name { value } Industry { value } Owner { Name { value } } Opportunities { edges { node { Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } IsClosed { value } } } } Tasks(first: 3, orderBy: { ActivityDate: { order: DESC } }) { edges { node { Subject { value } ActivityDate { value } Description { value } Type { value } } } } Events(first: 3, orderBy: { ActivityDate: { order: DESC } }) { edges { node { Subject { value } ActivityDate { value } Description { value } } } } } } } } } }\"}" })
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Account(where: { Name: { like: \\\"%COMPANY%\\\" } }, first: 1) { edges { node { Id Name { value } Industry { value } Owner { Name { value } } Opportunities(where: { IsClosed: { eq: false } }, first: 5) { edges { node { Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } IsClosed { value } } } } Tasks(first: 3, orderBy: { ActivityDate: { order: DESC } }) { edges { node { Subject { value } ActivityDate { value } Description { value } Type { value } } } } Events(first: 3, orderBy: { ActivityDate: { order: DESC } }) { edges { node { Subject { value } ActivityDate { value } Description { value } } } } } } } } } }\"}" })
 ```
 
 ## 2b. Evidence (run IN PARALLEL with step 2 — same turn, issue all at once)
@@ -116,27 +116,61 @@ The widget template is embedded below — a widget-definition envelope whose lea
     "componentOverrides": {
       "$": {
         "type": "mosaic",
-        "definition": "tile/mosaic",
+        "definition": "tile/widget",
         "children": [
           {
             "definition": "tile/row",
-            "attributes": { "gap": "sm", "align": "center", "justify": "between", "isWrapped": true },
+            "attributes": {
+              "gap": "sm",
+              "align": "center",
+              "justify": "between",
+              "isWrapped": true
+            },
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center" },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center"
+                },
                 "children": [
-                  { "definition": "tile/icon", "attributes": { "name": "mail", "size": "lg", "alt": "" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{draftTitle}}", "variant": "page-title" } }
+                  {
+                    "definition": "tile/icon",
+                    "attributes": {
+                      "name": "mail",
+                      "size": "xl",
+                      "alt": ""
+                    }
+                  },
+                  {
+                    "definition": "tile/text",
+                    "attributes": {
+                      "text": "{{draftTitle}}",
+                      "variant": "h1"
+                    }
+                  }
                 ]
               },
-              { "definition": "tile/badge", "attributes": { "label": "{{intentBadge}}", "variant": "info" } }
+              {
+                "definition": "tile/badge",
+                "attributes": {
+                  "label": "{{intentBadge}}",
+                  "variant": "info"
+                }
+              }
             ]
           },
-          { "definition": "tile/text", "attributes": { "text": "{{draftSubtitle}}", "variant": "caption", "color": "muted" } },
-
-          { "definition": "tile/separator" },
-
+          {
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{draftSubtitle}}",
+              "variant": "caption",
+              "color": "muted"
+            }
+          },
+          {
+            "definition": "tile/separator"
+          },
           {
             "definition": "tile/datagrid",
             "attributes": {
@@ -144,13 +178,20 @@ The widget template is embedded below — a widget-definition envelope whose lea
               "appearance": "striped",
               "size": "sm",
               "columns": [
-                { "key": "source", "header": "Source", "type": "badge" },
-                { "key": "detail", "header": "What it told us", "type": "text" }
+                {
+                  "key": "source",
+                  "header": "Source",
+                  "type": "badge"
+                },
+                {
+                  "key": "detail",
+                  "header": "What it told us",
+                  "type": "text"
+                }
               ],
               "rows": "{{contextRows}}"
             }
           },
-
           {
             "definition": "tile/callout",
             "attributes": {
@@ -162,14 +203,27 @@ The widget template is embedded below — a widget-definition envelope whose lea
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center", "isWrapped": true },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center",
+                  "isWrapped": true
+                },
                 "children": [
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "{{reviseLabel}}",
                       "variant": "primary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{reviseMsg}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{reviseMsg}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   },
                   {
@@ -177,7 +231,16 @@ The widget template is embedded below — a widget-definition envelope whose lea
                     "attributes": {
                       "label": "Open draft in email",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/openLink", "attributes": { "url": "{{draftUrl}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/openLink",
+                            "attributes": {
+                              "url": "{{draftUrl}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]

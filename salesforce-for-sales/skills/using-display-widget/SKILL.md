@@ -30,8 +30,7 @@ effort: medium
 # Using `display_widget`
 
 `display_widget` renders a widget from a **widget definition** using the native
-Salesforce renderer. The production Headless 360 MCP exposes the tool; the standalone local
-`salesforce-ui` MCP provides the equivalent contract for development. In
+Salesforce renderer. In
 `dynamic` mode you author the widget definition yourself and the server echoes it straight to
 the renderer — this is how an agent presents its own assembled UI. In
 `salesforce_widget` mode you instead name a **pre-registered** widget and pass it data;
@@ -105,7 +104,7 @@ are the tile blocks to render, in order:
     "componentOverrides": {
       "$": {
         "type": "mosaic",
-        "definition": "tile/mosaic",
+        "definition": "tile/widget",
         "children": [
           /* tile blocks, rendered top to bottom */
         ]
@@ -163,16 +162,19 @@ Attributes are optional unless marked **required**. Enum values are the full set
 
 ### Layout / containers (use `children`)
 
-- **`tile/card`** — a bordered/elevated panel. `variant`
-  (`default`|`elevated`|`outlined`), `padding`, `width`, `maxWidth`. Put content
-  blocks in `children`.
+- **`tile/container`** — a panel with a rounded border. `borderless`
+  (`true`|`false`, default `false`), `variant`
+  (`default`|`emphasis`|`info`|`warning`|`error`|`success`). Put content blocks in
+  `children`. To make a container fill/share a row's width, wrap it in a
+  `tile/column` carrying `width` (container itself takes no width). Replaces the
+  retired `tile/card`.
 - **`tile/column`** — vertical stack. `gap` (`none`|`xs`|`sm`|`md`|`lg`|`xl`,
   default `md`), `align`, `width`. Children in `children`.
 - **`tile/row`** — horizontal layout. `gap` (same tokens), `align`, `justify`
   (`start`|`center`|`end`|`between`|`around`|`evenly`), `isWrapped`.
 - **`tile/list`** — `marker` (`none`|`bullet`|`number`); `children` are
-  `tile/listitem` blocks.
-- **`tile/listitem`** — no attributes; compose its `children` from `tile/text`,
+  `tile/listItem` blocks.
+- **`tile/listItem`** — no attributes; compose its `children` from `tile/text`,
   `tile/link`, `tile/badge`, etc.
 
 ### Table
@@ -189,9 +191,9 @@ Attributes are optional unless marked **required**. Enum values are the full set
 
 Other available blocks (same `{definition, attributes, children}` shape):
 `tile/image`, `tile/icon`, `tile/avatar`, `tile/button`, `tile/code`,
-`tile/progress`, `tile/spinner`, `tile/spacer`, `tile/container`,
-`tile/accordion` + `tile/accordionitem`, and the form inputs (`tile/textfield`,
-`tile/textarea`, `tile/numberfield`, `tile/select`, `tile/checkbox`,
+`tile/progress`, `tile/spinner`, `tile/spacer`,
+`tile/accordion` + `tile/accordionItem`, and the form inputs (`tile/textField`,
+`tile/textarea`, `tile/numberField`, `tile/select`, `tile/checkbox`,
 `tile/radio`, `tile/switch`). Form inputs only do something useful in a host that
 wires their events; for a read-only presentation, stick to the content/layout
 blocks above.
@@ -265,9 +267,9 @@ display_widget({
   "widgetDefinition": {
     "renderer": { "componentOverrides": { "$": {
       "type": "mosaic",
-      "definition": "tile/mosaic",
+      "definition": "tile/widget",
       "children": [
-        { "definition": "tile/card", "attributes": { "variant": "elevated", "padding": "lg" },
+        { "definition": "tile/container", "attributes": {},
           "children": [
             { "definition": "tile/row", "attributes": { "justify": "between", "align": "center" },
               "children": [
@@ -311,8 +313,3 @@ is all the user sees — it must stand on its own, not say "rendered a widget."
   renderer envelope and every tile block, with a description on each property and
   the complete enum sets. Validate a widget definition against it, or read it as the exhaustive
   attribute reference behind the vocabulary above.
-
-(Developer note: the repo also carries `author-mcp-apps-widget` — MCP Apps SDK /
-renderer / postMessage internals for debugging blank or intermittent widgets —
-and `setup-cowork-salesforce-ui-mcp` for local registration. Those are dev-only
-skills in the source tree, not shipped in the installed plugin.)

@@ -101,29 +101,49 @@ The widget template is embedded below. Call `display_widget` in **dynamic** mode
     "componentOverrides": {
       "$": {
         "type": "mosaic",
-        "definition": "tile/mosaic",
+        "definition": "tile/widget",
         "children": [
           {
             "definition": "tile/row",
-            "attributes": { "gap": "sm", "align": "center", "justify": "between", "isWrapped": true },
+            "attributes": {
+              "gap": "sm",
+              "align": "center",
+              "isWrapped": false
+            },
             "children": [
               {
-                "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center" },
-                "children": [
-                  { "definition": "tile/icon", "attributes": { "name": "calendar", "size": "lg", "alt": "" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{title}}", "variant": "page-title" } }
-                ]
+                "definition": "tile/icon",
+                "attributes": {
+                  "name": "calendar",
+                  "size": "xl",
+                  "alt": ""
+                }
+              },
+              {
+                "definition": "tile/text",
+                "attributes": {
+                  "text": "{{title}}",
+                  "variant": "h1"
+                }
               }
             ]
           },
-          { "definition": "tile/text", "attributes": { "text": "{{subtitle}}", "variant": "caption", "color": "muted" } },
-
-          { "definition": "tile/separator" },
-
           {
-            "definition": "tile/row",
-            "attributes": { "gap": "lg", "align": "stretch", "isWrapped": true },
+            "definition": "tile/text",
+            "attributes": {
+              "text": "{{subtitle}}",
+              "variant": "caption",
+              "color": "muted"
+            }
+          },
+          {
+            "definition": "tile/separator"
+          },
+          {
+            "definition": "tile/column",
+            "attributes": {
+              "width": "md"
+            },
             "children": [
               {
                 "definition": "tile/chart",
@@ -149,7 +169,6 @@ The widget template is embedded below. Call `display_widget` in **dynamic** mode
               }
             ]
           },
-
           {
             "definition": "tile/datagrid",
             "attributes": {
@@ -157,15 +176,31 @@ The widget template is embedded below. Call `display_widget` in **dynamic** mode
               "appearance": "striped",
               "size": "sm",
               "columns": [
-                { "key": "deal", "header": "Deal", "type": "text" },
-                { "key": "amount", "header": "Amount", "type": "currency", "align": "right" },
-                { "key": "event", "header": "What happened", "type": "badge" },
-                { "key": "note", "header": "Note", "type": "text" }
+                {
+                  "key": "deal",
+                  "header": "Deal",
+                  "type": "text"
+                },
+                {
+                  "key": "amount",
+                  "header": "Amount",
+                  "type": "currency",
+                  "align": "right"
+                },
+                {
+                  "key": "event",
+                  "header": "What happened",
+                  "type": "badge"
+                },
+                {
+                  "key": "note",
+                  "header": "Note",
+                  "type": "text"
+                }
               ],
               "rows": "{{dealRows}}"
             }
           },
-
           {
             "definition": "tile/callout",
             "attributes": {
@@ -176,14 +211,27 @@ The widget template is embedded below. Call `display_widget` in **dynamic** mode
             "children": [
               {
                 "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center", "isWrapped": true },
+                "attributes": {
+                  "gap": "sm",
+                  "align": "center",
+                  "isWrapped": true
+                },
                 "children": [
                   {
                     "definition": "tile/button",
                     "attributes": {
                       "label": "{{button1Label}}",
                       "variant": "primary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{button1Content}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{button1Content}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   },
                   {
@@ -191,7 +239,16 @@ The widget template is embedded below. Call `display_widget` in **dynamic** mode
                     "attributes": {
                       "label": "{{button2Label}}",
                       "variant": "secondary",
-                      "onClick": { "definition": "action/sendMessage", "attributes": { "content": "{{button2Content}}" } }
+                      "actions": {
+                        "click": [
+                          {
+                            "definition": "action/sendMessage",
+                            "attributes": {
+                              "content": "{{button2Content}}"
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]

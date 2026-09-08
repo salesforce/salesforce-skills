@@ -92,7 +92,7 @@ Full setup walkthrough in [SETUP.md](SETUP.md).
 | `schedule-meeting` | Find a time, draft or send the invite, and log the Event in Salesforce |
 | `calendar-events` | Pull Event records from Salesforce for a time range - see meeting history, identify gaps, export for analysis |
 | `query-activity-history` | Query Task and Event history with flexible filters - activity volume, contact coverage, historical analysis |
-| `assign-target-to-sdr` | Hand a Contact or Lead to an Agentforce Lead Nurturing agent (formerly SDR) for qualification and email outreach - lists active agents, confirms the pairing, then invokes the standard action |
+| `assign-target-to-sdr` | Hand a Contact or Lead to an Agentforce Engagement Agent (formerly Agentforce Lead Nurturing agent / SDR) for qualification and email outreach - lists active agents, confirms the pairing, then invokes the standard action |
 
 Salesforce writes require the read-write server (the default in `.mcp.json` - see [SETUP.md](SETUP.md)); on a read-only connector the SFDC write step falls back to a paste-ready checklist (`schedule-meeting`'s calendar and email steps work either way).
 
