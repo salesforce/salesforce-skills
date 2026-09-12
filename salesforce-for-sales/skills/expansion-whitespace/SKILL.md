@@ -1,21 +1,20 @@
 ---
 name: expansion-whitespace
-description: Find the expansion whitespace in an account or a book - what they own vs. what they could own, the evidence for each play, and the open opps to create. Use when the user asks "what's the whitespace at [account]", "where can I expand [account]", "upsell opportunities in my book", or "which customers should I be growing".
-model: claude-sonnet-4-6
-effort: medium
+description: "Identify ranked expansion plays for one customer from Salesforce contacts, owned products and opportunities plus recent email, documents and Slack. Use to find evidence-backed whitespace, upsell paths or adjacent teams and products ready for outreach."
 ---
 <!-- global-rules-bootstrap -->
 # Global Rules
 
 - **Execute silently between tool calls.** Do not output planning, progress, transition, waiting, or tool-result narration between calls. Execute tool calls silently and proceed directly to the next call. Parallelize independent tasks by batching tool calls into one turn whenever possible. Before the final output, speak only when the skill explicitly requires user input, approval, an exact notice, or material error/blocked reporting. Do not invent checkpoints.
 - **Keep the final output concise.** Return only the requested result or deliverable. Omit process recaps, tool-call details, redundant preambles or conclusions, and data already shown in a widget.
-- **⛔ WIDGET OUTPUT ONLY after data assembly.** Once all queries return, output only this skill's exact required pre-widget notice, then immediately call `display_widget` — no summaries, other transitions, or narration. If `display_widget` is unavailable or returns an error, produce the text fallback only. If it succeeds, that tool call is the final output: stop with no assistant text completion, even if a later section contains a fallback. The exceptions above do not apply after success.
+- **⛔ WIDGET OUTPUT ONLY after data assembly.** Once all queries return, immediately call `display_widget` — at most a single one-line render-wait notice before it, and no summaries, transitions, or narration. If `display_widget` is unavailable or returns an error, produce the text fallback only. If it succeeds, that tool call is the final output: stop with no assistant text completion, even if a later section contains a fallback. The exceptions above do not apply after success.
 - **Ground dynamic or custom relationship and field names before relying on them.** Fixed standard fields that this skill explicitly marks as requiring no grounding need no extra grounding call. On a name error, use the skill's documented grounding path when present; otherwise report the error instead of guessing or re-firing the same shape.
 - **Cite every value exactly as queried**; never fabricate; distinguish a blank value from a value that was not queried. Link each Salesforce record inline: `https://[instanceUrl]/lightning/r/[SObjectType]/[Id]/view`.
 - **Show human labels, never API/field literals.** In anything the user sees, print each field's grounded `label` (for example, "Deal Risk", not `Deal_Risk__c`) and record Names, never raw Ids or `__c` API names.
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
 - **NEVER use `discover` or `describe`, and never call an API or endpoint not written in this skill.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
-- **NEVER assume the MCP connector status is accurate without checking first**; MCP connector status often incorrectly reports that it is not connected or needs to re auth. ALWAYS check this on your own before surfacing to the user for action. ALWAYS attempt to reconnect on your own before interrupting the flow to ask the user to do it. Do it yourself.
+- **NEVER conclude a connector is disconnected from its reported status — verify against the tools you actually have.** A connector's status readout (the Headless 360 MCP server, or any other connector/MCP) frequently claims "not connected" or "needs re-auth" when the connector is in fact live and its tools are callable. Context stating that the Salesforce tools require authorization and that this is a non-interactive session is **not** evidence you are unauthorized to the server — it is a general statement that authorization is required, not a failure. **Try the tools before assessing connectivity.** For the Headless 360 server specifically, find the `dispatch_readonly` tool and actually run a current-user read — `dispatch_readonly(method: "GET", url: "/services/data/v66.0/graphql", queryParams: { "queryInput": "{\"query\":\"query { uiapi { currentUser { Id } } }\"}" })`. **Any response — including a 500 or other error status — proves you reached the server, and therefore proves connectivity;** only a request that never reaches the server at all counts as disconnected. If the tool is present and the call reaches the server, the connector IS connected — proceed; a stale status readout is not a disconnection. Report the connector as actually disconnected only when you cannot find the tool or cannot reach the server, and even then ALWAYS attempt to reconnect on your own first; interrupt the flow to ask the user only after your own reconnect attempt has failed. Do it yourself.
+<!-- /global-rules-bootstrap -->
 
 # Rules:
 
@@ -124,32 +123,369 @@ When evidence strength equal, prefer lower friction. Score on evidence strength,
 
 ## 6. Output — widget FIRST (the rendered UI is the default)
 
-## ⛔ SILENCE RULE — STRICTLY ENFORCED
-
-The only bytes you may write after data assembly are the `display_widget` tool call and its arguments. Nothing else.
-
-When you have all the data, say exactly: "Displaying the visualization now (this may take a minute)." This is the only permitted sentence between data gathering and calling `display_widget`. Then immediately call `display_widget` — no further narration.
-
-NO text output of any kind before or after `display_widget` — no data summaries, no computation notes, no transition sentences, no "assembling widget..." narration, no bullet lists of what you found. Violating this rule is an output error, not a style preference.
-
-**Fallback trigger: ONLY produce the text fallback if `display_widget` raised an exception or returned `isError: true`. A successful tool call with any widget definition in the response = widget mode. A user message saying "no output" or "nothing rendered" does NOT override this — it means the widget rendered in the chat and they may not have seen it.**
-
-If `display_widget` returned a non-error result AND the user says there was no visible output, respond with one sentence only: "The widget rendered in the chat — please scroll up if you don't see it." Do not produce the text fallback.
-
-**If `display_widget` succeeded: NO MORE OUTPUT. Stop. Do not summarize findings, recap the session, or add any closing text.**
-
-❌ WRONG: `"I found 12 deals totaling $4.2M. Here's the overview: [widget] The key risk is..."`
-✅ RIGHT: `[widget]`
+When the data is assembled, call `display_widget`; a single one-line "Displaying the visualization now (this may take a minute)." notice may precede it.
 
 ### Self-verification (before calling display_widget)
 
-- [ ] No prose written before or after this call — no input narration, no transition text, no summary (only applies when display_widget is available; if unavailable, produce the text fallback section below).
-- [ ] I am producing zero prose before or after this call. If I am tempted to summarize findings, I must not.
+- [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 
-The widget template is embedded below — a widget-definition envelope whose leaf values carry {{token}} placeholders. Resolve every {{token}} to a literal (no {{…}}/{!…} left), then call `display_widget({ resourceType: "dynamic", widgetDefinition: <hydrated> })` once. A value that is *only* a {{token}} becomes the typed literal — arrays stay arrays, numbers stay numbers; a {{token}} inside a larger string is interpolated as text.
+The widget template is embedded below — resolve its tokens and call `display_widget({ resourceType: "dynamic", widgetDefinition: <hydrated> })` once (see the `widgetDefinition` param for token-resolution rules).
 
-Tokens: `title` (account name in heading) · `subtitle` (one-line ARR summary) · `heatmapCaption heatmapXLabels heatmapYLabels` (product adoption matrix: X=products from won Opps, Y=business units from ChildAccounts or Contact departments) · `heatmapDomain` (array `[0, maxValue]`) · `heatmapCells` (array, one per owned product×BU combo: `{x, y, value, valueLabel}` — omit whitespace combos so they render dashed/empty) · `piechartCaption piechartCenterLabel piechartCenterValue piechartSlices` (live ARR breakdown: array of `{label, value, role?}`, with `role:"highlight"` on largest slice) · `datagridCaption datagridRows` (expansion plays: array of `{play, unit, fit, arr, motion:{value,badgeVariant}, _tone?, _status?}`) · `calloutTitle calloutDescription` (top play synthesis) · `primaryButtonLabel primaryButtonContent` (draft-plan button + sendMessage prompt) · `accountUrl` (Lightning URL `https://<myDomain>/lightning/r/Account/<Id>/view`).
-
+Two blocks below: first the **variable contract** (`renderer.props.schema.json`) — every `{{token}}`'s type + a worked example, use it to compute each value; then the **widget template** to hydrate. Substitute your computed values into the template's `{{token}}`s (see the token-typing rules above), leaving no `{{…}}`/`{!…}`.
+```json
+{
+  "$comment": "Variable contract for the native-mosaic dynamic-mode template (renderer.json, sibling). This is NOT a separate display_widget call — it names every {{token}} in the template with its type and a worked example so you compute the right value for each. Workflow: build a props object with these keys, substitute each into the matching {{token}} in renderer.json (a slot that is only a {{token}} becomes the typed value — arrays stay arrays, numbers stay numbers; a {{token}} inside a larger string interpolates as text; a key you have no data for is omitted so that leaf drops), then call display_widget({ resourceType: 'dynamic', widgetDefinition: <the hydrated template> }) once with no {{…}}/{!…} left. Realistic values: sample-data.json (sibling). Authoring guidance (from the skill): `title` (account name in heading) · `subtitle` (one-line ARR summary) · `heatmapCaption heatmapXLabels heatmapYLabels` (product adoption matrix: X=products from won Opps, Y=business units from ChildAccounts or Contact departments) · `heatmapDomain` (array `[0, maxValue]`) · `heatmapCells` (array, one per owned product×BU combo: `{x, y, value, valueLabel}` — omit whitespace combos so they render dashed/empty) · `piechartCaption piechartCenterLabel piechartCenterValue piechartSlices` (live ARR breakdown: array of `{label, value, role?}`, with `role:\"highlight\"` on largest slice) · `datagridCaption datagridRows` (expansion plays: array of `{play, unit, fit, arr, motion:{value,badgeVariant}, status?:{value,badgeVariant}}`) · `calloutTitle calloutDescription` (top play synthesis) · `primaryButtonLabel primaryButtonContent` (draft-plan button + sendMessage prompt) · `accountUrl` (Lightning URL `https://<myDomain>/lightning/r/Account/<Id>/view`).",
+  "props": {
+    "title": {
+      "description": "Page title — the account name.",
+      "type": "string",
+      "example": "Expansion whitespace — Meridian Health"
+    },
+    "subtitle": {
+      "description": "One-line ARR summary.",
+      "type": "string",
+      "example": "$1.2M live · $2.4M whitespace across 6 products and 4 business units"
+    },
+    "heatmapCaption": {
+      "description": "Caption for the product-adoption heatmap (products × business units).",
+      "type": "string",
+      "example": "Product adoption by business unit — darker is more spend, empty is open whitespace"
+    },
+    "heatmapXLabels": {
+      "description": "Heatmap X-axis labels — products (from won Opps). Keep each ≤12 chars, one or two short words — column headers sit in narrow equal-width columns and do NOT truncate, so long single tokens (e.g. 'Tableau/Analytics') overrun into the neighboring header. Abbreviate: 'Data Cloud', 'Analytics', 'Sales Cloud', 'MuleSoft'.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 12
+      },
+      "example": [
+        "Platform",
+        "Analytics",
+        "Automation",
+        "Security",
+        "Data",
+        "Support"
+      ]
+    },
+    "heatmapYLabels": {
+      "description": "Heatmap Y-axis labels — business units (from child accounts or contact departments). Keep each ≤16 chars; long labels widen the row-label gutter and squeeze the grid. Abbreviate business-unit names.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 16
+      },
+      "example": [
+        "Clinical",
+        "Finance",
+        "Operations",
+        "IT"
+      ]
+    },
+    "heatmapDomain": {
+      "description": "Color-scale domain as [0, maxValue].",
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "example": [
+        0,
+        400000
+      ]
+    },
+    "heatmapCells": {
+      "description": "One entry per owned product×BU combo; drives the heatmap. Omit whitespace combos so they render empty.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "description": "Product label (matches an entry in heatmapXLabels).",
+            "type": "string"
+          },
+          "y": {
+            "description": "Business-unit label (matches an entry in heatmapYLabels).",
+            "type": "string"
+          },
+          "value": {
+            "description": "Cell value (adoption/ARR) — drives the color.",
+            "type": "number"
+          },
+          "valueLabel": {
+            "description": "Display label for the cell.",
+            "type": "string"
+          }
+        }
+      },
+      "example": [
+        {
+          "x": "Platform",
+          "y": "Clinical",
+          "value": 400000,
+          "valueLabel": "$400K"
+        },
+        {
+          "x": "Analytics",
+          "y": "Clinical",
+          "value": 120000,
+          "valueLabel": "$120K"
+        },
+        {
+          "x": "Platform",
+          "y": "Finance",
+          "value": 260000,
+          "valueLabel": "$260K"
+        },
+        {
+          "x": "Data",
+          "y": "Finance",
+          "value": 90000,
+          "valueLabel": "$90K"
+        },
+        {
+          "x": "Platform",
+          "y": "Operations",
+          "value": 180000,
+          "valueLabel": "$180K"
+        },
+        {
+          "x": "Automation",
+          "y": "Operations",
+          "value": 150000,
+          "valueLabel": "$150K"
+        },
+        {
+          "x": "Security",
+          "y": "IT",
+          "value": 200000,
+          "valueLabel": "$200K"
+        },
+        {
+          "x": "Platform",
+          "y": "IT",
+          "value": 100000,
+          "valueLabel": "$100K"
+        }
+      ]
+    },
+    "piechartCaption": {
+      "description": "Caption for the live-ARR breakdown pie.",
+      "type": "string",
+      "example": "Live ARR by product"
+    },
+    "piechartCenterLabel": {
+      "description": "Pie center label.",
+      "type": "string",
+      "example": "Live ARR"
+    },
+    "piechartCenterValue": {
+      "description": "Pie center value — total live ARR.",
+      "type": "string",
+      "example": "$1.2M"
+    },
+    "piechartSlices": {
+      "description": "Live ARR breakdown — one slice per segment. Empty array → the pie is omitted.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "description": "Slice label.",
+            "type": "string"
+          },
+          "value": {
+            "description": "Slice value (ARR).",
+            "type": "number"
+          },
+          "role": {
+            "description": "Optional emphasis; set \"highlight\" on the largest slice.",
+            "type": "string",
+            "enum": [
+              "normal",
+              "highlight"
+            ]
+          }
+        }
+      },
+      "example": [
+        {
+          "label": "Platform",
+          "value": 800000,
+          "role": "highlight"
+        },
+        {
+          "label": "Analytics",
+          "value": 120000
+        },
+        {
+          "label": "Automation",
+          "value": 130000
+        },
+        {
+          "label": "Security",
+          "value": 150000
+        }
+      ]
+    },
+    "datagridCaption": {
+      "description": "Caption for the expansion-plays datagrid.",
+      "type": "string",
+      "example": "Top expansion plays, ranked by fit and reachable ARR"
+    },
+    "datagridRows": {
+      "description": "Expansion plays — one row per play. Empty array → the datagrid is omitted.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "description": "Leading Status badge cell; omit on normal rows.",
+            "type": "object",
+            "properties": {
+              "value": {
+                "description": "Status label.",
+                "type": "string"
+              },
+              "badgeVariant": {
+                "description": "Badge color.",
+                "type": "string",
+                "enum": [
+                  "neutral",
+                  "primary",
+                  "secondary",
+                  "outline",
+                  "success",
+                  "info",
+                  "warning",
+                  "error"
+                ]
+              }
+            }
+          },
+          "play": {
+            "description": "The expansion play.",
+            "type": "string"
+          },
+          "unit": {
+            "description": "Target business unit.",
+            "type": "string"
+          },
+          "fit": {
+            "description": "Fit score (number).",
+            "type": "number"
+          },
+          "arr": {
+            "description": "Expansion ARR opportunity, in dollars (number).",
+            "type": "number"
+          },
+          "motion": {
+            "description": "Recommended motion badge cell.",
+            "type": "object",
+            "properties": {
+              "value": {
+                "description": "Motion label.",
+                "type": "string"
+              },
+              "badgeVariant": {
+                "description": "Badge color.",
+                "type": "string",
+                "enum": [
+                  "neutral",
+                  "primary",
+                  "secondary",
+                  "outline",
+                  "success",
+                  "info",
+                  "warning",
+                  "error"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "example": [
+        {
+          "status": {
+            "value": "Ready",
+            "badgeVariant": "success"
+          },
+          "play": "Analytics for Clinical",
+          "unit": "Clinical",
+          "fit": 5,
+          "arr": 480000,
+          "motion": {
+            "value": "Warm intro",
+            "badgeVariant": "success"
+          }
+        },
+        {
+          "status": {
+            "value": "Qualify",
+            "badgeVariant": "info"
+          },
+          "play": "Data platform for Finance",
+          "unit": "Finance",
+          "fit": 4,
+          "arr": 620000,
+          "motion": {
+            "value": "Discovery",
+            "badgeVariant": "info"
+          }
+        },
+        {
+          "status": {
+            "value": "Qualify",
+            "badgeVariant": "info"
+          },
+          "play": "Automation for Operations",
+          "unit": "Operations",
+          "fit": 4,
+          "arr": 330000,
+          "motion": {
+            "value": "Champion build",
+            "badgeVariant": "info"
+          }
+        },
+        {
+          "play": "Support tier upgrade",
+          "unit": "IT",
+          "fit": 3,
+          "arr": 320000,
+          "motion": {
+            "value": "Nurture",
+            "badgeVariant": "neutral"
+          }
+        }
+      ]
+    },
+    "calloutTitle": {
+      "description": "Synthesis callout heading — the top expansion play.",
+      "type": "string",
+      "example": "Start with Clinical analytics"
+    },
+    "calloutDescription": {
+      "description": "Synthesis callout body — the play and the move.",
+      "type": "string",
+      "example": "Clinical already runs Platform at full spend and has a warm champion — Analytics is a natural next buy at ~$480K. Pair it with the Finance data play for a combined $1.1M expansion path this half."
+    },
+    "primaryButtonLabel": {
+      "description": "Primary button label (action/sendMessage).",
+      "type": "string",
+      "example": "Draft expansion plan"
+    },
+    "primaryButtonContent": {
+      "description": "First-person prompt the primary button sends (action/sendMessage).",
+      "type": "string",
+      "example": "Draft an expansion plan pairing Clinical analytics (~$480K, warm intro ready) with Finance data platform (~$620K, discovery next) for a $1.1M combined play at Meridian Health."
+    },
+    "accountUrl": {
+      "description": "Account Lightning URL for the \"View in Salesforce\" button.",
+      "type": "string",
+      "example": "https://org.lightning.force.com/lightning/r/Account/001AX000004pQ2rYAE/view"
+    }
+  }
+}
+```
 ```json
 {
   "renderer": {
@@ -256,6 +592,11 @@ Tokens: `title` (account name in heading) · `subtitle` (one-line ARR summary) �
               },
               "columns": [
                 {
+                  "key": "status",
+                  "header": "Status",
+                  "type": "badge"
+                },
+                {
                   "key": "play",
                   "header": "Play",
                   "type": "text"
@@ -351,15 +692,13 @@ Tokens: `title` (account name in heading) · `subtitle` (one-line ARR summary) �
 ```
 
 Self-verification before calling:
-- [ ] Every `{{token}}` replaced with a resolved literal — no `{{…}}` left.
 - [ ] Numeric attributes (heatmap cell `value`/`domain`, `datagrid` `arr`/`fit`, piechart slice `value`) are numbers, not strings.
 - [ ] Heatmap has a cell only for owned combos (whitespace omitted → dashed/empty); axis labels short; `heatmapDomain` = `[0, largestCellValue]`.
-- [ ] `datagrid` plays with warm access or ready motion carry both `_tone` and a `_status`; speculative plays carry neither.
+- [ ] `datagrid` plays with warm access or ready motion carry a leading `status` object; speculative plays carry neither.
 - [ ] Donut slices sum to the `centerValue` live ARR; zero-ARR products dropped; largest slice `highlight`ed.
 
 
 
-> **Before writing any text:** confirm `display_widget` returned an explicit error. If it returned any non-error result, you are in widget mode — stop. The text section below does not exist in widget mode.
 ## 7. Text — FALLBACK ONLY — DO NOT USE IF `display_widget` SUCCEEDED
 
 ```

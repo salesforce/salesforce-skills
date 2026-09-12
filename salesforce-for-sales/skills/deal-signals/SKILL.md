@@ -1,21 +1,20 @@
 ---
 name: deal-signals
-description: Proactive watch over your book - deals gone quiet, close dates slipping into view, champion changes, renewal windows opening, competitor mentions - surfaced as a short alert digest you can act on. Use when the user asks "what changed in my book", "what changed in my pipeline", "any deals gone quiet", "what should I be worried about", "show me deal signals", "what moved", "what's at risk", "run my deal signals", or sets it up as a recurring scheduled task. This skill detects CHANGES and THRESHOLD CROSSINGS, not static pipeline state.
-model: claude-sonnet-4-6
-effort: medium
+description: "Build a deal-risk digest from Salesforce close dates, activity, next steps and forecast fields plus email, documents and Slack. Use to find quiet or overdue deals, close-date danger, renewal windows, competitor mentions or other risks needing attention."
 ---
 <!-- global-rules-bootstrap -->
 # Global Rules
 
 - **Execute silently between tool calls.** Do not output planning, progress, transition, waiting, or tool-result narration between calls. Execute tool calls silently and proceed directly to the next call. Parallelize independent tasks by batching tool calls into one turn whenever possible. Before the final output, speak only when the skill explicitly requires user input, approval, an exact notice, or material error/blocked reporting. Do not invent checkpoints.
 - **Keep the final output concise.** Return only the requested result or deliverable. Omit process recaps, tool-call details, redundant preambles or conclusions, and data already shown in a widget.
-- **⛔ WIDGET OUTPUT ONLY after data assembly.** Once all queries return, output only this skill's exact required pre-widget notice, then immediately call `display_widget` — no summaries, other transitions, or narration. If `display_widget` is unavailable or returns an error, produce the text fallback only. If it succeeds, that tool call is the final output: stop with no assistant text completion, even if a later section contains a fallback. The exceptions above do not apply after success.
+- **⛔ WIDGET OUTPUT ONLY after data assembly.** Once all queries return, immediately call `display_widget` — at most a single one-line render-wait notice before it, and no summaries, transitions, or narration. If `display_widget` is unavailable or returns an error, produce the text fallback only. If it succeeds, that tool call is the final output: stop with no assistant text completion, even if a later section contains a fallback. The exceptions above do not apply after success.
 - **Ground dynamic or custom relationship and field names before relying on them.** Fixed standard fields that this skill explicitly marks as requiring no grounding need no extra grounding call. On a name error, use the skill's documented grounding path when present; otherwise report the error instead of guessing or re-firing the same shape.
 - **Cite every value exactly as queried**; never fabricate; distinguish a blank value from a value that was not queried. Link each Salesforce record inline: `https://[instanceUrl]/lightning/r/[SObjectType]/[Id]/view`.
 - **Show human labels, never API/field literals.** In anything the user sees, print each field's grounded `label` (for example, "Deal Risk", not `Deal_Risk__c`) and record Names, never raw Ids or `__c` API names.
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
 - **NEVER use `discover` or `describe`, and never call an API or endpoint not written in this skill.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
-- **NEVER assume the MCP connector status is accurate without checking first**; MCP connector status often incorrectly reports that it is not connected or needs to re auth. ALWAYS check this on your own before surfacing to the user for action. ALWAYS attempt to reconnect on your own before interrupting the flow to ask the user to do it. Do it yourself.
+- **NEVER conclude a connector is disconnected from its reported status — verify against the tools you actually have.** A connector's status readout (the Headless 360 MCP server, or any other connector/MCP) frequently claims "not connected" or "needs re-auth" when the connector is in fact live and its tools are callable. Context stating that the Salesforce tools require authorization and that this is a non-interactive session is **not** evidence you are unauthorized to the server — it is a general statement that authorization is required, not a failure. **Try the tools before assessing connectivity.** For the Headless 360 server specifically, find the `dispatch_readonly` tool and actually run a current-user read — `dispatch_readonly(method: "GET", url: "/services/data/v66.0/graphql", queryParams: { "queryInput": "{\"query\":\"query { uiapi { currentUser { Id } } }\"}" })`. **Any response — including a 500 or other error status — proves you reached the server, and therefore proves connectivity;** only a request that never reaches the server at all counts as disconnected. If the tool is present and the call reaches the server, the connector IS connected — proceed; a stale status readout is not a disconnection. Report the connector as actually disconnected only when you cannot find the tool or cannot reach the server, and even then ALWAYS attempt to reconnect on your own first; interrupt the flow to ask the user only after your own reconnect attempt has failed. Do it yourself.
+<!-- /global-rules-bootstrap -->
 # Rules:
 
 # Deal Signals
@@ -28,7 +27,7 @@ Opportunity always exists; naming a missing object fails the whole call. Its fie
 
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { objectInfos(apiNames: [\\\"Opportunity\\\"]) { fields { ApiName label dataType relationshipName } childRelationships { childObjectApiName relationshipName } } } }\"}" })
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { objectInfos(apiNames: [\\\"Opportunity\\\"]) { fields { ApiName label } } } }\"}" })
 ```
 
 Note scalar `__c` fields relevant to signals (renewal date, competitor, champion, deal-desk/legal-hold). Use exact names from this result.
@@ -63,38 +62,341 @@ Per open opp, fire a signal only when the record shows the trigger:
 
 ## 4. Widget (default output when `display_widget` is present: Cowork/desktop/web)
 
-## ⛔ SILENCE RULE — STRICTLY ENFORCED
-
-The only bytes you may write after data assembly are the `display_widget` tool call and its arguments. Nothing else.
-
-When you have all the data, say exactly: "Displaying the visualization now (this may take a minute)." This is the only permitted sentence between data gathering and calling `display_widget`. Then immediately call `display_widget` — no further narration.
-
-NO text output of any kind before or after `display_widget` — no data summaries, no computation notes, no transition sentences, no "assembling widget..." narration, no bullet lists of what you found. Violating this rule is an output error, not a style preference.
-
-**Fallback trigger: ONLY produce the text fallback if `display_widget` raised an exception or returned `isError: true`. A successful tool call with any widget definition in the response = widget mode. A user message saying "no output" or "nothing rendered" does NOT override this — it means the widget rendered in the chat and they may not have seen it.**
-
-If `display_widget` returned a non-error result AND the user says there was no visible output, respond with one sentence only: "The widget rendered in the chat — please scroll up if you don't see it." Do not produce the text fallback.
-
-**If `display_widget` succeeded: NO MORE OUTPUT. Stop. Do not summarize findings, recap the session, or add any closing text.**
-
-❌ WRONG: `"I found 12 deals totaling $4.2M. Here's the overview: [widget] The key risk is..."`
-✅ RIGHT: `[widget]`
+When the data is assembled, call `display_widget`; a single one-line "Displaying the visualization now (this may take a minute)." notice may precede it.
 
 ### Self-verification (before calling display_widget)
 
-- [ ] No prose written before or after this call — no input narration, no transition text, no summary (only applies when display_widget is available; if unavailable, produce the text fallback section below).
-- [ ] I am producing zero prose before or after this call. If I am tempted to summarize findings, I must not.
+- [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 
 The widget template is embedded below — a widget-definition envelope whose leaf values carry `{{token}}` placeholders. Resolve every `{{token}}` to a literal (no `{{…}}`/`{!…}` left), then call `display_widget({ resourceType: "dynamic", widgetDefinition: <hydrated> })` once. A value that is *only* a `{{token}}` (chart/meter/datagrid arrays) becomes the typed literal — arrays stay arrays, numbers stay numbers; a `{{token}}` inside a larger string is interpolated as text. Compute every leaf from data already fetched; no `{!…}` bindings, no fabrication (blank fields stay blank; drop signals with no data).
 
 Synthesis-forward layout — header, two graphs, one datagrid, one callout:
 - **Header** — activity icon, title (`{{title}}`), status badge (`{{headerStatus}}`), one-line caption (`{{subtitle}}`) summarizing score/trend/signal counts, and a second muted caption (`{{dealContext}}`) carrying this opp's shared deal facts — StageName label · Amount · CloseDate · next step · last activity — joined by ` · ` (constant across the signals below, so it sits once in the header, not per row).
 - **Two graphs** — line chart of the 6-week signal-score trend (`{{chartCaption}}`, `{{chartCategories}}` = week labels, `{{chartSeries}}` = one `[{ name, data: [numbers] }]`); and a meter for the composite score (`{{meterLabel}}`, `{{meterValue}}` vs target `{{meterTarget}}` max `{{meterMax}}`, `valueFormat:"number"`, `{{meterValueLabel}}`, `{{meterTargetLabel}}`, `{{meterStatus}}`, and `{{meterBands}}` = ordered `[{ from, to, variant, label }]` covering 0→max for Cold/Warm/Hot, variants error/warning/success).
-- **Signals datagrid** (`{{datagridCaption}}`, `{{datagridRows}}`) — one row per signal, strongest first: `signal` (name), `dir` (badge `{ value, badgeVariant }` — success Positive / warning Watch), `when` (ISO `YYYY-MM-DD`), `note` (detail), plus `_tone` (success/warning) and `_status` (Buy/Watch); the renderer auto-injects a leading Status column from `_status`.
+- **Signals datagrid** (`{{datagridCaption}}`, `{{datagridRows}}`) — one row per signal, strongest first: `signal` (name), `dir` (badge `{ value, badgeVariant }` — success Positive / warning Watch), `when` (ISO `YYYY-MM-DD`), `note` (detail), plus a leading `status` object (`{value,badgeVariant}` — value Buy/Watch, badgeVariant success/warning); the leading Status column reads each row's `status`.
 - **One synthesis callout** (`variant:"success"`) closes the widget — `{{calloutTitle}}` (the single most important read) and `{{calloutDescription}}`, with two real buttons: primary `action/sendMessage` (`{{primaryButtonLabel}}` / first-person `{{primaryButtonContent}}`) and secondary "View in Salesforce" `action/openLink` to `{{oppUrl}}` (`https://<myDomain>/lightning/r/Opportunity/<Id>/view`; omit if you lack the Id). No decorative buttons.
 
-Before calling, verify: no `{{…}}`/`{!…}` remain; `{{chartCategories}}`/`{{chartSeries}}`/`{{meterBands}}`/`{{datagridRows}}` are arrays and `{{meterValue}}`/`{{meterMax}}`/`{{meterTarget}}` numbers; both buttons wired (real sendMessage `content`, openLink `url`); two graphs present; the callout closes it. Tokens: title subtitle dealContext headerStatus meterLabel/Value/Max/Target/ValueLabel/TargetLabel/Status/Bands chartCaption/chartCategories/chartSeries datagridCaption/datagridRows calloutTitle/calloutDescription primaryButtonLabel/primaryButtonContent oppUrl.
+Before calling, verify: no `{{…}}`/`{!…}` remain; `{{chartCategories}}`/`{{chartSeries}}`/`{{meterBands}}`/`{{datagridRows}}` are arrays and `{{meterValue}}`/`{{meterMax}}`/`{{meterTarget}}` numbers; both buttons wired (real sendMessage `content`, openLink `url`); two graphs present; the callout closes it.
 
+Two blocks below: first the **variable contract** (`renderer.props.schema.json`) — every `{{token}}`'s type + a worked example, use it to compute each value; then the **widget template** to hydrate. Substitute your computed values into the template's `{{token}}`s (see the token-typing rules above), leaving no `{{…}}`/`{!…}`.
+```json
+{
+  "$comment": "Variable contract for the native-mosaic dynamic-mode template (renderer.json, sibling). This is NOT a separate display_widget call — it names every {{token}} in the template with its type and a worked example so you compute the right value for each. Workflow: build a props object with these keys, substitute each into the matching {{token}} in renderer.json (a slot that is only a {{token}} becomes the typed value — arrays stay arrays, numbers stay numbers; a {{token}} inside a larger string interpolates as text; a key you have no data for is omitted so that leaf drops), then call display_widget({ resourceType: 'dynamic', widgetDefinition: <the hydrated template> }) once with no {{…}}/{!…} left. Realistic values: sample-data.json (sibling). Authoring guidance (from the skill): The widget template is embedded below — a widget-definition envelope whose leaf values carry `{{token}}` placeholders. Resolve every `{{token}}` to a literal (no `{{…}}`/`{!…}` left), then call `display_widget({ resourceType: \"dynamic\", widgetDefinition: <hydrated> })` once. A value that is *only* a `{{token}}` (chart/meter/datagrid arrays) becomes the typed literal — arrays stay arrays, numbers stay numbers; a `{{token}}` inside a larger string is interpolated as text. Compute every leaf from data already fetched; no `{!…}` bindings, no fabrication (blank fields stay blank; drop signals with no data).\n- **Header** — activity icon, title (`{{title}}`), status badge (`{{headerStatus}}`), one-line caption (`{{subtitle}}`) summarizing score/trend/signal counts, and a second muted caption (`{{dealContext}}`) carrying this opp's shared deal facts — StageName label · Amount · CloseDate · next step · last activity — joined by ` · ` (constant across the signals below, so it sits once in the header, not per row).\n- **Two graphs** — line chart of the 6-week signal-score trend (`{{chartCaption}}`, `{{chartCategories}}` = week labels, `{{chartSeries}}` = one `[{ name, data: [numbers] }]`); and a meter for the composite score (`{{meterLabel}}`, `{{meterValue}}` vs target `{{meterTarget}}` max `{{meterMax}}`, `valueFormat:\"number\"`, `{{meterValueLabel}}`, `{{meterTargetLabel}}`, `{{meterStatus}}`, and `{{meterBands}}` = ordered `[{ from, to, variant, label }]` covering 0→max for Cold/Warm/Hot, variants error/warning/success).\n- **Signals datagrid** (`{{datagridCaption}}`, `{{datagridRows}}`) — one row per signal, strongest first: `signal` (name), `dir` (badge `{ value, badgeVariant }` — success Positive / warning Watch), `when` (ISO `YYYY-MM-DD`), `note` (detail), plus a leading `status` object (`{value,badgeVariant}` — value Buy/Watch, badgeVariant success/warning); the leading Status column reads each row's `status`.\n- **One synthesis callout** (`variant:\"success\"`) closes the widget — `{{calloutTitle}}` (the single most important read) and `{{calloutDescription}}`, with two real buttons: primary `action/sendMessage` (`{{primaryButtonLabel}}` / first-person `{{primaryButtonContent}}`) and secondary \"View in Salesforce\" `action/openLink` to `{{oppUrl}}` (`https://<myDomain>/lightning/r/Opportunity/<Id>/view`; omit if you lack the Id). No decorative buttons.\nBefore calling, verify: no `{{…}}`/`{!…}` remain; `{{chartCategories}}`/`{{chartSeries}}`/`{{meterBands}}`/`{{datagridRows}}` are arrays and `{{meterValue}}`/`{{meterMax}}`/`{{meterTarget}}` numbers; both buttons wired (real sendMessage `content`, openLink `url`); two graphs present; the callout closes it. Tokens: title subtitle dealContext headerStatus meterLabel/Value/Max/Target/ValueLabel/TargetLabel/Status/Bands chartCaption/chartCategories/chartSeries datagridCaption/datagridRows calloutTitle/calloutDescription primaryButtonLabel/primaryButtonContent oppUrl.",
+  "props": {
+    "title": {
+      "description": "Header title for the buying-signals view.",
+      "type": "string",
+      "example": "Buying signals — Cobalt Robotics"
+    },
+    "headerStatus": {
+      "description": "Header status badge (overall signal strength).",
+      "type": "string",
+      "example": "STRONG BUY"
+    },
+    "subtitle": {
+      "description": "Caption: composite score, trend, and signal counts.",
+      "type": "string",
+      "example": "Signal score 74 / 100 · trending up · 3 strong buys, 1 warning"
+    },
+    "dealContext": {
+      "description": "Muted second caption with the opp's shared deal facts — stage · amount · close date · next step · last activity, joined by ' · '.",
+      "type": "string",
+      "example": "Negotiation · $1.8M · close Sep 30 · next: exec review Jul 28 · last activity Jul 20"
+    },
+    "chartCaption": {
+      "description": "Caption for the 6-week signal-score trend line chart.",
+      "type": "string",
+      "example": "Signal score, last 6 weeks"
+    },
+    "chartCategories": {
+      "description": "Week labels for the trend chart's x-axis, as strings.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "example": [
+        "Wk 1",
+        "Wk 2",
+        "Wk 3",
+        "Wk 4",
+        "Wk 5",
+        "Wk 6"
+      ]
+    },
+    "chartSeries": {
+      "description": "Trend series — one object {name, data}.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "description": "Series name.",
+            "type": "string"
+          },
+          "data": {
+            "description": "Weekly signal scores — a number array matching chartCategories.",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        }
+      },
+      "example": [
+        {
+          "name": "Score",
+          "data": [
+            48,
+            52,
+            60,
+            63,
+            70,
+            74
+          ]
+        }
+      ]
+    },
+    "meterLabel": {
+      "description": "Label for the composite-score meter.",
+      "type": "string",
+      "example": "Composite signal score"
+    },
+    "meterValue": {
+      "description": "Composite signal score — the meter's current value.",
+      "type": "number",
+      "example": 74
+    },
+    "meterMax": {
+      "description": "The meter's max.",
+      "type": "number",
+      "example": 100
+    },
+    "meterTarget": {
+      "description": "Target marker on the meter.",
+      "type": "number",
+      "example": 70
+    },
+    "meterValueLabel": {
+      "description": "Display string for the score.",
+      "type": "string",
+      "example": "74 / 100"
+    },
+    "meterTargetLabel": {
+      "description": "Display string for the target.",
+      "type": "string",
+      "example": "70 = strong"
+    },
+    "meterStatus": {
+      "description": "Short read shown on the meter (Cold / Warm / Hot).",
+      "type": "string",
+      "example": "strong buy"
+    },
+    "meterBands": {
+      "description": "Color bands for the meter, in order covering 0→max (Cold / Warm / Hot).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "description": "Band start value.",
+            "type": "number"
+          },
+          "to": {
+            "description": "Band end value.",
+            "type": "number"
+          },
+          "variant": {
+            "description": "Band color.",
+            "type": "string",
+            "enum": [
+              "error",
+              "warning",
+              "success"
+            ]
+          },
+          "label": {
+            "description": "Short band label.",
+            "type": "string"
+          }
+        }
+      },
+      "example": [
+        {
+          "from": 0,
+          "to": 40,
+          "variant": "error",
+          "label": "Cold"
+        },
+        {
+          "from": 40,
+          "to": 70,
+          "variant": "warning",
+          "label": "Warm"
+        },
+        {
+          "from": 70,
+          "to": 100,
+          "variant": "success",
+          "label": "Hot"
+        }
+      ]
+    },
+    "datagridCaption": {
+      "description": "Caption for the signals datagrid.",
+      "type": "string",
+      "example": "Signals detected, strongest first"
+    },
+    "datagridRows": {
+      "description": "Buying signals — one row per signal, strongest first. Empty array → the datagrid is omitted.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "description": "Leading Status badge cell; omit on normal rows.",
+            "type": "object",
+            "properties": {
+              "value": {
+                "description": "Status label.",
+                "type": "string"
+              },
+              "badgeVariant": {
+                "description": "Badge color.",
+                "type": "string",
+                "enum": [
+                  "neutral",
+                  "primary",
+                  "secondary",
+                  "outline",
+                  "success",
+                  "info",
+                  "warning",
+                  "error"
+                ]
+              }
+            }
+          },
+          "signal": {
+            "description": "Signal name.",
+            "type": "string"
+          },
+          "dir": {
+            "description": "Direction badge cell.",
+            "type": "object",
+            "properties": {
+              "value": {
+                "description": "Direction label (Positive / Watch).",
+                "type": "string"
+              },
+              "badgeVariant": {
+                "description": "Badge color: success=Positive, warning=Watch.",
+                "type": "string",
+                "enum": [
+                  "neutral",
+                  "primary",
+                  "secondary",
+                  "outline",
+                  "success",
+                  "info",
+                  "warning",
+                  "error"
+                ]
+              }
+            }
+          },
+          "when": {
+            "description": "Signal date, ISO YYYY-MM-DD.",
+            "type": "string"
+          },
+          "note": {
+            "description": "Short detail for the signal.",
+            "type": "string"
+          }
+        }
+      },
+      "example": [
+        {
+          "status": {
+            "value": "Buy",
+            "badgeVariant": "success"
+          },
+          "signal": "Budget approved",
+          "dir": {
+            "value": "Positive",
+            "badgeVariant": "success"
+          },
+          "when": "2026-07-06",
+          "note": "CFO confirmed renewal + expansion budget"
+        },
+        {
+          "status": {
+            "value": "Buy",
+            "badgeVariant": "success"
+          },
+          "signal": "Multi-thread widening",
+          "dir": {
+            "value": "Positive",
+            "badgeVariant": "success"
+          },
+          "when": "2026-07-13",
+          "note": "5 contacts engaged, up from 2"
+        },
+        {
+          "status": {
+            "value": "Buy",
+            "badgeVariant": "success"
+          },
+          "signal": "Usage climbing",
+          "dir": {
+            "value": "Positive",
+            "badgeVariant": "success"
+          },
+          "when": "2026-07-18",
+          "note": "Platform seats +12% this month"
+        },
+        {
+          "status": {
+            "value": "Watch",
+            "badgeVariant": "warning"
+          },
+          "signal": "Competitor mentioned",
+          "dir": {
+            "value": "Watch",
+            "badgeVariant": "warning"
+          },
+          "when": "2026-07-20",
+          "note": "CIO referenced in-house build option"
+        }
+      ]
+    },
+    "calloutTitle": {
+      "description": "Synthesis callout heading — the single most important read.",
+      "type": "string",
+      "example": "Signals say press now"
+    },
+    "calloutDescription": {
+      "description": "Synthesis callout body — the read and the move.",
+      "type": "string",
+      "example": "Score climbed 48→74 in six weeks on budget approval, wider threading, and rising usage. The one caution is the CIO's in-house-build comment — get ahead of it in the exec meeting and this closes on time."
+    },
+    "primaryButtonLabel": {
+      "description": "Primary button label (action/sendMessage).",
+      "type": "string",
+      "example": "Draft exec ask"
+    },
+    "primaryButtonContent": {
+      "description": "First-person prompt the primary button sends (action/sendMessage).",
+      "type": "string",
+      "example": "Draft an exec ask for the Cobalt meeting focused on addressing the in-house-build option the CIO mentioned."
+    },
+    "oppUrl": {
+      "description": "Opportunity Lightning URL for the secondary \"View in Salesforce\" button; omit if no Id.",
+      "type": "string",
+      "example": "https://org.lightning.force.com/lightning/r/Opportunity/006AX00000M8k2pYAD/view"
+    }
+  }
+}
+```
 ```json
 {
   "renderer": {
@@ -164,6 +466,7 @@ Before calling, verify: no `{{…}}`/`{!…}` remain; `{{chartCategories}}`/`{{c
               "caption": "{{datagridCaption}}",
               "appearance": "striped",
               "columns": [
+                { "key": "status", "header": "Status", "type": "badge" },
                 { "key": "signal", "header": "Signal", "type": "text" },
                 { "key": "dir", "header": "Direction", "type": "badge" },
                 { "key": "when", "header": "Detected", "type": "date" },
@@ -214,7 +517,6 @@ Before calling, verify: no `{{…}}`/`{!…}` remain; `{{chartCategories}}`/`{{c
 ```
 
 
-> **Before writing any text:** confirm `display_widget` returned an explicit error. If it returned any non-error result, you are in widget mode — stop. The text section below does not exist in widget mode.
 ## 5. Text — FALLBACK ONLY — DO NOT USE IF `display_widget` SUCCEEDED
 
 Per fired signal, surface the trigger value **plus one or two supporting facts** from the Step 2 record (all already fetched — no new read), separated by ` • ` so the evidence is scannable, not a single condensed fact. Blank line between the 🔴 and 🟡 groups.

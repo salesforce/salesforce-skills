@@ -1,21 +1,20 @@
 ---
 name: customer-health
-description: Health check on a customer account and QBR-ready prep - relationship strength, engagement trend, risk signals, value delivered, and the agenda that makes the review worth their time. Use when the user asks "how healthy is [account]", "customer health check", "prep the [account] QBR", "prepare QBR", "business review prep", "quarterly business review", or "are we at risk with [customer]". IMPORTANT: This is for CUSTOMER HEALTH and QBR prep, NOT for prepping calls with prospects - that's call-prep.
-model: claude-sonnet-4-6
-effort: medium
+description: "Assess customer health from Salesforce account, renewal, case, task, and health data plus email, calendar, documents, and Slack. Use to judge risk, explain engagement or value trends, or prepare a business review; prospect meeting prep: call-prep."
 ---
 <!-- global-rules-bootstrap -->
 # Global Rules
 
 - **Execute silently between tool calls.** Do not output planning, progress, transition, waiting, or tool-result narration between calls. Execute tool calls silently and proceed directly to the next call. Parallelize independent tasks by batching tool calls into one turn whenever possible. Before the final output, speak only when the skill explicitly requires user input, approval, an exact notice, or material error/blocked reporting. Do not invent checkpoints.
 - **Keep the final output concise.** Return only the requested result or deliverable. Omit process recaps, tool-call details, redundant preambles or conclusions, and data already shown in a widget.
-- **⛔ WIDGET OUTPUT ONLY after data assembly.** Once all queries return, output only this skill's exact required pre-widget notice, then immediately call `display_widget` — no summaries, other transitions, or narration. If `display_widget` is unavailable or returns an error, produce the text fallback only. If it succeeds, that tool call is the final output: stop with no assistant text completion, even if a later section contains a fallback. The exceptions above do not apply after success.
+- **⛔ WIDGET OUTPUT ONLY after data assembly.** Once all queries return, immediately call `display_widget` — at most a single one-line render-wait notice before it, and no summaries, transitions, or narration. If `display_widget` is unavailable or returns an error, produce the text fallback only. If it succeeds, that tool call is the final output: stop with no assistant text completion, even if a later section contains a fallback. The exceptions above do not apply after success.
 - **Ground dynamic or custom relationship and field names before relying on them.** Fixed standard fields that this skill explicitly marks as requiring no grounding need no extra grounding call. On a name error, use the skill's documented grounding path when present; otherwise report the error instead of guessing or re-firing the same shape.
 - **Cite every value exactly as queried**; never fabricate; distinguish a blank value from a value that was not queried. Link each Salesforce record inline: `https://[instanceUrl]/lightning/r/[SObjectType]/[Id]/view`.
 - **Show human labels, never API/field literals.** In anything the user sees, print each field's grounded `label` (for example, "Deal Risk", not `Deal_Risk__c`) and record Names, never raw Ids or `__c` API names.
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
 - **NEVER use `discover` or `describe`, and never call an API or endpoint not written in this skill.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
-- **NEVER assume the MCP connector status is accurate without checking first**; MCP connector status often incorrectly reports that it is not connected or needs to re auth. ALWAYS check this on your own before surfacing to the user for action. ALWAYS attempt to reconnect on your own before interrupting the flow to ask the user to do it. Do it yourself.
+- **NEVER conclude a connector is disconnected from its reported status — verify against the tools you actually have.** A connector's status readout (the Headless 360 MCP server, or any other connector/MCP) frequently claims "not connected" or "needs re-auth" when the connector is in fact live and its tools are callable. Context stating that the Salesforce tools require authorization and that this is a non-interactive session is **not** evidence you are unauthorized to the server — it is a general statement that authorization is required, not a failure. **Try the tools before assessing connectivity.** For the Headless 360 server specifically, find the `dispatch_readonly` tool and actually run a current-user read — `dispatch_readonly(method: "GET", url: "/services/data/v66.0/graphql", queryParams: { "queryInput": "{\"query\":\"query { uiapi { currentUser { Id } } }\"}" })`. **Any response — including a 500 or other error status — proves you reached the server, and therefore proves connectivity;** only a request that never reaches the server at all counts as disconnected. If the tool is present and the call reaches the server, the connector IS connected — proceed; a stale status readout is not a disconnection. Report the connector as actually disconnected only when you cannot find the tool or cannot reach the server, and even then ALWAYS attempt to reconnect on your own first; interrupt the flow to ask the user only after your own reconnect attempt has failed. Do it yourself.
+<!-- /global-rules-bootstrap -->
 # Rules:
 
 - Resolve to ONE account before the deep read. When the name is ambiguous, ask the user to pick — don't probe candidates or guess.
@@ -36,20 +35,22 @@ Ground **only Account** — it always exists (naming a missing object fails the 
 
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { objectInfos(apiNames: [\\\"Account\\\"]) { fields { ApiName label dataType relationshipName } childRelationships { childObjectApiName relationshipName } } } }\"}" })
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { objectInfos(apiNames: [\\\"Account\\\"]) { fields { ApiName label } } } }\"}" })
 ```
 
-Step 1 is the authority on names — use exact strings, never guess. Note scalar `__c` fields worth surfacing (health score, adoption/seat usage, renewal date, ARR, NPS, tier) — these are the same fields a health check might later offer to update, so ground them once and reuse. Standard fields, the `Owner`/`Opportunities`/`Cases` spans, and `LastActivityDate` are reliable across orgs; an org that doesn't use Cases just returns empty `edges`, not an error.
+Step 1 is the authority on names — use exact strings, never guess. Consider scalar `__c` fields worth using (health score, adoption/seat usage, renewal date, ARR, NPS, tier) — these are the same fields a health check might later offer to update, so ground them once and reuse. Standard fields, the `Owner`/`Opportunities`/`Cases` spans, and `LastActivityDate` are reliable across orgs; an org that doesn't use Cases just returns empty `edges`, not an error. Do not output all the field names.
 
 ## 2. Read (fill from step 1)
 
 `%ACCOUNT%` = the user's match (1–2 words); swap for `Id: { eq: \"...\" }` when an SFDC Id was given instead of a name. One call pulls the account plus its open-renewal-relevant opportunities and recent cases — no separate dispatch per object.
 
-**Reference-field rule (avoids the retry loop):** a scalar/`__c` field → `Field__c { value }` (`{ value displayValue }` for currency/picklist). A related record's name → span the exact `relationshipName` from step 1 (`Owner { Name { value } }`); never append `{ … }` to a raw `Id`/`__c` field. Insert `<ACCT_CUSTOM>` = confirmed Account `__c { value }` fields.
+**Field rule (avoids the retry loop):** add grounded custom fields only as `Field__c { value }` (`{ value displayValue }` for currency/picklist). Use the standard `Owner` span already written in the template; never invent a relationship span from a raw `Id`/`__c` field. Insert `<ACCT_CUSTOM>` = confirmed Account `__c { value }` fields.
+
+Treat this GraphQL read template as literal. Replace only `%ACCOUNT%`, `<ACCT_CUSTOM>`, or the documented exact-Id filter. Do not reconstruct, shorten, flatten, or remove its trailing closing delimiters.
 
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Account(where: { Name: { like: \\\"%ACCOUNT%\\\" } }, first: 1) { edges { node { Id Name { value } Type { value } Industry { value } AnnualRevenue { value displayValue } LastActivityDate { value } CreatedDate { value } <ACCT_CUSTOM> Owner { Name { value } } Opportunities(first: 20, orderBy: { CloseDate: { order: DESC } }) { edges { node { Id Name { value } Type { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } IsWon { value } } } } Cases(first: 10, where: { CreatedDate: { gte: { literal: LAST_90_DAYS } } }, orderBy: { CreatedDate: { order: DESC } }) { edges { node { CaseNumber { value } Subject { value } Status { value } Priority { value } CreatedDate { value } } } } Tasks(first: 20, where: { ActivityDate: { gte: { literal: LAST_90_DAYS } } }, orderBy: { ActivityDate: { order: DESC } }) { edges { node { Subject { value } ActivityDate { value } Type { value } } } } } } } } } }\"}" })
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Account(where: { Name: { like: \\\"%ACCOUNT%\\\" } }, first: 1) { edges { node { Id Name { value } Type { value } Industry { value } AnnualRevenue { value displayValue } LastActivityDate { value } CreatedDate { value } <ACCT_CUSTOM> Owner { Name { value } } Opportunities(first: 20, orderBy: { CloseDate: { order: DESC } }) { edges { node { Id Name { value } Type { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } IsWon { value } } } } Cases(first: 10, where: { CreatedDate: { gte: { literal: LAST_90_DAYS } } }, orderBy: { CreatedDate: { order: DESC } }) { edges { node { CaseNumber { value } Subject { value } Status { value } Priority { value } CreatedDate { value } } } } Tasks(first: 20, where: { ActivityDate: { gte: { literal: LAST_90_DAYS } } }, orderBy: { ActivityDate: { order: DESC } }) { edges { node { Subject { value } ActivityDate { value } TaskSubtype { value } } } } } } } } } }\"}" })
 ```
 
 Empty `edges` on `Account` → broaden `%ACCOUNT%`, or ask the user for the right account. Empty `edges` on `Cases`/`Tasks` just means none in the window — don't retry, don't treat as an error. The `Tasks` child (last 90d) is the in-CRM activity cadence behind the Engagement-trend dimension (and the widget engagement chart) — read it even when no external calendar/email connector is present.
@@ -78,32 +79,334 @@ Overall verdict with the one or two dimensions driving it.
 
 ## 4. Output — widget FIRST (the rendered UI is the default)
 
-## ⛔ SILENCE RULE — STRICTLY ENFORCED
-
-The only bytes you may write after data assembly are the `display_widget` tool call and its arguments. Nothing else.
-
-When you have all the data, say exactly: "Displaying the visualization now (this may take a minute)." This is the only permitted sentence between data gathering and calling `display_widget`. Then immediately call `display_widget` — no further narration.
-
-NO text output of any kind before or after `display_widget` — no data summaries, no computation notes, no transition sentences, no "assembling widget..." narration, no bullet lists of what you found. Violating this rule is an output error, not a style preference.
-
-**Fallback trigger: ONLY produce the text fallback if `display_widget` raised an exception or returned `isError: true`. A successful tool call with any widget definition in the response = widget mode. A user message saying "no output" or "nothing rendered" does NOT override this — it means the widget rendered in the chat and they may not have seen it.**
-
-If `display_widget` returned a non-error result AND the user says there was no visible output, respond with one sentence only: "The widget rendered in the chat — please scroll up if you don't see it." Do not produce the text fallback.
-
-**If `display_widget` succeeded: NO MORE OUTPUT. Stop. Do not summarize findings, recap the session, or add any closing text.**
-
-❌ WRONG: `"I found 12 deals totaling $4.2M. Here's the overview: [widget] The key risk is..."`
-✅ RIGHT: `[widget]`
+When the data is assembled, call `display_widget`; a single one-line "Displaying the visualization now (this may take a minute)." notice may precede it.
 
 ### Self-verification (before calling display_widget)
 
-- [ ] No prose written before or after this call — no input narration, no transition text, no summary (only applies when display_widget is available; if unavailable, produce the text fallback section below).
-- [ ] I am producing zero prose before or after this call. If I am tempted to summarize findings, I must not.
+- [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 
-The widget template is embedded below — a widget-definition envelope whose leaf values carry {{token}} placeholders. Resolve every {{token}} to a literal (no {{…}}/{!…} left), then call `display_widget({ resourceType: "dynamic", widgetDefinition: <hydrated> })` once. A value that is *only* a {{token}} becomes the typed literal — arrays stay arrays, numbers stay numbers; a {{token}} inside a larger string is interpolated as text.
+The widget template is embedded below — resolve its tokens and call `display_widget({ resourceType: "dynamic", widgetDefinition: <hydrated> })` once (see the `widgetDefinition` param for token-resolution rules).
 
-Tokens: `headerTitle headerStatus` (header — account name; `headerStatus` is a plain string badge label e.g. "AT RISK" / "HEALTHY" / "NEEDS ATTENTION" — not a variant, the renderer maps the label to a variant automatically) `headerSubtitle` (subtitle with ARR · renewal days · health score+trend) · `chartCaption chartCategories chartSeries` (line chart — weekly engagement/usage trend over 6 weeks from evidence; omit the chart entirely if no cadence signal was gathered) · `meterValue meterTarget meterValueLabel meterTargetLabel meterStatus meterBands` (composite health meter 0–100, bands array with from/to/variant/label covering the full range) · `gridCaption gridRows` (health signals datagrid — `gridRows` is an array, one per Step 3 dimension: `{signal, now (plain string — always a formatted string, never a raw number; use context-appropriate formatting e.g. "322", "18 open", "0 / 90d", "5 of 12"), trend(number[6]), note, _tone(error/warning on 🔴/🟡), _status (plain string e.g. "Declining", "Rising", "Cold", "Stalled", "Softening")}`; renderer auto-injects Status column from `_status`) · `calloutTitle calloutDescription ctaPrimaryLabel ctaPrimaryMsg accountUrl` (synthesis callout with two buttons — primary is action/sendMessage with first-person prompt, secondary is action/openLink to the account Lightning URL). Omit any block whose data you lack rather than passing empty arrays.
-
+Two blocks below: first the **variable contract** (`renderer.props.schema.json`) — every `{{token}}`'s type + a worked example, use it to compute each value; then the **widget template** to hydrate. Substitute your computed values into the template's `{{token}}`s (see the token-typing rules above), leaving no `{{…}}`/`{!…}`.
+```json
+{
+  "$comment": "Variable contract for the native-mosaic dynamic-mode template (renderer.json, sibling). This is NOT a separate display_widget call — it names every {{token}} in the template with its type and a worked example so you compute the right value for each. Workflow: build a props object with these keys, substitute each into the matching {{token}} in renderer.json (a slot that is only a {{token}} becomes the typed value — arrays stay arrays, numbers stay numbers; a {{token}} inside a larger string interpolates as text; a key you have no data for is omitted so that leaf drops), then call display_widget({ resourceType: 'dynamic', widgetDefinition: <the hydrated template> }) once with no {{…}}/{!…} left. Realistic values: sample-data.json (sibling). Authoring guidance (from the skill): `headerTitle headerStatus` (header — account name; `headerStatus` is a plain string badge label e.g. \"AT RISK\" / \"HEALTHY\" / \"NEEDS ATTENTION\" — not a variant, the renderer maps the label to a variant automatically) `headerSubtitle` (subtitle with ARR · renewal days · health score+trend) · `chartCaption chartCategories chartSeries` (line chart — weekly engagement/usage trend over 6 weeks from evidence; omit the chart entirely if no cadence signal was gathered) · `meterValue meterTarget meterValueLabel meterTargetLabel meterStatus meterBands` (composite health meter 0–100, bands array with from/to/variant/label covering the full range) · `gridCaption gridRows` (health signals datagrid — `gridRows` is an array, one per Step 3 dimension: `{signal, now (plain string — always a formatted string, never a raw number; use context-appropriate formatting e.g. \"322\", \"18 open\", \"0 / 90d\", \"5 of 12\"), trend(number[6]), note, status:{value,badgeVariant} (value plain string e.g. \"Declining\", \"Rising\", \"Cold\", \"Stalled\", \"Softening\", badgeVariant error/warning on 🔴/🟡)}`; the leading Status column reads each row's `status`) · `calloutTitle calloutDescription ctaPrimaryLabel ctaPrimaryMsg accountUrl` (synthesis callout with two buttons — primary is action/sendMessage with first-person prompt, secondary is action/openLink to the account Lightning URL). Omit any block whose data you lack rather than passing empty arrays.",
+  "props": {
+    "headerTitle": {
+      "description": "Header title — the account name.",
+      "type": "string",
+      "example": "Account health — Meridian Health"
+    },
+    "headerStatus": {
+      "description": "Header status badge label, a plain string (e.g. \"AT RISK\" / \"HEALTHY\" / \"NEEDS ATTENTION\") — the renderer maps the label to a color; do not pass a variant.",
+      "type": "string",
+      "example": "AT RISK"
+    },
+    "headerSubtitle": {
+      "description": "Subtitle: ARR · days to renewal · health score + trend.",
+      "type": "string",
+      "example": "$1.2M ARR · renews in 78 days · health 62, down 11 pts this quarter"
+    },
+    "chartCaption": {
+      "description": "Caption for the weekly engagement/usage trend line chart.",
+      "type": "string",
+      "example": "Weekly active users — 6-week slide from 410 to 322"
+    },
+    "chartCategories": {
+      "description": "Week labels for the trend chart's x-axis (6 weeks), as strings.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "example": [
+        "Wk 1",
+        "Wk 2",
+        "Wk 3",
+        "Wk 4",
+        "Wk 5",
+        "Wk 6"
+      ]
+    },
+    "chartSeries": {
+      "description": "Trend series — one object {name, data}. Omit the whole chart if no cadence signal was gathered.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "description": "Series name.",
+            "type": "string"
+          },
+          "data": {
+            "description": "Weekly values — a number array matching chartCategories order.",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        }
+      },
+      "example": [
+        {
+          "name": "Weekly active users",
+          "data": [
+            410,
+            398,
+            375,
+            360,
+            341,
+            322
+          ]
+        }
+      ]
+    },
+    "meterValue": {
+      "description": "Composite health score, 0–100 — the meter's current value.",
+      "type": "number",
+      "example": 62
+    },
+    "meterTarget": {
+      "description": "Health target on the meter.",
+      "type": "number",
+      "example": 75
+    },
+    "meterValueLabel": {
+      "description": "Display string for the health score.",
+      "type": "string",
+      "example": "62 / 100"
+    },
+    "meterTargetLabel": {
+      "description": "Display string for the target.",
+      "type": "string",
+      "example": "75 healthy"
+    },
+    "meterStatus": {
+      "description": "Short health read shown on the meter.",
+      "type": "string",
+      "example": "at risk"
+    },
+    "meterBands": {
+      "description": "Color bands for the health meter, in order covering 0→100.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "description": "Band start value.",
+            "type": "number"
+          },
+          "to": {
+            "description": "Band end value.",
+            "type": "number"
+          },
+          "variant": {
+            "description": "Band color.",
+            "type": "string",
+            "enum": [
+              "error",
+              "warning",
+              "success"
+            ]
+          },
+          "label": {
+            "description": "Short band label.",
+            "type": "string"
+          }
+        }
+      },
+      "example": [
+        {
+          "from": 0,
+          "to": 50,
+          "variant": "error",
+          "label": "Critical"
+        },
+        {
+          "from": 50,
+          "to": 75,
+          "variant": "warning",
+          "label": "At risk"
+        },
+        {
+          "from": 75,
+          "to": 100,
+          "variant": "success",
+          "label": "Healthy"
+        }
+      ]
+    },
+    "gridCaption": {
+      "description": "Caption for the health-signals datagrid.",
+      "type": "string",
+      "example": "Health signals, worst first — trend is last 6 weeks"
+    },
+    "gridRows": {
+      "description": "Health signals — one row per Step 3 dimension. Empty array → the datagrid is omitted.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "description": "Leading Status badge cell; omit on normal rows.",
+            "type": "object",
+            "properties": {
+              "value": {
+                "description": "Status label.",
+                "type": "string"
+              },
+              "badgeVariant": {
+                "description": "Badge color.",
+                "type": "string",
+                "enum": [
+                  "neutral",
+                  "primary",
+                  "secondary",
+                  "outline",
+                  "success",
+                  "info",
+                  "warning",
+                  "error"
+                ]
+              }
+            }
+          },
+          "signal": {
+            "description": "Signal / dimension name.",
+            "type": "string"
+          },
+          "now": {
+            "description": "Current value as a formatted string, never a raw number (e.g. \"322\", \"18 open\", \"0 / 90d\", \"5 of 12\").",
+            "type": "string"
+          },
+          "trend": {
+            "description": "Sparkline values — a 6-number array.",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "note": {
+            "description": "Short evidence note for the signal.",
+            "type": "string"
+          }
+        }
+      },
+      "example": [
+        {
+          "status": {
+            "value": "Declining",
+            "badgeVariant": "error"
+          },
+          "signal": "Weekly active users",
+          "now": "322",
+          "trend": [
+            410,
+            398,
+            375,
+            360,
+            341,
+            322
+          ],
+          "note": "Down 21% — champion left in wk 3"
+        },
+        {
+          "status": {
+            "value": "Rising",
+            "badgeVariant": "error"
+          },
+          "signal": "Support tickets",
+          "now": "18 open",
+          "trend": [
+            4,
+            6,
+            9,
+            12,
+            15,
+            18
+          ],
+          "note": "3 escalated, 2 past SLA"
+        },
+        {
+          "status": {
+            "value": "Cold",
+            "badgeVariant": "warning"
+          },
+          "signal": "Exec sponsor touches",
+          "now": "0 / 90d",
+          "trend": [
+            2,
+            1,
+            1,
+            0,
+            0,
+            0
+          ],
+          "note": "No exec contact since March"
+        },
+        {
+          "status": {
+            "value": "Stalled",
+            "badgeVariant": "warning"
+          },
+          "signal": "Feature adoption",
+          "now": "5 of 12",
+          "trend": [
+            5,
+            5,
+            5,
+            5,
+            5,
+            5
+          ],
+          "note": "Flat — never onboarded to analytics"
+        },
+        {
+          "status": {
+            "value": "Softening",
+            "badgeVariant": "warning"
+          },
+          "signal": "NPS (last survey)",
+          "now": "42",
+          "trend": [
+            58,
+            58,
+            51,
+            51,
+            42,
+            42
+          ],
+          "note": "Slipped from promoter to passive"
+        }
+      ]
+    },
+    "calloutTitle": {
+      "description": "Synthesis callout heading — the single most important health read.",
+      "type": "string",
+      "example": "Renewal is at risk — act this month"
+    },
+    "calloutDescription": {
+      "description": "Synthesis callout body — the read and the recommended move.",
+      "type": "string",
+      "example": "Usage is down 21%, the champion left in week 3, and there's been no exec touch in 90 days with the renewal 78 days out. Book an exec business review and a re-onboarding on analytics before the quota clock runs down."
+    },
+    "ctaPrimaryLabel": {
+      "description": "Primary button label (action/sendMessage).",
+      "type": "string",
+      "example": "Draft exec business review"
+    },
+    "ctaPrimaryMsg": {
+      "description": "First-person prompt the primary button sends (action/sendMessage).",
+      "type": "string",
+      "example": "Draft an exec business review agenda for Meridian Health focused on resetting the relationship and addressing the 21% usage decline before renewal."
+    },
+    "accountUrl": {
+      "description": "Account Lightning URL for the secondary \"View in Salesforce\" button (action/openLink).",
+      "type": "string",
+      "example": "https://org.lightning.force.com/lightning/r/Account/001AX000004pQ2rYAE/view"
+    }
+  }
+}
+```
 ```json
 {
   "renderer": {
@@ -208,6 +511,11 @@ Tokens: `headerTitle headerStatus` (header — account name; `headerStatus` is a
               "appearance": "striped",
               "columns": [
                 {
+                  "key": "status",
+                  "header": "Status",
+                  "type": "badge"
+                },
+                {
                   "key": "signal",
                   "header": "Signal",
                   "type": "text"
@@ -295,7 +603,6 @@ Tokens: `headerTitle headerStatus` (header — account name; `headerStatus` is a
 ```
 
 
-> **Before writing any text:** confirm `display_widget` returned an explicit error. If it returned any non-error result, you are in widget mode — stop. The text section below does not exist in widget mode.
 ## 5. Text — FALLBACK ONLY — DO NOT USE IF `display_widget` SUCCEEDED
 
 **Health check mode:**

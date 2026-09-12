@@ -1,8 +1,8 @@
 {
   "name": "salesforce-for-sales",
-  "version": "1.0.0-pilot.2",
-  "displayName": "Salesforce for Sales",
-  "description": "AI-assisted sales workflows for reps and leaders. Account research, call prep and follow-up, pipeline review, forecast and slip-scenario math, lead triage, outreach drafting, and guided approval-gated Salesforce updates - built on Salesforce, Google Drive, and Slack.",
+  "version": "1.0.0-beta.1.1",
+  "displayName": "Sales Cloud",
+  "description": "Sales workflows for account executives and sales leaders, including account research, call prep, follow-up, pipeline review, forecasting, deal-slippage scenarios, lead triage, outreach drafting, approval-gated Salesforce updates and much more. Both the plugin and the Salesforce connector are Beta services, their use is governed by the [Beta terms](https://www.salesforce.com/en-us/wp-content/uploads/sites/4/documents/legal/Agreements/beta-agreements/Beta-Services-Agreement.pdf).",
   "author": {
     "name": "Salesforce, Inc."
   }
