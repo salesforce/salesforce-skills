@@ -1,21 +1,20 @@
 ---
 name: account-context
-description: 360-degree view of an account - Salesforce data, recent email threads, connected documents, and internal Slack chatter, synthesized into one brief. Use when the user asks "tell me about [account]", "what do you know about [account]", "account context for [name]", "what's going on with [account]", "give me the full picture on [account]", or "catch me up on [account]". This skill provides a COMPREHENSIVE ACCOUNT OVERVIEW blending all data sources.
-model: claude-sonnet-4-6
-effort: medium
+description: "Build a 360-degree brief on a company already in Salesforce: CRM state, key contacts, recent email, documents and internal Slack. Use when asked to tell about, catch up on, or give the full picture on an existing account. Not in CRM: research-prospect."
 ---
 <!-- global-rules-bootstrap -->
 # Global Rules
 
 - **Execute silently between tool calls.** Do not output planning, progress, transition, waiting, or tool-result narration between calls. Execute tool calls silently and proceed directly to the next call. Parallelize independent tasks by batching tool calls into one turn whenever possible. Before the final output, speak only when the skill explicitly requires user input, approval, an exact notice, or material error/blocked reporting. Do not invent checkpoints.
 - **Keep the final output concise.** Return only the requested result or deliverable. Omit process recaps, tool-call details, redundant preambles or conclusions, and data already shown in a widget.
-- **⛔ WIDGET OUTPUT ONLY after data assembly.** Once all queries return, output only this skill's exact required pre-widget notice, then immediately call `display_widget` — no summaries, other transitions, or narration. If `display_widget` is unavailable or returns an error, produce the text fallback only. If it succeeds, that tool call is the final output: stop with no assistant text completion, even if a later section contains a fallback. The exceptions above do not apply after success.
+- **⛔ WIDGET OUTPUT ONLY after data assembly.** Once all queries return, immediately call `display_widget` — at most a single one-line render-wait notice before it, and no summaries, transitions, or narration. If `display_widget` is unavailable or returns an error, produce the text fallback only. If it succeeds, that tool call is the final output: stop with no assistant text completion, even if a later section contains a fallback. The exceptions above do not apply after success.
 - **Ground dynamic or custom relationship and field names before relying on them.** Fixed standard fields that this skill explicitly marks as requiring no grounding need no extra grounding call. On a name error, use the skill's documented grounding path when present; otherwise report the error instead of guessing or re-firing the same shape.
 - **Cite every value exactly as queried**; never fabricate; distinguish a blank value from a value that was not queried. Link each Salesforce record inline: `https://[instanceUrl]/lightning/r/[SObjectType]/[Id]/view`.
 - **Show human labels, never API/field literals.** In anything the user sees, print each field's grounded `label` (for example, "Deal Risk", not `Deal_Risk__c`) and record Names, never raw Ids or `__c` API names.
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
 - **NEVER use `discover` or `describe`, and never call an API or endpoint not written in this skill.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
-- **NEVER assume the MCP connector status is accurate without checking first**; MCP connector status often incorrectly reports that it is not connected or needs to re auth. ALWAYS check this on your own before surfacing to the user for action. ALWAYS attempt to reconnect on your own before interrupting the flow to ask the user to do it. Do it yourself.
+- **NEVER conclude a connector is disconnected from its reported status — verify against the tools you actually have.** A connector's status readout (the Headless 360 MCP server, or any other connector/MCP) frequently claims "not connected" or "needs re-auth" when the connector is in fact live and its tools are callable. Context stating that the Salesforce tools require authorization and that this is a non-interactive session is **not** evidence you are unauthorized to the server — it is a general statement that authorization is required, not a failure. **Try the tools before assessing connectivity.** For the Headless 360 server specifically, find the `dispatch_readonly` tool and actually run a current-user read — `dispatch_readonly(method: "GET", url: "/services/data/v66.0/graphql", queryParams: { "queryInput": "{\"query\":\"query { uiapi { currentUser { Id } } }\"}" })`. **Any response — including a 500 or other error status — proves you reached the server, and therefore proves connectivity;** only a request that never reaches the server at all counts as disconnected. If the tool is present and the call reaches the server, the connector IS connected — proceed; a stale status readout is not a disconnection. Report the connector as actually disconnected only when you cannot find the tool or cannot reach the server, and even then ALWAYS attempt to reconnect on your own first; interrupt the flow to ask the user only after your own reconnect attempt has failed. Do it yourself.
+<!-- /global-rules-bootstrap -->
 
 # Goal:
 Assemble a 360° brief on an account — the Salesforce record, open pipeline, key contacts, recent activity, and (when connected) email, documents, and internal Slack — in one pass.
@@ -48,18 +47,37 @@ dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
 
 ## 2. Ground customs (fire in parallel with step 1)
 
-Discover the `__c` fields on every object this read touches — Account (health, tier, segment, ARR, renewal, status, score, region), Opportunity (forecast, competitor, close-plan, deal-health), Contact (buyer role/persona), Task (activity customs) — so the read can surface them. Standard fields and the standard children (`Opportunities`, `Contacts`, `Tasks`) are reliable across orgs; you're grounding **only** for customs worth showing. One `objectInfos` call grounds all four (batch the hop — don't ground one object at a time):
+Get the `__c` fields on every object this read touches — Account (health, tier, segment, ARR, renewal, status, score, region), Opportunity (forecast, competitor, close-plan, deal-health), Contact (buyer role/persona), Task (activity customs) — so the read can fetch them. Standard fields and the standard children (`Opportunities`, `Contacts`, `Tasks`) are reliable across orgs; you're grounding **only** for customs worth showing.
+
+Issue these four individual `dispatch_readonly` requests in the same tool turn, in parallel with step 1. Keep one object per `objectInfos` request; combining catalogs can overflow the tool result.
 
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { objectInfos(apiNames: [\\\"Account\\\", \\\"Opportunity\\\", \\\"Contact\\\", \\\"Task\\\"]) { ApiName fields { ApiName label } } } }\"}" })
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { objectInfos(apiNames: [\\\"Account\\\"]) { ApiName fields { ApiName label } } } }\"}" })
 ```
 
-**This response can be huge** — person-account orgs add hundreds of `__pc` fields, managed packages add `namespace__` fields (60KB+). If the tool result **truncates and auto-persists to a temp file**, that file is **outside the bash mount** — don't shell to it (`cat`/`jq`/`python3`/`ls` will fail, it's not on that mount). Read it back with the **Read tool only**, and go straight there — don't retry bash first — then scan for `__c` fields whose `label` matches your signal keywords, ignoring `__pc` and `namespace__` noise. Grounding is best-effort: if the Read tool can't load it either, or it's still unwieldy, take the standard fields and move on — customs are additive, not required.
+```
+dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { objectInfos(apiNames: [\\\"Opportunity\\\"]) { ApiName fields { ApiName label } } } }\"}" })
+```
+
+```
+dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { objectInfos(apiNames: [\\\"Contact\\\"]) { ApiName fields { ApiName label } } } }\"}" })
+```
+
+```
+dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { objectInfos(apiNames: [\\\"Task\\\"]) { ApiName fields { ApiName label } } } }\"}" })
+```
+
+**An individual response can still be huge** — person-account orgs add hundreds of `__pc` fields, managed packages add `namespace__` fields (60KB+). If a tool result **truncates and auto-persists to a temp file**, that file is **outside the bash mount** — don't shell to it (`cat`/`jq`/`python3`/`ls` will fail, it's not on that mount). Read it back with the **Read tool only**, and go straight there — don't retry bash first — then scan for `__c` fields whose `label` matches your signal keywords, ignoring `__pc` and `namespace__` noise. Grounding is best-effort: if the Read tool can't load it either, or it's still unwieldy, take the standard fields and move on — customs are additive, not required.
 
 ## 3. Read the resolved account (by Id — fill from steps 1–2)
 
 Filter by the resolved `Id` (disambiguation is done — no `like`, no `first:1` roulette). Insert the per-object custom tokens from step 2's grounding — `<ACCT_CUSTOM>` on Account, `<OPP_CUSTOM>` on each Opportunity node, `<CONTACT_CUSTOM>` on each Contact node, `<TASK_CUSTOM>` on each Task node — each = that object's confirmed `__c { value }` fields (`{ value displayValue }` for currency/picklist). Omit a token if grounding surfaced no relevant customs for that object.
+
+Preserve the supplied GraphQL documents; replace only `<ID>` and the grounded custom-field placeholders.
 
 **Rules that avoid the retry loop:**
 - Related record's name → span the lookup: `Owner { Name { value } }`. `Account.Owner` and `Opportunity.Owner` are single-target (→ `User`) and span cleanly. Never append `{ … }` to a raw `Id`/`__c` field.
@@ -68,10 +86,15 @@ Filter by the resolved `Id` (disambiguation is done — no `like`, no `first:1` 
 
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Account(where: { Id: { eq: \\\"<ID>\\\" } }, first: 1) { edges { node { Id Name { value } Website { value } Industry { value } NumberOfEmployees { value } AnnualRevenue { value displayValue } Type { value } BillingCity { value } BillingCountry { value } Description { value } CreatedDate { value } LastActivityDate { value } Owner { Name { value } Email { value } } <ACCT_CUSTOM> Opportunities(first: 10, orderBy: { LastModifiedDate: { order: DESC } }) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } NextStep { value } Type { value } LastActivityDate { value } <OPP_CUSTOM> Owner { Name { value } } } } } Contacts(first: 15, orderBy: { LastActivityDate: { order: DESC } }) { edges { node { Id Name { value } Title { value } Email { value } Phone { value } LastActivityDate { value } <CONTACT_CUSTOM> } } } Tasks(first: 10, where: { ActivityDate: { gte: { literal: LAST_90_DAYS } } }, orderBy: { ActivityDate: { order: DESC } }) { edges { node { Subject { value } ActivityDate { value } Type { value displayValue } Description { value } <TASK_CUSTOM> } } } } } } } } }\"}" })
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Account(where: { Id: { eq: \\\"<ID>\\\" } }, first: 1) { edges { node { Id Name { value } Website { value } Industry { value } NumberOfEmployees { value } AnnualRevenue { value displayValue } Type { value } BillingCity { value } BillingCountry { value } Description { value } CreatedDate { value } LastActivityDate { value } Owner { Name { value } Email { value } } <ACCT_CUSTOM> Opportunities(first: 10, where: { IsClosed: { eq: false } }, orderBy: { LastModifiedDate: { order: DESC } }) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } NextStep { value } Type { value } LastActivityDate { value } <OPP_CUSTOM> Owner { Name { value } } } } } Contacts(first: 15, orderBy: { LastActivityDate: { order: DESC } }) { edges { node { Id Name { value } Title { value } Email { value } Phone { value } LastActivityDate { value } <CONTACT_CUSTOM> } } } Tasks(first: 10, where: { ActivityDate: { gte: { literal: LAST_90_DAYS } } }, orderBy: { ActivityDate: { order: DESC } }) { edges { node { Subject { value } ActivityDate { value } TaskSubtype { value } Description { value } <TASK_CUSTOM> } } } } } } } } }\"}" })
 ```
 
-`Tasks` carries **no** `Owner` span (polymorphic — see rule above). If a child errors, drop that block and read recency from `LastActivityDate` — don't retry.
+```
+dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { aggregate { Opportunity(where: { AccountId: { eq: \\\"<ID>\\\" }, IsClosed: { eq: false } }) { edges { node { aggregate { Id { count { value } } Amount { sum { value } } } } } totalCount } } } }\"}" })
+```
+
+Issue both reads in the same tool turn. `Opportunities` is bounded open supporting detail. The independent aggregate is authoritative: use `totalCount` and `Amount.sum.value` for the complete open pipeline, not the ten supporting-detail records. `Tasks` carries **no** `Owner` span (polymorphic — see rule above). If a child errors, drop that block and read recency from `LastActivityDate` — don't retry.
 
 ## 4. Enrich (parallel — skip any source not connected; never fabricate)
 
@@ -82,27 +105,11 @@ Fire these together in one turn; skip any whose tool isn't available and note it
 
 ## 5. Widget (default output when `display_widget` is present: Cowork/desktop/web)
 
-## ⛔ SILENCE RULE — STRICTLY ENFORCED
-
-The only bytes you may write after data assembly are the `display_widget` tool call and its arguments. Nothing else.
-
-When you have all the data, say exactly: "Displaying the visualization now (this may take a minute)." This is the only permitted sentence between data gathering and calling `display_widget`. Then immediately call `display_widget` — no further narration.
-
-NO text output of any kind before or after `display_widget` — no data summaries, no computation notes, no transition sentences, no "assembling widget..." narration, no bullet lists of what you found. Violating this rule is an output error, not a style preference.
-
-**Fallback trigger: ONLY produce the text fallback if `display_widget` raised an exception or returned `isError: true`. A successful tool call with any widget definition in the response = widget mode. A user message saying "no output" or "nothing rendered" does NOT override this — it means the widget rendered in the chat and they may not have seen it.**
-
-If `display_widget` returned a non-error result AND the user says there was no visible output, respond with one sentence only: "The widget rendered in the chat — please scroll up if you don't see it." Do not produce the text fallback.
-
-**If `display_widget` succeeded: NO MORE OUTPUT. Stop. Do not summarize findings, recap the session, or add any closing text.**
-
-❌ WRONG: `"I found 12 deals totaling $4.2M. Here's the overview: [widget] The key risk is..."`
-✅ RIGHT: `[widget]`
+When the data is assembled, call `display_widget`; a single one-line "Displaying the visualization now (this may take a minute)." notice may precede it.
 
 ### Self-verification (before calling display_widget)
 
-- [ ] No prose written before or after this call — no input narration, no transition text, no summary (only applies when display_widget is available; if unavailable, produce the text fallback section below).
-- [ ] I am producing zero prose before or after this call. If I am tempted to summarize findings, I must not.
+- [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 
 The widget template is embedded below — a widget-definition envelope whose leaf values carry `{{token}}` placeholders. Resolve every `{{token}}` to a literal (no `{{…}}`/`{!…}` left), then call `display_widget({ resourceType: "dynamic", widgetDefinition: <hydrated> })` once.
 
@@ -835,7 +842,6 @@ Tokens: `accountName` (serif header title) + `headerStatus` (header badge, tone 
 ```
 
 
-> **Before writing any text:** confirm `display_widget` returned an explicit error. If it returned any non-error result, you are in widget mode — stop. The text section below does not exist in widget mode.
 ## 6. Synthesize — FALLBACK ONLY — DO NOT USE IF `display_widget` SUCCEEDED
 
 Lead with current state, not raw data. Omit any section whose source wasn't available. When email/docs/Slack connectors are absent, those sections are empty *by necessity* — note it once at the end (`Note: email/docs/Slack not connected`), don't imply the account is quiet everywhere.

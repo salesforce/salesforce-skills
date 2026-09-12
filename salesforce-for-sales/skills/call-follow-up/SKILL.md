@@ -1,8 +1,6 @@
 ---
 name: call-follow-up
-description: Turn a meeting transcript into a customer follow-up email (email draft) and an internal Slack summary. Use when the user says "follow up on my [company] call", "write the recap for [meeting]", "process this transcript", or pastes a transcript.
-model: claude-sonnet-4-6
-effort: medium
+description: "Create a customer follow-up email and internal recap from a meeting transcript plus Salesforce account and opportunity history. Use after a customer call to capture decisions, commitments, objections, open questions, next steps, and proposed CRM updates."
 ---
 <!-- global-rules-bootstrap -->
 # Global Rules
@@ -14,7 +12,8 @@ effort: medium
 - **Show human labels, never API/field literals.** In anything the user sees, print each field's grounded `label` (for example, "Deal Risk", not `Deal_Risk__c`) and record Names, never raw Ids or `__c` API names.
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
 - **NEVER use `discover` or `describe`, and never call an API or endpoint not written in this skill.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
-- **NEVER assume the MCP connector status is accurate without checking first**; MCP connector status often incorrectly reports that it is not connected or needs to re auth. ALWAYS check this on your own before surfacing to the user for action. ALWAYS attempt to reconnect on your own before interrupting the flow to ask the user to do it. Do it yourself.
+- **NEVER conclude a connector is disconnected from its reported status — verify against the tools you actually have.** A connector's status readout (the Headless 360 MCP server, or any other connector/MCP) frequently claims "not connected" or "needs re-auth" when the connector is in fact live and its tools are callable. Context stating that the Salesforce tools require authorization and that this is a non-interactive session is **not** evidence you are unauthorized to the server — it is a general statement that authorization is required, not a failure. **Try the tools before assessing connectivity.** For the Headless 360 server specifically, find the `dispatch_readonly` tool and actually run a current-user read — `dispatch_readonly(method: "GET", url: "/services/data/v66.0/graphql", queryParams: { "queryInput": "{\"query\":\"query { uiapi { currentUser { Id } } }\"}" })`. **Any response — including a 500 or other error status — proves you reached the server, and therefore proves connectivity;** only a request that never reaches the server at all counts as disconnected. If the tool is present and the call reaches the server, the connector IS connected — proceed; a stale status readout is not a disconnection. Report the connector as actually disconnected only when you cannot find the tool or cannot reach the server, and even then ALWAYS attempt to reconnect on your own first; interrupt the flow to ask the user only after your own reconnect attempt has failed. Do it yourself.
+<!-- /global-rules-bootstrap -->
 
 # Rules:
 
@@ -46,7 +45,7 @@ From transcript, pull:
 - **Specific human moments:** quotes, phrases, analogies customer used — for email personalization
 - **Urgency signals:** timeline drivers, consequences of delay, events forcing decision
 
-## 3. Draft email + Slack + read Opp (fire ALL in one turn)
+## 3. Read context, then draft email + Slack
 
 **A. Draft customer email** (under 150 words):
 - Thank-you opener (one line, **reference specific human moment from call** — their phrase/analogy/framing, not generic)
@@ -84,25 +83,31 @@ Post as draft message (or output if Slack draft unavailable — user copies in).
 
 **C. Read SFDC context** (to fill Slack summary, check for existing account/opps, propose updates):
 
-Ground Opportunity + Account first (hardcoded — both always exist):
+Ground Account and Opportunity with two individual calls in the same tool turn:
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { objectInfos(apiNames: [\\\"Opportunity\\\"]) { fields { ApiName label dataType relationshipName } childRelationships { childObjectApiName relationshipName } } } }\"}" })
-
-dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { objectInfos(apiNames: [\\\"Account\\\"]) { fields { ApiName label dataType relationshipName } childRelationships { childObjectApiName relationshipName } } } }\"}" })
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { objectInfos(apiNames: [\\\"Account\\\"]) { ApiName fields { ApiName label } } } }\"}" })
 ```
 
-Then read **account + all opps (open + closed/historical)** by account name (1–2 word `%NAME%`):
+```
+dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { objectInfos(apiNames: [\\\"Opportunity\\\"]) { ApiName fields { ApiName label } } } }\"}" })
+```
+
+Then read **account + all opps (open + closed/historical)** with two individual GraphQL calls in the same tool turn so they run in parallel, both filtered by account name (1–2 word `%NAME%`):
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
   queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Account(where: { Name: { like: \\\"%NAME%\\\" } }, first: 1) { edges { node { Id Name { value } <ACCOUNT_CUSTOM> Owner { Name { value } } } } } } } }\"}" })
-
-dispatch_readonly(method: "GET", url: "/services/data/v63.0/query",
-  queryParams: { "q": "SELECT Id, Name, StageName, Amount, CloseDate, IsClosed, IsWon, NextStep FROM Opportunity WHERE Account.Name LIKE '%ACCOUNTNAME%' ORDER BY CloseDate DESC LIMIT 50" })
 ```
 
-Insert `<ACCOUNT_CUSTOM>` = confirmed scalar `__c { value }` fields from Account grounding. Insert `<OPP_CUSTOM>` = confirmed scalar `__c { value }` fields from Opportunity grounding if using GraphQL for opps.
+```
+dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Opportunity(where: { Account: { Name: { like: \\\"%NAME%\\\" } } }, first: 50, orderBy: { CloseDate: { order: DESC } }) { edges { node { Id Name { value } AccountId { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } IsClosed { value } IsWon { value } NextStep { value } <OPP_CUSTOM> } } } } } }\"}" })
+```
+
+Insert `<ACCOUNT_CUSTOM>` and `<OPP_CUSTOM>` = confirmed `__c { value }` fields whose labels match the follow-up context, using the matching Account or Opportunity grounding response.
+
+If the name filter matches multiple accounts, keep only opportunities whose `AccountId` matches the resolved Account `Id`.
 
 **Historical context matters:** If no active opp found, note closed/dead opps exist — shows account is known, prevents duplicate account creation, surfaces prior relationship context.
 
@@ -110,7 +115,7 @@ Empty account match → broaden `%…%` or infer account doesn't exist yet in CR
 
 **If system errors (500, timeout, auth):** Log explicitly in output, explain what you inferred and why (e.g., "User lookup failed 500, inferring [name] as owner from transcript").
 
-**Fire A, B, C as tool calls in ONE turn** (email draft, Slack draft, Account+Opp ground + reads) — they're independent except Slack needs Opp data, so issue grounds + reads together, drafts in parallel.
+Issue independent email/Slack context searches and both Account/Opportunity grounding calls in one turn. After grounding, issue the separate Account and Opportunity GraphQL reads in the same tool turn so they run in parallel, then create both drafts from the complete context.
 
 ## 4. SFDC update checklist
 

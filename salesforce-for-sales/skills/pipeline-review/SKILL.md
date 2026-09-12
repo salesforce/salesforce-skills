@@ -1,21 +1,20 @@
 ---
 name: pipeline-review
-description: Stage-by-stage pipeline health check - coverage, aging, conversion, and at-risk deals - from Salesforce opportunity data. Use when the user asks "review my pipeline", "my pipeline", "pipeline health", "where's my pipeline stuck", "show me my deals", or runs /pipeline. This is for an INDIVIDUAL REP'S pipeline - if the user asks about "my team's pipeline", use team-pipeline instead. IMPORTANT: If the user asks "what changed" or about CHANGES/SIGNALS, use deal-signals instead - this skill shows CURRENT STATE, not changes.
-model: claude-sonnet-4-6
-effort: medium
+description: "Build one rep's current pipeline assessment from Salesforce stage aggregates, deal samples and closed-deal history, covering coverage, hygiene and risks. Use when reviewing pipeline health and stage distribution; for changes over time, use deal-signals."
 ---
 <!-- global-rules-bootstrap -->
 # Global Rules
 
 - **Execute silently between tool calls.** Do not output planning, progress, transition, waiting, or tool-result narration between calls. Execute tool calls silently and proceed directly to the next call. Parallelize independent tasks by batching tool calls into one turn whenever possible. Before the final output, speak only when the skill explicitly requires user input, approval, an exact notice, or material error/blocked reporting. Do not invent checkpoints.
 - **Keep the final output concise.** Return only the requested result or deliverable. Omit process recaps, tool-call details, redundant preambles or conclusions, and data already shown in a widget.
-- **⛔ WIDGET OUTPUT ONLY after data assembly.** Once all queries return, output only this skill's exact required pre-widget notice, then immediately call `display_widget` — no summaries, other transitions, or narration. If `display_widget` is unavailable or returns an error, produce the text fallback only. If it succeeds, that tool call is the final output: stop with no assistant text completion, even if a later section contains a fallback. The exceptions above do not apply after success.
+- **⛔ WIDGET OUTPUT ONLY after data assembly.** Once all queries return, immediately call `display_widget` — at most a single one-line render-wait notice before it, and no summaries, transitions, or narration. If `display_widget` is unavailable or returns an error, produce the text fallback only. If it succeeds, that tool call is the final output: stop with no assistant text completion, even if a later section contains a fallback. The exceptions above do not apply after success.
 - **Ground dynamic or custom relationship and field names before relying on them.** Fixed standard fields that this skill explicitly marks as requiring no grounding need no extra grounding call. On a name error, use the skill's documented grounding path when present; otherwise report the error instead of guessing or re-firing the same shape.
 - **Cite every value exactly as queried**; never fabricate; distinguish a blank value from a value that was not queried. Link each Salesforce record inline: `https://[instanceUrl]/lightning/r/[SObjectType]/[Id]/view`.
 - **Show human labels, never API/field literals.** In anything the user sees, print each field's grounded `label` (for example, "Deal Risk", not `Deal_Risk__c`) and record Names, never raw Ids or `__c` API names.
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
 - **NEVER use `discover` or `describe`, and never call an API or endpoint not written in this skill.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
-- **NEVER assume the MCP connector status is accurate without checking first**; MCP connector status often incorrectly reports that it is not connected or needs to re auth. ALWAYS check this on your own before surfacing to the user for action. ALWAYS attempt to reconnect on your own before interrupting the flow to ask the user to do it. Do it yourself.
+- **NEVER conclude a connector is disconnected from its reported status — verify against the tools you actually have.** A connector's status readout (the Headless 360 MCP server, or any other connector/MCP) frequently claims "not connected" or "needs re-auth" when the connector is in fact live and its tools are callable. Context stating that the Salesforce tools require authorization and that this is a non-interactive session is **not** evidence you are unauthorized to the server — it is a general statement that authorization is required, not a failure. **Try the tools before assessing connectivity.** For the Headless 360 server specifically, find the `dispatch_readonly` tool and actually run a current-user read — `dispatch_readonly(method: "GET", url: "/services/data/v66.0/graphql", queryParams: { "queryInput": "{\"query\":\"query { uiapi { currentUser { Id } } }\"}" })`. **Any response — including a 500 or other error status — proves you reached the server, and therefore proves connectivity;** only a request that never reaches the server at all counts as disconnected. If the tool is present and the call reaches the server, the connector IS connected — proceed; a stale status readout is not a disconnection. Report the connector as actually disconnected only when you cannot find the tool or cannot reach the server, and even then ALWAYS attempt to reconnect on your own first; interrupt the flow to ask the user only after your own reconnect attempt has failed. Do it yourself.
+<!-- /global-rules-bootstrap -->
 # Rules:
 
 - Resolve scope to one owner before the read; if a named rep is ambiguous, ask — don't guess or probe.
@@ -27,7 +26,7 @@ Ground → resolve scope → (aggregate the book + sample the top deals, ONE tur
 
 ## 1. Ground (hardcoded — Opportunity only)
 
-Ground **only Opportunity** — it always exists (naming a missing object fails the whole call). Its fields reveal this org's stage/risk/activity `__c` schema and the exact `relationshipName`s; don't assume names.
+Ground **only Opportunity** — it always exists (naming a missing object fails the whole call). Its fields reveal this org's stage/risk/activity `__c` schema; don't assume names.
 
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
@@ -98,38 +97,342 @@ dispatch_readonly(method: "GET", url: "/services/data/v63.0/query",
 
 ## 4. Output — widget FIRST (the rendered UI is the default)
 
-## ⛔ SILENCE RULE — STRICTLY ENFORCED
-
-The only bytes you may write after data assembly are the `display_widget` tool call and its arguments. Nothing else.
-
-When you have all the data, say exactly: "Displaying the visualization now (this may take a minute)." This is the only permitted sentence between data gathering and calling `display_widget`. Then immediately call `display_widget` — no further narration.
-
-NO text output of any kind before or after `display_widget` — no data summaries, no computation notes, no transition sentences, no "assembling widget..." narration, no bullet lists of what you found. Violating this rule is an output error, not a style preference.
-
-**Fallback trigger: ONLY produce the text fallback if `display_widget` raised an exception or returned `isError: true`. A successful tool call with any widget definition in the response = widget mode. A user message saying "no output" or "nothing rendered" does NOT override this — it means the widget rendered in the chat and they may not have seen it.**
-
-If `display_widget` returned a non-error result AND the user says there was no visible output, respond with one sentence only: "The widget rendered in the chat — please scroll up if you don't see it." Do not produce the text fallback.
-
-**If `display_widget` succeeded: NO MORE OUTPUT. Stop. Do not summarize findings, recap the session, or add any closing text.**
-
-❌ WRONG: `"I found 12 deals totaling $4.2M. Here's the overview: [widget] The key risk is..."`
-✅ RIGHT: `[widget]`
+When the data is assembled, call `display_widget`; a single one-line "Displaying the visualization now (this may take a minute)." notice may precede it.
 
 ### Self-verification (before calling display_widget)
 
+- [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 - [ ] Every {{token}} replaced with a resolved literal — no {{…}}, no {!…}.
 - [ ] Numeric attributes (meter value/max/target, meter band from/to, datagrid amount/age) are numbers, not strings.
 - [ ] The meter bands span [0, max] and the chart series data matches categories length.
-- [ ] Every datagrid row carries _tone (error/warning) for risky opps or omits it for healthy ones; _status is present.
+- [ ] Every risky datagrid row carries a leading status:{value,badgeVariant} (badgeVariant error/warning); healthy rows omit it.
 - [ ] The callout carries resolved title/description, and both buttons are real actions (sendMessage/openLink).
 - [ ] The Step 5 text is produced only when `display_widget` is unavailable (the terminal fallback) — not alongside a rendered widget.
-- [ ] No prose written before or after this call — no input narration, no transition text, no summary (only applies when display_widget is available; if unavailable, produce the text fallback section below).
-- [ ] I am producing zero prose before or after this call. If I am tempted to summarize findings, I must not.
 
-If `display_widget` is available (Cowork/desktop/web), the widget IS the output; produce the text section below only as the fallback when `display_widget` is unavailable (e.g. a terminal). The widget template is embedded below — a widget-definition envelope whose leaf values carry {{token}} placeholders. Resolve every {{token}} to a literal (no {{…}}/{!…} left), then call `display_widget({ resourceType: "dynamic", widgetDefinition: <hydrated> })` once. A value that is *only* a {{token}} becomes the typed literal — arrays stay arrays, numbers stay numbers; a {{token}} inside a larger string is interpolated as text. 
+The widget template is embedded below — resolve its tokens and call `display_widget({ resourceType: "dynamic", widgetDefinition: <hydrated> })` once (see the `widgetDefinition` param for token-resolution rules).
 
-Tokens: `pageTitle` (e.g. "Pipeline review — Dana Ruiz"), `pageSubtitle` (one-line summary: "$6.4M open across 18 opps · weighted $2.1M · closes this quarter") · `chartCaption`, `chartCategories` (array of stage names), `chartSeries` (array with one object `{ name, data }` where data is number[] matching categories) · `coverageValue` (number), `coverageMax` (number), `coverageTarget` (number, typically 3.0), `coverageValueLabel` (e.g. "2.4× open pipeline to $2.7M gap"), `coverageTargetLabel` (e.g. "3.0× target"), `coverageStatus` (string: "under-covered" or "covered"), `coverageBands` (array of `{ from, to, variant, label }`, variants warning/success, spanning 0→max) · `datagridCaption` (e.g. "At-risk opps: stalled, past close date, or missing next step"), `datagridRows` (array, one per at-risk opp: `{name (plain string — format as the opportunity name (e.g. "Meridian Health platform"); names must be plain strings, not objects: use `Opportunity.Name.value` from the SF response), stage:{value,badgeVariant}, amount(number), age(number days in stage), close("YYYY-MM-DD"), risk, _tone(error/warning for risky rows or omit), _status}`) · `calloutVariant` ("info"), `calloutTitle` (e.g. "Monday focus"), `calloutDescription` (week's priorities), `primaryButtonLabel`, `primaryButtonMsg` (first-person prompt for sendMessage, e.g. "Draft an email to..."), `viewOppsUrl` (Opportunities list URL: `https://<myDomain>/lightning/o/Opportunity/list`). Omit any block whose data you lack rather than passing empty arrays; each `status` word must land in its meter band (under-covered/covered).
-
+Two blocks below: first the **variable contract** (`renderer.props.schema.json`) — every `{{token}}`'s type + a worked example, use it to compute each value; then the **widget template** to hydrate. Substitute your computed values into the template's `{{token}}`s (see the token-typing rules above), leaving no `{{…}}`/`{!…}`.
+```json
+{
+  "$comment": "Variable contract for the native-mosaic dynamic-mode template (renderer.json, sibling). This is NOT a separate display_widget call — it names every {{token}} in the template with its type and a worked example so you compute the right value for each. Workflow: build a props object with these keys, substitute each into the matching {{token}} in renderer.json (a slot that is only a {{token}} becomes the typed value — arrays stay arrays, numbers stay numbers; a {{token}} inside a larger string interpolates as text; a key you have no data for is omitted so that leaf drops), then call display_widget({ resourceType: 'dynamic', widgetDefinition: <the hydrated template> }) once with no {{…}}/{!…} left. Realistic values: sample-data.json (sibling). Authoring guidance (from the skill): `pageTitle` (e.g. \"Pipeline review — Dana Ruiz\"), `pageSubtitle` (one-line summary: \"$6.4M open across 18 opps · weighted $2.1M · closes this quarter\") · `chartCaption`, `chartCategories` (array of stage names), `chartSeries` (array with one object `{ name, data }` where data is number[] matching categories) · `coverageValue` (number), `coverageMax` (number), `coverageTarget` (number, typically 3.0), `coverageValueLabel` (e.g. \"2.4× open pipeline to $2.7M gap\"), `coverageTargetLabel` (e.g. \"3.0× target\"), `coverageStatus` (string: \"under-covered\" or \"covered\"), `coverageBands` (array of `{ from, to, variant, label }`, variants warning/success, spanning 0→max) · `datagridCaption` (e.g. \"At-risk opps: stalled, past close date, or missing next step\"), `datagridRows` (array, one per at-risk opp: `{name (plain string — format as the opportunity name (e.g. \"Meridian Health platform\"); names must be plain strings, not objects: use `Opportunity.Name.value` from the SF response), stage:{value,badgeVariant}, amount(number), age(number days in stage), close(\"YYYY-MM-DD\"), risk, status:{value,badgeVariant} (badgeVariant error/warning for risky rows or omit)}`) · `calloutVariant` (\"info\"), `calloutTitle` (e.g. \"Monday focus\"), `calloutDescription` (week's priorities), `primaryButtonLabel`, `primaryButtonMsg` (first-person prompt for sendMessage, e.g. \"Draft an email to...\"), `viewOppsUrl` (Opportunities list URL: `https://<myDomain>/lightning/o/Opportunity/list`). Omit any block whose data you lack rather than passing empty arrays; each `status` word must land in its meter band (under-covered/covered).",
+  "props": {
+    "pageTitle": {
+      "description": "Page title (e.g. \"Pipeline review — Dana Ruiz\").",
+      "type": "string",
+      "example": "Pipeline review — Dana Ruiz"
+    },
+    "pageSubtitle": {
+      "description": "One-line summary: open amount, opp count, weighted value, timeframe.",
+      "type": "string",
+      "example": "$6.4M open across 18 opps · weighted $2.1M · closes this quarter"
+    },
+    "chartCaption": {
+      "description": "Caption for the pipeline-by-stage chart.",
+      "type": "string",
+      "example": "Open pipeline by stage; largest at Proposal, tapering to Closing"
+    },
+    "chartCategories": {
+      "description": "Stage names for the chart's x-axis.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "example": [
+        "Qualification",
+        "Proposal",
+        "Negotiation",
+        "Closing"
+      ]
+    },
+    "chartSeries": {
+      "description": "Chart series — one object {name, data}; data matches chartCategories.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "description": "Series name.",
+            "type": "string"
+          },
+          "data": {
+            "description": "Amount per stage — a number array matching chartCategories.",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        }
+      },
+      "example": [
+        {
+          "name": "Open $",
+          "data": [
+            1600000,
+            2400000,
+            1600000,
+            800000
+          ]
+        }
+      ]
+    },
+    "coverageValue": {
+      "description": "Pipeline coverage ratio — the meter's current value (e.g. 2.4).",
+      "type": "number",
+      "example": 2.4
+    },
+    "coverageMax": {
+      "description": "The meter's max.",
+      "type": "number",
+      "example": 5
+    },
+    "coverageTarget": {
+      "description": "Coverage target (typically 3.0).",
+      "type": "number",
+      "example": 3
+    },
+    "coverageValueLabel": {
+      "description": "Display string for coverage (e.g. \"2.4× open pipeline to $2.7M gap\").",
+      "type": "string",
+      "example": "2.4× open pipeline to $2.7M gap"
+    },
+    "coverageTargetLabel": {
+      "description": "Display string for the target (e.g. \"3.0× target\").",
+      "type": "string",
+      "example": "3.0× target"
+    },
+    "coverageStatus": {
+      "description": "Coverage read — under-covered or covered.",
+      "type": "string",
+      "enum": [
+        "under-covered",
+        "covered"
+      ],
+      "example": "under-covered"
+    },
+    "coverageBands": {
+      "description": "Color bands for the coverage meter, in order spanning 0→max.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "description": "Band start value.",
+            "type": "number"
+          },
+          "to": {
+            "description": "Band end value.",
+            "type": "number"
+          },
+          "variant": {
+            "description": "Band color.",
+            "type": "string",
+            "enum": [
+              "error",
+              "warning",
+              "success"
+            ]
+          },
+          "label": {
+            "description": "Short band label.",
+            "type": "string"
+          }
+        }
+      },
+      "example": [
+        {
+          "from": 0,
+          "to": 3,
+          "variant": "warning",
+          "label": "Under"
+        },
+        {
+          "from": 3,
+          "to": 5,
+          "variant": "success",
+          "label": "Covered"
+        }
+      ]
+    },
+    "datagridCaption": {
+      "description": "Caption for the at-risk opps datagrid.",
+      "type": "string",
+      "example": "At-risk opps: stalled, past close date, or missing next step"
+    },
+    "datagridRows": {
+      "description": "At-risk opps (stalled, past close, or missing next step) — one row per opp. Empty array → the datagrid is omitted.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "description": "Leading Status badge cell; omit on normal rows.",
+            "type": "object",
+            "properties": {
+              "value": {
+                "description": "Status label.",
+                "type": "string"
+              },
+              "badgeVariant": {
+                "description": "Badge color.",
+                "type": "string",
+                "enum": [
+                  "neutral",
+                  "primary",
+                  "secondary",
+                  "outline",
+                  "success",
+                  "info",
+                  "warning",
+                  "error"
+                ]
+              }
+            }
+          },
+          "name": {
+            "description": "Opportunity name, a plain string (use Opportunity.Name.value — never a nested object).",
+            "type": "string"
+          },
+          "stage": {
+            "description": "Stage badge cell.",
+            "type": "object",
+            "properties": {
+              "value": {
+                "description": "Stage label.",
+                "type": "string"
+              },
+              "badgeVariant": {
+                "description": "Badge color.",
+                "type": "string",
+                "enum": [
+                  "neutral",
+                  "primary",
+                  "secondary",
+                  "outline",
+                  "success",
+                  "info",
+                  "warning",
+                  "error"
+                ]
+              }
+            }
+          },
+          "amount": {
+            "description": "Deal amount (number).",
+            "type": "number"
+          },
+          "age": {
+            "description": "Days in current stage (number).",
+            "type": "number"
+          },
+          "close": {
+            "description": "Close date, ISO YYYY-MM-DD.",
+            "type": "string"
+          },
+          "risk": {
+            "description": "Why the opp is at risk.",
+            "type": "string"
+          }
+        }
+      },
+      "example": [
+        {
+          "status": {
+            "value": "Stalled",
+            "badgeVariant": "error"
+          },
+          "name": "Meridian Health platform",
+          "stage": {
+            "value": "Proposal",
+            "badgeVariant": "info"
+          },
+          "amount": 2400000,
+          "age": 41,
+          "close": "2026-08-05",
+          "risk": "⚠ 41d in stage, no exec sponsor"
+        },
+        {
+          "status": {
+            "value": "At risk",
+            "badgeVariant": "warning"
+          },
+          "name": "Cobalt Robotics renewal",
+          "stage": {
+            "value": "Negotiation",
+            "badgeVariant": "warning"
+          },
+          "amount": 1800000,
+          "age": 22,
+          "close": "2026-07-30",
+          "risk": "⚠ close date in 6d, redlines open"
+        },
+        {
+          "name": "Pier 9 expansion",
+          "stage": {
+            "value": "Proposal",
+            "badgeVariant": "info"
+          },
+          "amount": 600000,
+          "age": 18,
+          "close": "2026-07-31",
+          "risk": "Legal review of MSA"
+        },
+        {
+          "status": {
+            "value": "At risk",
+            "badgeVariant": "warning"
+          },
+          "name": "Northwind logistics",
+          "stage": {
+            "value": "Qualification",
+            "badgeVariant": "neutral"
+          },
+          "amount": 450000,
+          "age": 55,
+          "close": "2026-09-15",
+          "risk": "⚠ 55d, single-threaded"
+        }
+      ]
+    },
+    "calloutVariant": {
+      "description": "Callout color; typically \"info\".",
+      "type": "string",
+      "enum": [
+        "error",
+        "warning",
+        "success",
+        "info",
+        "recommended"
+      ],
+      "example": "info"
+    },
+    "calloutTitle": {
+      "description": "Synthesis callout heading (e.g. \"Monday focus\").",
+      "type": "string",
+      "example": "Monday focus"
+    },
+    "calloutDescription": {
+      "description": "Synthesis callout body — the week's priorities.",
+      "type": "string",
+      "example": "Confirm the Meridian exec sponsor call before it ages out of Proposal, and get Cobalt redlines back this week — it closes in 6 days. Coverage is thin at 2.4×; two more qualified Proposal-stage opps would close the gap."
+    },
+    "primaryButtonLabel": {
+      "description": "Primary button label (action/sendMessage).",
+      "type": "string",
+      "example": "Draft sponsor ask"
+    },
+    "primaryButtonMsg": {
+      "description": "First-person prompt the primary button sends (action/sendMessage).",
+      "type": "string",
+      "example": "Draft an email to the Meridian Health platform sponsor to confirm next week's call and set the agenda."
+    },
+    "viewOppsUrl": {
+      "description": "Opportunities list-view Lightning URL for the \"View in Salesforce\" button.",
+      "type": "string",
+      "example": "https://org.lightning.force.com/lightning/o/Opportunity/list"
+    }
+  }
+}
+```
 ```json
 {
   "renderer": {
@@ -218,6 +521,11 @@ Tokens: `pageTitle` (e.g. "Pipeline review — Dana Ruiz"), `pageSubtitle` (one-
                 "direction": "desc"
               },
               "columns": [
+                {
+                  "key": "status",
+                  "header": "Status",
+                  "type": "badge"
+                },
                 {
                   "key": "name",
                   "header": "Opportunity",
@@ -319,7 +627,6 @@ Tokens: `pageTitle` (e.g. "Pipeline review — Dana Ruiz"), `pageSubtitle` (one-
 ```
 
 
-> **Before writing any text:** confirm `display_widget` returned an explicit error. If it returned any non-error result, you are in widget mode — stop. The text section below does not exist in widget mode.
 ## 5. Text — FALLBACK ONLY — DO NOT USE IF `display_widget` SUCCEEDED
 
 ```

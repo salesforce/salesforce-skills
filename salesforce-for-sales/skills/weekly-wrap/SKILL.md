@@ -1,21 +1,20 @@
 ---
 name: weekly-wrap
-description: End-of-week summary for a rep or leader - what closed, what moved, what slipped, and what's on deck Monday. Optionally drafts a Slack post to the team channel. Use when the user says "weekly wrap", "week in review", "what happened this week", or "Friday summary".
-model: claude-sonnet-4-6
-effort: medium
+description: "Build a weekly sales recap from Salesforce opportunity and calendar activity plus email, documents and Slack, covering wins, losses, deal activity and next week's priorities. Use to review a rep's or team's week, prepare for Monday or draft an internal update."
 ---
 <!-- global-rules-bootstrap -->
 # Global Rules
 
 - **Execute silently between tool calls.** Do not output planning, progress, transition, waiting, or tool-result narration between calls. Execute tool calls silently and proceed directly to the next call. Parallelize independent tasks by batching tool calls into one turn whenever possible. Before the final output, speak only when the skill explicitly requires user input, approval, an exact notice, or material error/blocked reporting. Do not invent checkpoints.
 - **Keep the final output concise.** Return only the requested result or deliverable. Omit process recaps, tool-call details, redundant preambles or conclusions, and data already shown in a widget.
-- **⛔ WIDGET OUTPUT ONLY after data assembly.** Once all queries return, output only this skill's exact required pre-widget notice, then immediately call `display_widget` — no summaries, other transitions, or narration. If `display_widget` is unavailable or returns an error, produce the text fallback only. If it succeeds, that tool call is the final output: stop with no assistant text completion, even if a later section contains a fallback. The exceptions above do not apply after success.
+- **⛔ WIDGET OUTPUT ONLY after data assembly.** Once all queries return, immediately call `display_widget` — at most a single one-line render-wait notice before it, and no summaries, transitions, or narration. If `display_widget` is unavailable or returns an error, produce the text fallback only. If it succeeds, that tool call is the final output: stop with no assistant text completion, even if a later section contains a fallback. The exceptions above do not apply after success.
 - **Ground dynamic or custom relationship and field names before relying on them.** Fixed standard fields that this skill explicitly marks as requiring no grounding need no extra grounding call. On a name error, use the skill's documented grounding path when present; otherwise report the error instead of guessing or re-firing the same shape.
 - **Cite every value exactly as queried**; never fabricate; distinguish a blank value from a value that was not queried. Link each Salesforce record inline: `https://[instanceUrl]/lightning/r/[SObjectType]/[Id]/view`.
 - **Show human labels, never API/field literals.** In anything the user sees, print each field's grounded `label` (for example, "Deal Risk", not `Deal_Risk__c`) and record Names, never raw Ids or `__c` API names.
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
 - **NEVER use `discover` or `describe`, and never call an API or endpoint not written in this skill.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
-- **NEVER assume the MCP connector status is accurate without checking first**; MCP connector status often incorrectly reports that it is not connected or needs to re auth. ALWAYS check this on your own before surfacing to the user for action. ALWAYS attempt to reconnect on your own before interrupting the flow to ask the user to do it. Do it yourself.
+- **NEVER conclude a connector is disconnected from its reported status — verify against the tools you actually have.** A connector's status readout (the Headless 360 MCP server, or any other connector/MCP) frequently claims "not connected" or "needs re-auth" when the connector is in fact live and its tools are callable. Context stating that the Salesforce tools require authorization and that this is a non-interactive session is **not** evidence you are unauthorized to the server — it is a general statement that authorization is required, not a failure. **Try the tools before assessing connectivity.** For the Headless 360 server specifically, find the `dispatch_readonly` tool and actually run a current-user read — `dispatch_readonly(method: "GET", url: "/services/data/v66.0/graphql", queryParams: { "queryInput": "{\"query\":\"query { uiapi { currentUser { Id } } }\"}" })`. **Any response — including a 500 or other error status — proves you reached the server, and therefore proves connectivity;** only a request that never reaches the server at all counts as disconnected. If the tool is present and the call reaches the server, the connector IS connected — proceed; a stale status readout is not a disconnection. Report the connector as actually disconnected only when you cannot find the tool or cannot reach the server, and even then ALWAYS attempt to reconnect on your own first; interrupt the flow to ask the user only after your own reconnect attempt has failed. Do it yourself.
+<!-- /global-rules-bootstrap -->
 # Rules:
 
 
@@ -29,7 +28,7 @@ Ground **only Opportunity** — it always exists (naming a missing object fails 
 
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { objectInfos(apiNames: [\\\"Opportunity\\\"]) { fields { ApiName label dataType relationshipName } childRelationships { childObjectApiName relationshipName } } } }\"}" })
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { objectInfos(apiNames: [\\\"Opportunity\\\"]) { fields { ApiName label } } } }\"}" })
 ```
 
 Note any scalar `__c` fields worth surfacing (close/loss reason, stage-context note). Standard fields and the `Account` span are reliable across orgs.
@@ -50,7 +49,7 @@ Note any scalar `__c` fields worth surfacing (close/loss reason, stage-context n
 
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { closedThisWeek: Opportunity(scope: MINE, where: { IsClosed: { eq: true }, CloseDate: { eq: { literal: THIS_WEEK } } }, first: 50) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } NextStep { value } <OPP_CUSTOM> Account { Name { value } } } } } } newThisWeek: Opportunity(scope: MINE, where: { CreatedDate: { eq: { literal: THIS_WEEK } } }, first: 50) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CreatedDate { value } NextStep { value } <OPP_CUSTOM> Account { Name { value } } } } } } touchedThisWeek: Opportunity(scope: MINE, where: { IsClosed: { eq: false }, LastModifiedDate: { eq: { literal: THIS_WEEK } } }, first: 50) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } LastModifiedDate { value } NextStep { value } <OPP_CUSTOM> Account { Name { value } } } } } } closingNextWeek: Opportunity(scope: MINE, where: { IsClosed: { eq: false }, CloseDate: { eq: { literal: NEXT_WEEK } } }, first: 50) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } NextStep { value } <OPP_CUSTOM> Account { Name { value } } } } } } meetingsThisWeek: Event(scope: MINE, where: { ActivityDate: { eq: { literal: THIS_WEEK } } }, first: 50) { edges { node { Id Subject { value } StartDateTime { value } Location { value } WhatId { value } } } } } meetingsNextWeek: Event(scope: MINE, where: { ActivityDate: { eq: { literal: NEXT_WEEK } } }, first: 50) { edges { node { Id Subject { value } StartDateTime { value } Location { value } WhatId { value } } } } } } } }\"}" })
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { closedThisWeek: Opportunity(scope: MINE, where: { IsClosed: { eq: true }, CloseDate: { eq: { literal: THIS_WEEK } } }, first: 50) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } NextStep { value } <OPP_CUSTOM> Account { Name { value } } } } } newThisWeek: Opportunity(scope: MINE, where: { CreatedDate: { eq: { literal: THIS_WEEK } } }, first: 50) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CreatedDate { value } NextStep { value } <OPP_CUSTOM> Account { Name { value } } } } } touchedThisWeek: Opportunity(scope: MINE, where: { IsClosed: { eq: false }, LastModifiedDate: { eq: { literal: THIS_WEEK } } }, first: 50) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } LastModifiedDate { value } NextStep { value } <OPP_CUSTOM> Account { Name { value } } } } } closingNextWeek: Opportunity(scope: MINE, where: { IsClosed: { eq: false }, CloseDate: { eq: { literal: NEXT_WEEK } } }, first: 50) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } NextStep { value } <OPP_CUSTOM> Account { Name { value } } } } } meetingsThisWeek: Event(scope: MINE, where: { ActivityDate: { eq: { literal: THIS_WEEK } } }, first: 50) { edges { node { Id Subject { value } StartDateTime { value } Location { value } WhatId { value } } } } meetingsNextWeek: Event(scope: MINE, where: { ActivityDate: { eq: { literal: NEXT_WEEK } } }, first: 50) { edges { node { Id Subject { value } StartDateTime { value } Location { value } WhatId { value } } } } } } }\"}" })
 ```
 
 **Team scope** → swap every `scope: MINE` above for `OwnerId: { in: [\"<TEAM_USER_IDS>\"] }`.
@@ -71,27 +70,11 @@ dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
 
 Call `display_widget` now with the data you collected. Do not write markdown first — call immediately. Only fall back to markdown if the tool is unavailable.
 
-## ⛔ SILENCE RULE — STRICTLY ENFORCED
-
-The only bytes you may write after data assembly are the `display_widget` tool call and its arguments. Nothing else.
-
-When you have all the data, say exactly: "Displaying the visualization now (this may take a minute)." This is the only permitted sentence between data gathering and calling `display_widget`. Then immediately call `display_widget` — no further narration.
-
-NO text output of any kind before or after `display_widget` — no data summaries, no computation notes, no transition sentences, no "assembling widget..." narration, no bullet lists of what you found. Violating this rule is an output error, not a style preference.
-
-**Fallback trigger: ONLY produce the text fallback if `display_widget` raised an exception or returned `isError: true`. A successful tool call with any widget definition in the response = widget mode. A user message saying "no output" or "nothing rendered" does NOT override this — it means the widget rendered in the chat and they may not have seen it.**
-
-If `display_widget` returned a non-error result AND the user says there was no visible output, respond with one sentence only: "The widget rendered in the chat — please scroll up if you don't see it." Do not produce the text fallback.
-
-**If `display_widget` succeeded: NO MORE OUTPUT. Stop. Do not summarize findings, recap the session, or add any closing text.**
-
-❌ WRONG: `"I found 12 deals totaling $4.2M. Here's the overview: [widget] The key risk is..."`
-✅ RIGHT: `[widget]`
+When the data is assembled, call `display_widget`; a single one-line "Displaying the visualization now (this may take a minute)." notice may precede it.
 
 ### Self-verification (before calling display_widget)
 
-- [ ] No prose written before or after this call — no input narration, no transition text, no summary (only applies when display_widget is available; if unavailable, produce the text fallback section below).
-- [ ] I am producing zero prose before or after this call. If I am tempted to summarize findings, I must not.
+- [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 
 The widget template is embedded below. Call `display_widget` in **dynamic** mode with it. It is a skeleton: replace every `{{token}}` placeholder with a fully-resolved literal computed from the week's data — this echo path does no expression compilation, so no `{!…}` bindings.
 
@@ -176,6 +159,11 @@ The widget template is embedded below. Call `display_widget` in **dynamic** mode
               "appearance": "striped",
               "size": "sm",
               "columns": [
+                {
+                  "key": "status",
+                  "header": "Status",
+                  "type": "badge"
+                },
                 {
                   "key": "deal",
                   "header": "Deal",
@@ -268,13 +256,13 @@ What each block shows, from data you already have:
 - **Two graphs in a wrapped row**:
   - **Column chart** — "Daily activity — calls, emails, and meetings" (`{{activityCaption}}`): `{{activityCategories}}` (weekdays), `{{activitySeries}}` (3 series: Calls, Emails, Meetings with daily counts), `valueFormat:"number"`, with legend.
   - **Waterfall** — "How commit moved this week" (`{{waterfallCaption}}`): `{{waterfallStart}}` (Last Mon value), `{{waterfallSteps}}` (Won/New pipe/Slipped out/Lost deltas), `{{waterfallEnd}}` (This Mon), `valueFormat:"currency"`, size lg.
-- **Datagrid** (`{{dealRows}}`) — "This week's closed and moved deals" (`{{datagridCaption}}`). Columns: Deal (text), Amount (currency, right-aligned), What happened (badge), Note (text). Every row carries `_tone` (success/error/warning) and `_status` (Won/Lost/Slipped); the renderer auto-injects a leading Status column from `_status`.
+- **Datagrid** (`{{dealRows}}`) — "This week's closed and moved deals" (`{{datagridCaption}}`). Columns: Deal (text), Amount (currency, right-aligned), What happened (badge), Note (text). Every row carries a leading `status` object (`{value,badgeVariant}` — value Won/Lost/Slipped, badgeVariant success/error/warning); the leading Status column reads each row's `status`.
 - **One synthesis callout** (`variant:"success"`) — `{{calloutTitle}}` (the week's single most important read) and `{{calloutDescription}}`. It carries two real buttons: "Draft Slack post" (`{{button1Label}}` / `{{button1Content}}`, `action/sendMessage`) and "Prep Monday plan" (`{{button2Label}}` / `{{button2Content}}`, `action/sendMessage`).
 
 **Hydration rules:**
 1. Start from the embedded template above — a valid-JSON widget-definition envelope whose leaf values carry `{{token}}` placeholders.
 2. Resolve every `{{token}}`. A value that is **only** a `{{token}}` (chart `categories`/`series`, waterfall `start`/`steps`/`end`, datagrid `rows`) becomes the resolved **typed** literal — numbers stay numbers, arrays stay arrays. A `{{token}}` **inside** a larger string is interpolated as text.
-3. `{{activitySeries}}` is an array of series objects — each with `name` (string) and `data` (array of numbers). `{{waterfallSteps}}` is an array of step objects — each with `label` (string) and `delta` (number). `{{dealRows}}` is an array of deal objects — each with `deal` (plain string — format as the account or opportunity name (e.g. "Vertex Manufacturing"); names must be plain strings, not objects: use `Account.Name.value` from the SF response), `amount` (number), `event` (`{ value, badgeVariant }`), `note` (text), `_tone` (success/error/warning), and `_status` (Won/Lost/Slipped).
+3. `{{activitySeries}}` is an array of series objects — each with `name` (string) and `data` (array of numbers). `{{waterfallSteps}}` is an array of step objects — each with `label` (string) and `delta` (number). `{{dealRows}}` is an array of deal objects — each with `deal` (plain string — format as the account or opportunity name (e.g. "Vertex Manufacturing"); names must be plain strings, not objects: use `Account.Name.value` from the SF response), `amount` (number), `event` (`{ value, badgeVariant }`), `note` (text), and `status` (`{value,badgeVariant}` — value Won/Lost/Slipped, badgeVariant success/error/warning).
 4. The result is hydrated widget definition (no `{{…}}` placeholders remain). Then call:
 
 ```
@@ -285,12 +273,11 @@ display_widget({ resourceType: "dynamic", widgetDefinition: <hydrated renderer.j
 - Resolve every `{{token}}` to a literal before calling — numbers stay numbers (`{{waterfallStart}}.value`, each step's `delta`, each row's `amount`), arrays stay arrays (`{{activityCategories}}`, `{{activitySeries}}`, `{{waterfallSteps}}`, `{{dealRows}}`), strings stay strings.
 - Chart series: each object has `name` (string) and `data` (array of numbers, one per category). Categories are weekday labels (Mon-Fri).
 - Waterfall: `{{waterfallStart}}` is `{ label, value }`, `{{waterfallSteps}}` is an array of `{ label, delta }` (deltas can be positive or negative), `{{waterfallEnd}}` is `{ label }` (final value is computed).
-- Datagrid rows: one per deal that closed/moved this week. `amount` is a raw number. The What happened badge (`event.badgeVariant`) reflects outcome — `"success"` (Won), `"error"` (Lost), `"warning"` (Slipped). `_status` drives the auto Status column. Rank rows by outcome (Won first, Lost second, Slipped last).
+- Datagrid rows: one per deal that closed/moved this week. `amount` is a raw number. The What happened badge (`event.badgeVariant`) reflects outcome — `"success"` (Won), `"error"` (Lost), `"warning"` (Slipped). `status` fills the leading Status column. Rank rows by outcome (Won first, Lost second, Slipped last).
 - Callout buttons: both are `action/sendMessage` with first-person `content` prompts (`{{button1Content}}`, `{{button2Content}}`, e.g. "Draft a Slack post for…"). Never leave a button decorative.
 - No fabricated content — quote blank fields as blank rather than inventing them; drop deals you have no data for.
 
 
-> **Before writing any text:** confirm `display_widget` returned an explicit error. If it returned any non-error result, you are in widget mode — stop. The text section below does not exist in widget mode.
 ## 5. Text — FALLBACK ONLY — DO NOT USE IF `display_widget` SUCCEEDED
 
 ```

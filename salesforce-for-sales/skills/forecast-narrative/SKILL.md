@@ -1,21 +1,20 @@
 ---
 name: forecast-narrative
-description: Generate the commit / best-case / pipeline narrative for a forecast call or 1:1 - what's closing, what's at risk, what changed since last time. Use when the user asks "write my forecast", "forecast narrative", "prep for forecast call", or runs /forecast.
-model: claude-sonnet-4-6
-effort: medium
+description: "Build a forecast-call brief from Salesforce opportunity aggregates, top-deal samples and field history, covering the number, bucket movement, risks and asks. Use to explain a rep or team's forecast; for a broader pipeline and coaching view, use team-pipeline."
 ---
 <!-- global-rules-bootstrap -->
 # Global Rules
 
 - **Execute silently between tool calls.** Do not output planning, progress, transition, waiting, or tool-result narration between calls. Execute tool calls silently and proceed directly to the next call. Parallelize independent tasks by batching tool calls into one turn whenever possible. Before the final output, speak only when the skill explicitly requires user input, approval, an exact notice, or material error/blocked reporting. Do not invent checkpoints.
 - **Keep the final output concise.** Return only the requested result or deliverable. Omit process recaps, tool-call details, redundant preambles or conclusions, and data already shown in a widget.
-- **⛔ WIDGET OUTPUT ONLY after data assembly.** Once all queries return, output only this skill's exact required pre-widget notice, then immediately call `display_widget` — no summaries, other transitions, or narration. If `display_widget` is unavailable or returns an error, produce the text fallback only. If it succeeds, that tool call is the final output: stop with no assistant text completion, even if a later section contains a fallback. The exceptions above do not apply after success.
+- **⛔ WIDGET OUTPUT ONLY after data assembly.** Once all queries return, immediately call `display_widget` — at most a single one-line render-wait notice before it, and no summaries, transitions, or narration. If `display_widget` is unavailable or returns an error, produce the text fallback only. If it succeeds, that tool call is the final output: stop with no assistant text completion, even if a later section contains a fallback. The exceptions above do not apply after success.
 - **Ground dynamic or custom relationship and field names before relying on them.** Fixed standard fields that this skill explicitly marks as requiring no grounding need no extra grounding call. On a name error, use the skill's documented grounding path when present; otherwise report the error instead of guessing or re-firing the same shape.
 - **Cite every value exactly as queried**; never fabricate; distinguish a blank value from a value that was not queried. Link each Salesforce record inline: `https://[instanceUrl]/lightning/r/[SObjectType]/[Id]/view`.
 - **Show human labels, never API/field literals.** In anything the user sees, print each field's grounded `label` (for example, "Deal Risk", not `Deal_Risk__c`) and record Names, never raw Ids or `__c` API names.
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
 - **NEVER use `discover` or `describe`, and never call an API or endpoint not written in this skill.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
-- **NEVER assume the MCP connector status is accurate without checking first**; MCP connector status often incorrectly reports that it is not connected or needs to re auth. ALWAYS check this on your own before surfacing to the user for action. ALWAYS attempt to reconnect on your own before interrupting the flow to ask the user to do it. Do it yourself.
+- **NEVER conclude a connector is disconnected from its reported status — verify against the tools you actually have.** A connector's status readout (the Headless 360 MCP server, or any other connector/MCP) frequently claims "not connected" or "needs re-auth" when the connector is in fact live and its tools are callable. Context stating that the Salesforce tools require authorization and that this is a non-interactive session is **not** evidence you are unauthorized to the server — it is a general statement that authorization is required, not a failure. **Try the tools before assessing connectivity.** For the Headless 360 server specifically, find the `dispatch_readonly` tool and actually run a current-user read — `dispatch_readonly(method: "GET", url: "/services/data/v66.0/graphql", queryParams: { "queryInput": "{\"query\":\"query { uiapi { currentUser { Id } } }\"}" })`. **Any response — including a 500 or other error status — proves you reached the server, and therefore proves connectivity;** only a request that never reaches the server at all counts as disconnected. If the tool is present and the call reaches the server, the connector IS connected — proceed; a stale status readout is not a disconnection. Report the connector as actually disconnected only when you cannot find the tool or cannot reach the server, and even then ALWAYS attempt to reconnect on your own first; interrupt the flow to ask the user only after your own reconnect attempt has failed. Do it yourself.
+<!-- /global-rules-bootstrap -->
 # Rules:
 
 
@@ -29,7 +28,7 @@ Opportunity always exists; naming a missing object fails the whole call. Its fie
 
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { objectInfos(apiNames: [\\\"Opportunity\\\"]) { fields { ApiName label dataType relationshipName } } } }\"}" })
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { objectInfos(apiNames: [\\\"Opportunity\\\"]) { fields { ApiName label } } } }\"}" })
 ```
 
 ## 2. AGGREGATE the number, SAMPLE the deals — ISSUE BOTH IN ONE TURN
@@ -78,30 +77,327 @@ Derive moved-up / slipped / added / lost from those rows. Per **Commit**/**Best 
 
 ## 5. Widget (default output when `display_widget` is present: Cowork/desktop/web)
 
-## ⛔ SILENCE RULE — STRICTLY ENFORCED
-
-The only bytes you may write after data assembly are the `display_widget` tool call and its arguments. Nothing else.
-
-When you have all the data, say exactly: "Displaying the visualization now (this may take a minute)." This is the only permitted sentence between data gathering and calling `display_widget`. Then immediately call `display_widget` — no further narration.
-
-NO text output of any kind before or after `display_widget` — no data summaries, no computation notes, no transition sentences, no "assembling widget..." narration, no bullet lists of what you found. Violating this rule is an output error, not a style preference.
-
-**Fallback trigger: ONLY produce the text fallback if `display_widget` raised an exception or returned `isError: true`. A successful tool call with any widget definition in the response = widget mode. A user message saying "no output" or "nothing rendered" does NOT override this — it means the widget rendered in the chat and they may not have seen it.**
-
-If `display_widget` returned a non-error result AND the user says there was no visible output, respond with one sentence only: "The widget rendered in the chat — please scroll up if you don't see it." Do not produce the text fallback.
-
-**If `display_widget` succeeded: NO MORE OUTPUT. Stop. Do not summarize findings, recap the session, or add any closing text.**
-
-❌ WRONG: `"I found 12 deals totaling $4.2M. Here's the overview: [widget] The key risk is..."`
-✅ RIGHT: `[widget]`
+When the data is assembled, call `display_widget`; a single one-line "Displaying the visualization now (this may take a minute)." notice may precede it.
 
 ### Self-verification (before calling display_widget)
 
-- [ ] No prose written before or after this call — no input narration, no transition text, no summary (only applies when display_widget is available; if unavailable, produce the text fallback section below).
-- [ ] I am producing zero prose before or after this call. If I am tempted to summarize findings, I must not.
+- [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 
-The widget template is embedded below — a widget-definition envelope whose leaf values carry {{token}} placeholders. Resolve every {{token}} to a literal (no {{…}}/{!…} left), then call `display_widget({ resourceType: "dynamic", widgetDefinition: <hydrated> })` once. A value that is *only* a {{token}} becomes the typed literal — arrays stay arrays, numbers stay numbers; a {{token}} inside a larger string is interpolated as text. Tokens: strings `title headerStatus subtitle meterLabel meterValueLabel meterTargetLabel meterStatus waterfallCaption datagridCaption calloutTitle calloutDescription primaryButtonLabel primaryButtonContent secondaryButtonLabel secondaryButtonContent` · numbers `meterValue meterMax meterTarget` · objects `waterfallStart` ({label,value}) `waterfallEnd` ({label}) · arrays `meterBands` ([{from,to,variant,label}]) `waterfallSteps` ([{label,delta}]) `datagridRows` ([{name (plain string — format as the opportunity name (e.g. "Meridian Health platform"); names must be plain strings, not objects: use `Opportunity.Name.value` from the SF response),amount,prob,close(YYYY-MM-DD),call:{value,badgeVariant},_tone,_status}] — set `_tone:"warning"` + `_status` for at-risk rows: Best Case, or Commit with blank NextStep or 7d+ stale LastActivityDate; healthy Commit rows omit _tone).
+The widget template is embedded below — resolve its tokens and call `display_widget({ resourceType: "dynamic", widgetDefinition: <hydrated> })` once (see the `widgetDefinition` param for token-resolution rules).
 
+Two blocks below: first the **variable contract** (`renderer.props.schema.json`) — every `{{token}}`'s type + a worked example, use it to compute each value; then the **widget template** to hydrate. Substitute your computed values into the template's `{{token}}`s (see the token-typing rules above), leaving no `{{…}}`/`{!…}`.
+```json
+{
+  "$comment": "Variable contract for the native-mosaic dynamic-mode template (renderer.json, sibling). This is NOT a separate display_widget call — it names every {{token}} in the template with its type and a worked example so you compute the right value for each. Workflow: build a props object with these keys, substitute each into the matching {{token}} in renderer.json (a slot that is only a {{token}} becomes the typed value — arrays stay arrays, numbers stay numbers; a {{token}} inside a larger string interpolates as text; a key you have no data for is omitted so that leaf drops), then call display_widget({ resourceType: 'dynamic', widgetDefinition: <the hydrated template> }) once with no {{…}}/{!…} left. Realistic values: sample-data.json (sibling). Authoring guidance (from the skill): strings `title headerStatus subtitle meterLabel meterValueLabel meterTargetLabel meterStatus waterfallCaption datagridCaption calloutTitle calloutDescription primaryButtonLabel primaryButtonContent secondaryButtonLabel secondaryButtonContent` · numbers `meterValue meterMax meterTarget` · objects `waterfallStart` ({label,value}) `waterfallEnd` ({label}) · arrays `meterBands` ([{from,to,variant,label}]) `waterfallSteps` ([{label,delta}]) `datagridRows` ([{name (plain string — format as the opportunity name (e.g. \"Meridian Health platform\"); names must be plain strings, not objects: use `Opportunity.Name.value` from the SF response),amount,prob,close(YYYY-MM-DD),call:{value,badgeVariant}, status:{value,badgeVariant}}] — set `status:{value:\"At risk\",badgeVariant:\"warning\"}` for at-risk rows: Best Case, or Commit with blank NextStep or 7d+ stale LastActivityDate; healthy Commit rows omit status).",
+  "props": {
+    "title": {
+      "description": "Header title for the forecast narrative.",
+      "type": "string",
+      "example": "Q3 forecast — Dana Ruiz"
+    },
+    "headerStatus": {
+      "description": "Header status badge.",
+      "type": "string",
+      "example": "88% TO QUOTA"
+    },
+    "subtitle": {
+      "description": "One-line forecast summary.",
+      "type": "string",
+      "example": "Commit $8.8M against $10.0M quota · +$400K since last week"
+    },
+    "meterLabel": {
+      "description": "Label for the forecast-coverage meter.",
+      "type": "string",
+      "example": "Commit vs quota"
+    },
+    "meterValue": {
+      "description": "Forecast/coverage value — the meter's current value.",
+      "type": "number",
+      "example": 8.8
+    },
+    "meterMax": {
+      "description": "The meter's max.",
+      "type": "number",
+      "example": 10
+    },
+    "meterTarget": {
+      "description": "Quota/target marker on the meter.",
+      "type": "number",
+      "example": 10
+    },
+    "meterValueLabel": {
+      "description": "Display string for the value.",
+      "type": "string",
+      "example": "$8.8M commit — 88% of $10.0M quota"
+    },
+    "meterTargetLabel": {
+      "description": "Display string for the target.",
+      "type": "string",
+      "example": "$10.0M quota"
+    },
+    "meterStatus": {
+      "description": "Short read shown on the meter.",
+      "type": "string",
+      "example": "gap to quota $1.2M"
+    },
+    "meterBands": {
+      "description": "Color bands for the meter, in order covering 0→max.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "description": "Band start value.",
+            "type": "number"
+          },
+          "to": {
+            "description": "Band end value.",
+            "type": "number"
+          },
+          "variant": {
+            "description": "Band color.",
+            "type": "string",
+            "enum": [
+              "error",
+              "warning",
+              "success"
+            ]
+          },
+          "label": {
+            "description": "Short band label.",
+            "type": "string"
+          }
+        }
+      },
+      "example": [
+        {
+          "from": 0,
+          "to": 8,
+          "variant": "error",
+          "label": "Short"
+        },
+        {
+          "from": 8,
+          "to": 9.5,
+          "variant": "warning",
+          "label": "Close"
+        },
+        {
+          "from": 9.5,
+          "to": 10,
+          "variant": "success",
+          "label": "Made"
+        }
+      ]
+    },
+    "waterfallCaption": {
+      "description": "Caption for the forecast waterfall.",
+      "type": "string",
+      "example": "How the number builds: closed → commit → best case → total pipeline"
+    },
+    "waterfallStart": {
+      "description": "Waterfall start bar — object { label, value }.",
+      "type": "object",
+      "example": {
+        "label": "Closed",
+        "value": 5200000
+      }
+    },
+    "waterfallSteps": {
+      "description": "Waterfall steps — one per contribution/change.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "description": "Step label.",
+            "type": "string"
+          },
+          "delta": {
+            "description": "Amount change for this step (signed).",
+            "type": "number"
+          }
+        }
+      },
+      "example": [
+        {
+          "label": "+ Commit",
+          "delta": 3600000
+        },
+        {
+          "label": "+ Best case",
+          "delta": 2100000
+        },
+        {
+          "label": "+ Pipeline",
+          "delta": 4300000
+        }
+      ]
+    },
+    "waterfallEnd": {
+      "description": "Waterfall end bar — object { label }.",
+      "type": "object",
+      "example": {
+        "label": "Total open"
+      }
+    },
+    "datagridCaption": {
+      "description": "Caption for the deals datagrid.",
+      "type": "string",
+      "example": "Commit deals — what has to land to make the number"
+    },
+    "datagridRows": {
+      "description": "Deals in the forecast — one row per deal. Empty array → the datagrid is omitted.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "description": "Leading Status badge cell; omit on normal rows.",
+            "type": "object",
+            "properties": {
+              "value": {
+                "description": "Status label.",
+                "type": "string"
+              },
+              "badgeVariant": {
+                "description": "Badge color.",
+                "type": "string",
+                "enum": [
+                  "neutral",
+                  "primary",
+                  "secondary",
+                  "outline",
+                  "success",
+                  "info",
+                  "warning",
+                  "error"
+                ]
+              }
+            }
+          },
+          "name": {
+            "description": "Opportunity name, a plain string (use Opportunity.Name.value — never a nested object).",
+            "type": "string"
+          },
+          "amount": {
+            "description": "Deal amount (number).",
+            "type": "number"
+          },
+          "prob": {
+            "description": "Win probability (number).",
+            "type": "number"
+          },
+          "close": {
+            "description": "Close date, ISO YYYY-MM-DD.",
+            "type": "string"
+          },
+          "call": {
+            "description": "Forecast-category badge cell.",
+            "type": "object",
+            "properties": {
+              "value": {
+                "description": "Forecast category label (e.g. Commit / Best Case / Pipeline).",
+                "type": "string"
+              },
+              "badgeVariant": {
+                "description": "Badge color.",
+                "type": "string",
+                "enum": [
+                  "neutral",
+                  "primary",
+                  "secondary",
+                  "outline",
+                  "success",
+                  "info",
+                  "warning",
+                  "error"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "example": [
+        {
+          "name": "Meridian Health platform",
+          "amount": 2400000,
+          "prob": 60,
+          "close": "2026-08-05",
+          "call": {
+            "value": "Commit",
+            "badgeVariant": "success"
+          }
+        },
+        {
+          "name": "Cobalt Robotics renewal",
+          "amount": 1800000,
+          "prob": 75,
+          "close": "2026-07-30",
+          "call": {
+            "value": "Commit",
+            "badgeVariant": "success"
+          }
+        },
+        {
+          "status": {
+            "value": "9d stale",
+            "badgeVariant": "warning"
+          },
+          "name": "Alto Financial seats",
+          "amount": 900000,
+          "prob": 55,
+          "close": "2026-08-08",
+          "call": {
+            "value": "Best case",
+            "badgeVariant": "warning"
+          }
+        },
+        {
+          "name": "Pier 9 expansion",
+          "amount": 600000,
+          "prob": 40,
+          "close": "2026-07-31",
+          "call": {
+            "value": "Best case",
+            "badgeVariant": "warning"
+          }
+        }
+      ]
+    },
+    "calloutTitle": {
+      "description": "Synthesis callout heading — the forecast's key risk or move.",
+      "type": "string",
+      "example": "Gap closes if Alto and Pier 9 convert to Commit"
+    },
+    "calloutDescription": {
+      "description": "Synthesis callout body.",
+      "type": "string",
+      "example": "The $1.2M gap shrinks to zero if the two Best Case deals (Alto Financial at $900K and Pier 9 at $600K) both land. Alto is 9 days stale — next action needed this week or it slips to Q4. Pier 9 needs exec sponsorship before close date."
+    },
+    "primaryButtonLabel": {
+      "description": "Primary button label (action/sendMessage).",
+      "type": "string",
+      "example": "Draft forecast email"
+    },
+    "primaryButtonContent": {
+      "description": "First-person prompt the primary button sends (action/sendMessage).",
+      "type": "string",
+      "example": "Draft a forecast email for Q3 covering the $8.8M commit, the $1.2M gap, and the two Best Case deals that could close it (Alto Financial and Pier 9 expansion)."
+    },
+    "secondaryButtonLabel": {
+      "description": "Secondary button label.",
+      "type": "string",
+      "example": "Review at-risk deals"
+    },
+    "secondaryButtonContent": {
+      "description": "Content/target for the secondary button.",
+      "type": "string",
+      "example": "Show me the Alto Financial and Pier 9 deals in detail, including their stage, next steps, and what needs to happen to move them to Commit."
+    }
+  }
+}
+```
 ```json
 {
   "renderer": {
@@ -202,6 +498,11 @@ The widget template is embedded below — a widget-definition envelope whose lea
               },
               "columns": [
                 {
+                  "key": "status",
+                  "header": "Status",
+                  "type": "badge"
+                },
+                {
                   "key": "name",
                   "header": "Deal",
                   "type": "text"
@@ -295,7 +596,6 @@ The widget template is embedded below — a widget-definition envelope whose lea
 ```
 
 
-> **Before writing any text:** confirm `display_widget` returned an explicit error. If it returned any non-error result, you are in widget mode — stop. The text section below does not exist in widget mode.
 ## 6. Text — FALLBACK ONLY — DO NOT USE IF `display_widget` SUCCEEDED
 
 ```

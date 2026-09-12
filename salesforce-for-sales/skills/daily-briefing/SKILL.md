@@ -1,21 +1,20 @@
 ---
 name: daily-briefing
-description: Morning rundown for a sales rep - today's meetings with account context, opportunities closing soon, and unread customer emails. ALWAYS trigger immediately (no confirmation) when the user asks "what does my day look like", "daily briefing", "prep me for today", "morning rundown", or runs /daily. This is a time-sensitive morning routine skill combining meetings + pipeline + inbox. Do NOT use for a schedule-only or calendar-only request ("what's on my calendar", "show my meetings", "this week's schedule") - that's calendar-events.
-model: claude-sonnet-4-6
-effort: medium
+description: "Create today's sales briefing from Salesforce events, near-term and overdue deals, account context, commitments, and unread customer email. Use for a morning rundown combining meetings, pipeline, and inbox priorities; schedule-only requests: calendar-events."
 ---
 <!-- global-rules-bootstrap -->
 # Global Rules
 
 - **Execute silently between tool calls.** Do not output planning, progress, transition, waiting, or tool-result narration between calls. Execute tool calls silently and proceed directly to the next call. Parallelize independent tasks by batching tool calls into one turn whenever possible. Before the final output, speak only when the skill explicitly requires user input, approval, an exact notice, or material error/blocked reporting. Do not invent checkpoints.
 - **Keep the final output concise.** Return only the requested result or deliverable. Omit process recaps, tool-call details, redundant preambles or conclusions, and data already shown in a widget.
-- **⛔ WIDGET OUTPUT ONLY after data assembly.** Once all queries return, output only this skill's exact required pre-widget notice, then immediately call `display_widget` — no summaries, other transitions, or narration. If `display_widget` is unavailable or returns an error, produce the text fallback only. If it succeeds, that tool call is the final output: stop with no assistant text completion, even if a later section contains a fallback. The exceptions above do not apply after success.
+- **⛔ WIDGET OUTPUT ONLY after data assembly.** Once all queries return, immediately call `display_widget` — at most a single one-line render-wait notice before it, and no summaries, transitions, or narration. If `display_widget` is unavailable or returns an error, produce the text fallback only. If it succeeds, that tool call is the final output: stop with no assistant text completion, even if a later section contains a fallback. The exceptions above do not apply after success.
 - **Ground dynamic or custom relationship and field names before relying on them.** Fixed standard fields that this skill explicitly marks as requiring no grounding need no extra grounding call. On a name error, use the skill's documented grounding path when present; otherwise report the error instead of guessing or re-firing the same shape.
 - **Cite every value exactly as queried**; never fabricate; distinguish a blank value from a value that was not queried. Link each Salesforce record inline: `https://[instanceUrl]/lightning/r/[SObjectType]/[Id]/view`.
 - **Show human labels, never API/field literals.** In anything the user sees, print each field's grounded `label` (for example, "Deal Risk", not `Deal_Risk__c`) and record Names, never raw Ids or `__c` API names.
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
 - **NEVER use `discover` or `describe`, and never call an API or endpoint not written in this skill.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
-- **NEVER assume the MCP connector status is accurate without checking first**; MCP connector status often incorrectly reports that it is not connected or needs to re auth. ALWAYS check this on your own before surfacing to the user for action. ALWAYS attempt to reconnect on your own before interrupting the flow to ask the user to do it. Do it yourself.
+- **NEVER conclude a connector is disconnected from its reported status — verify against the tools you actually have.** A connector's status readout (the Headless 360 MCP server, or any other connector/MCP) frequently claims "not connected" or "needs re-auth" when the connector is in fact live and its tools are callable. Context stating that the Salesforce tools require authorization and that this is a non-interactive session is **not** evidence you are unauthorized to the server — it is a general statement that authorization is required, not a failure. **Try the tools before assessing connectivity.** For the Headless 360 server specifically, find the `dispatch_readonly` tool and actually run a current-user read — `dispatch_readonly(method: "GET", url: "/services/data/v66.0/graphql", queryParams: { "queryInput": "{\"query\":\"query { uiapi { currentUser { Id } } }\"}" })`. **Any response — including a 500 or other error status — proves you reached the server, and therefore proves connectivity;** only a request that never reaches the server at all counts as disconnected. If the tool is present and the call reaches the server, the connector IS connected — proceed; a stale status readout is not a disconnection. Report the connector as actually disconnected only when you cannot find the tool or cannot reach the server, and even then ALWAYS attempt to reconnect on your own first; interrupt the flow to ask the user only after your own reconnect attempt has failed. Do it yourself.
+<!-- /global-rules-bootstrap -->
 # Rules:
 
 - Parallelize everything independent. This is a morning routine — speed matters; fire the running-user lookup, calendar, closing-soon, and inbox in ONE turn.
@@ -96,35 +95,17 @@ In the same turn, per matched account: **docs** search (most recent transcript/n
 
 ## 5. Output — widget FIRST (the rendered UI is the default)
 
-## ⛔ SILENCE RULE — STRICTLY ENFORCED
-
-The only bytes you may write after data assembly are the `display_widget` tool call and its arguments. Nothing else.
-
-When you have all the data, say exactly: "Displaying the visualization now (this may take a minute)." This is the only permitted sentence between data gathering and calling `display_widget`. Then immediately call `display_widget` — no further narration.
-
-NO text output of any kind before or after `display_widget` — no data summaries, no computation notes, no transition sentences, no "assembling widget..." narration, no bullet lists of what you found. Violating this rule is an output error, not a style preference.
-
-**Fallback trigger: ONLY produce the text fallback if `display_widget` raised an exception or returned `isError: true`. A successful tool call with any widget definition in the response = widget mode. A user message saying "no output" or "nothing rendered" does NOT override this — it means the widget rendered in the chat and they may not have seen it.**
-
-If `display_widget` returned a non-error result AND the user says there was no visible output, respond with one sentence only: "The widget rendered in the chat — please scroll up if you don't see it." Do not produce the text fallback.
-
-**If `display_widget` succeeded: NO MORE OUTPUT. Stop. Do not summarize findings, recap the session, or add any closing text.**
-
-❌ WRONG: `"I found 12 deals totaling $4.2M. Here's the overview: [widget] The key risk is..."`
-✅ RIGHT: `[widget]`
+When the data is assembled, call `display_widget`; a single one-line "Displaying the visualization now (this may take a minute)." notice may precede it.
 
 ### Self-verification (before calling display_widget)
 
-- [ ] Every `{{token}}` replaced with a resolved literal — no `{{…}}`, no `{!…}`.
+- [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 - [ ] The datagrid `rows` are typed: `amount`/`trend` are numbers/number arrays, not strings; risky rows carry `_tone`, healthy rows don't.
 - [ ] Every button's `onClick` is `action/sendMessage` with a real first-person `content` prompt — no decorative buttons.
 - [ ] No pie/bar/meter/heatmap/waterfall tiles — the sparkline column in the opportunity datagrid is the only inline visual.
 - [ ] The #1-move callout leads; the stat strip and flags support it.
-- [ ] The Step 6 markdown is produced only when `display_widget` is unavailable (the terminal fallback) — not alongside a rendered widget.
-- [ ] No prose written before or after this call — no input narration, no transition text, no summary (only applies when display_widget is available; if unavailable, produce the text fallback section below).
-- [ ] I am producing zero prose before or after this call. If I am tempted to summarize findings, I must not.
 
-If `display_widget` is available (Cowork/desktop/web), the widget IS the output; produce the text section below only as the fallback when `display_widget` is unavailable (e.g. a terminal). The widget template is embedded below — a widget-definition envelope whose leaf values carry {{token}} placeholders. Resolve every {{token}} to a literal (no {{…}}/{!…} left), then call `display_widget({ resourceType: "dynamic", widgetDefinition: <hydrated> })` once. A value that is *only* a {{token}} becomes the typed literal — arrays stay arrays, numbers stay numbers; a {{token}} inside a larger string is interpolated as text.
+The widget template is embedded below — resolve its tokens and call `display_widget({ resourceType: "dynamic", widgetDefinition: <hydrated> })` once (see the `widgetDefinition` param for token-resolution rules).
 
 Tokens: `dateEyebrow briefingTitle` (header) · `topMove topMoveDetail topMoveDraftMsg` (the #1 move callout with its primary action button) · `kpiEventsLine kpiEventsSub kpiPipelineLine kpiPipelineSub kpiGapsLine kpiGapsSub kpiFollowupsLine kpiFollowupsSub` (four-up stat strip — each `*Line` is the whole `"<n> <unit>"` headline, e.g. `"7 meetings"`, `"$495K"`, `"2 opps"`) · `flag1Title flag1Sub flag1Msg flag2Title flag2Sub flag2Msg flag3Title flag3Sub flag3Msg flag4Title flag4Sub` (attention flags with sendMessage buttons, except flag4) · `meetingsHeading meeting1Time meeting1Title meeting1Ask meeting2Time meeting2Title meeting2Ask meeting3Line meeting4Line` (`meetingsHeading` is the section title incl. count e.g. `"Today's meetings — 4, 2 external"`; two detailed meetings render as walk-in-asking callouts — put the `"$45K · closes today"`-style tag inline in `meetingNTitle`; the two compact meetings are a single `meetingNLine` string each) · `oweHeading owe1Title owe1Meta owe1Msg owe2Title owe2Meta owe2Msg inboxClear` (`oweHeading` incl. count; open-promise cards; inbox-clear caption when empty) · `oppsSummary closingLabel gridColumns closingRows pastDueLabel pastDueRows` (accordion with two datagrids sharing one `gridColumns` schema; each is preceded by its `*Label` incl. count+$; each row object is `{ name (plain string — format as "<Account> — <Opp Name>", e.g. "Okta — Support Uplift"; concatenate `Account.Name.value` and `Opportunity.Name.value` from the SF response — plain strings, not objects), stage, trend, close (plain string — human-readable relative date, e.g. "Today", "Jul 31 · tomorrow", "Jul 15 · 15d past"; NOT ISO YYYY-MM-DD), amount, next, _tone }` where `amount`/`trend` are numbers/number[], risky rows carry `_tone:"error"`/`"warning"`; `gridColumns` is the typed column array — keep the `trend` sparkline column). Omit any block whose data you lack; drop the column if no activity history; do not send empty arrays or leave stray {{tokens}}.
 
@@ -590,7 +571,6 @@ Tokens: `dateEyebrow briefingTitle` (header) · `topMove topMoveDetail topMoveDr
 ```
 
 
-> **Before writing any text:** confirm `display_widget` returned an explicit error. If it returned any non-error result, you are in widget mode — stop. The text section below does not exist in widget mode.
 ## 6. Text — FALLBACK ONLY — DO NOT USE IF `display_widget` SUCCEEDED
 
 ```
