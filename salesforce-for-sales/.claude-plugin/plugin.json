@@ -1,6 +1,6 @@
 {
   "name": "salesforce-for-sales",
-  "version": "1.0.0-beta.1.1",
+  "version": "1.0.0-beta.1.2",
   "displayName": "Sales Cloud",
   "description": "Sales workflows for account executives and sales leaders, including account research, call prep, follow-up, pipeline review, forecasting, deal-slippage scenarios, lead triage, outreach drafting, approval-gated Salesforce updates and much more. Both the plugin and the Salesforce connector are Beta services, their use is governed by the [Beta terms](https://www.salesforce.com/en-us/wp-content/uploads/sites/4/documents/legal/Agreements/beta-agreements/Beta-Services-Agreement.pdf).",
   "author": {
