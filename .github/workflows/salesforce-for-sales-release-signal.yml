@@ -1,0 +1,21 @@
+name: Salesforce for Sales release candidate
+
+# This workflow intentionally has no privileges and executes no candidate files.
+# Its completion is only a signal for the trusted workflow_run handler on main.
+on:
+  push:
+    branches:
+      - "automation/salesforce-for-sales-v*"
+
+permissions: {}
+
+jobs:
+  signal:
+    if: github.repository == 'salesforce/salesforce-skills'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record release candidate
+        env:
+          CANDIDATE_BRANCH: ${{ github.ref_name }}
+          CANDIDATE_SHA: ${{ github.sha }}
+        run: echo "Received release candidate ${CANDIDATE_BRANCH}@${CANDIDATE_SHA}."
