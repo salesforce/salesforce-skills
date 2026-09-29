@@ -18,11 +18,6 @@ Failing to try first — asking the user to connect, or surfacing a "not connect
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
 - **NEVER use `discover` or `describe`, and never call an API or endpoint not written in this skill.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
 <!-- /global-rules-bootstrap -->
-# Rules:
-
-- **Pick View vs Create from the verb before doing anything.** View = show/get/pull up/view/see. Create = create/build/set up/draft/make. Ambiguous → ask which; **never fall through a view request into creating a record.**
-- On the create path, flag anything you can't source with `[needs validation]`.
-- **`Status` is always `"Not Started"` on creation.** Never create a plan in any other status; lifecycle changes are out of scope.
 
 # Calendar Events
 
