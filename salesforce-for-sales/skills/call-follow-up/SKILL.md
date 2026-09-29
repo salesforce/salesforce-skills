@@ -97,12 +97,13 @@ dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
   queryParams: { "queryInput": "{\"query\":\"query { uiapi { objectInfos(apiNames: [\\\"Opportunity\\\"]) { ApiName fields { ApiName label } } } }\"}" })
 ```
 
-Then read **account + all opps (open + closed/historical)** with two individual GraphQL calls in the same tool turn so they run in parallel, both filtered by account name (1–2 word `%NAME%`):
+Then read **account + all opps (open + closed/historical)**. Start with the Account read (`dispatch_readonly` GraphQL GET), filtered by account name (1–2 word `%NAME%`):
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
   queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Account(where: { Name: { like: \\\"%NAME%\\\" } }, first: 1) { edges { node { Id Name { value } <ACCOUNT_CUSTOM> Owner { Name { value } } } } } } } }\"}" })
 ```
 
+Fire this opp read in the **same tool turn** as the Account read above (both `dispatch_readonly` GraphQL GETs) so they run in parallel, filtered by the same account name:
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
   queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Opportunity(where: { Account: { Name: { like: \\\"%NAME%\\\" } } }, first: 50, orderBy: { CloseDate: { order: DESC } }) { edges { node { Id Name { value } AccountId { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } IsClosed { value } IsWon { value } NextStep { value } <OPP_CUSTOM> } } } } } }\"}" })
@@ -118,7 +119,7 @@ Empty account match → broaden `%…%` or infer account doesn't exist yet in CR
 
 **If system errors (500, timeout, auth):** Log explicitly in output, explain what you inferred and why (e.g., "User lookup failed 500, inferring [name] as owner from transcript").
 
-Issue independent email/Slack context searches and both Account/Opportunity grounding calls in one turn. After grounding, issue the separate Account and Opportunity GraphQL reads in the same tool turn so they run in parallel, then create both drafts from the complete context.
+Issue independent email/Slack context searches and both Account/Opportunity grounding calls in one turn. After grounding, issue the Account and Opportunity reads as described above, then create both drafts from the complete context.
 
 ## 4. SFDC update checklist
 
