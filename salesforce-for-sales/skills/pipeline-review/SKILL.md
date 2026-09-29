@@ -107,6 +107,7 @@ When the data is assembled, call `display_widget`; a single one-line "Displaying
 - [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 - [ ] Every {{token}} replaced with a resolved literal — no {{…}}, no {!…}.
 - [ ] Numeric attributes (meter value/max/target, meter band from/to, datagrid amount/age) are numbers, not strings.
+- [ ] Any "Win rate" / "Last-Q Win Rate" value shown in the widget or accompanying text is a 0–100 percentage computed as `won_count ÷ (won_count + lost_count) × 100`. If either count is unavailable, omit the win-rate line.
 - [ ] The meter bands span [0, max] and the chart series data matches categories length.
 - [ ] Every risky datagrid row carries a leading status:{value,badgeVariant} (badgeVariant error/warning); healthy rows omit it.
 - [ ] The callout carries resolved title/description, and both buttons are real actions (sendMessage/openLink).

@@ -24,24 +24,24 @@ Failing to try first — asking the user to connect, or surfacing a "not connect
 
 Ground → (read + evidence, one turn) → check thresholds → digest. Scope: my book (default), or a tier/team if asked. Since: last run, else 7 days.
 
-## 1. Ground (hardcoded — Opportunity only)
+## 1. Ground (hardcoded — Opportunity only) + running user's Id
 
-Opportunity always exists; naming a missing object fails the whole call. Its fields reveal this org's custom signal fields — don't assume names.
+Opportunity always exists; naming a missing object fails the whole call. Its fields reveal this org's custom signal fields — don't assume names. Fetch `currentUser.Id` in the SAME call (used to account-scope the book in step 2), so this stays one round-trip:
 
 ```
-dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { objectInfos(apiNames: [\\\"Opportunity\\\"]) { fields { ApiName label } } } }\"}" })
+dispatch_readonly(method: "GET", url: "/services/data/v66.0/graphql",
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { currentUser { Id } objectInfos(apiNames: [\\\"Opportunity\\\"]) { fields { ApiName label } } } }\"}" })
 ```
 
-Note scalar `__c` fields relevant to signals (renewal date, competitor, champion, deal-desk/legal-hold). Use exact names from this result.
+Record `currentUser.Id` as `<UID>`. Note scalar `__c` fields relevant to signals (renewal date, competitor, champion, deal-desk/legal-hold). **Resolve the next-step field `<NEXTSTEP>` — prefer a custom field over standard `NextStep`:** first a `__c` field whose `label` or ApiName reads like a next step (e.g. `Next_Step__c` labeled "Next Step"); else the standard `NextStep`. A custom next-step field implies the org built its own next-step logic and reps actually fill it in, whereas the standard `NextStep` is frequently left empty — preferring the custom one is why the "stale commitment" signal fires on the field reps actually use, not a permanently-blank standard one. Use exact names from this result.
 
 ## 2. Read the open book (one call, scope: MINE)
 
-`scope: MINE` = the running user's book (no user lookup needed). Add confirmed `__c { value }` fields into `<OPP_CUSTOM>`. For a tier/team scope, drop `scope: MINE` and filter on owner/team instead.
+`scope: MINE` = the running user's book (no user lookup needed). Add confirmed `__c { value }` fields into `<OPP_CUSTOM>`, and select the resolved next-step field as `<NEXTSTEP> { value }` (default `NextStep { value }`). **Also account-scope the book:** add `Account: { OwnerId: { eq: \"<UID>\" } }` to the `where` so the sweep only covers opps on accounts the rep currently owns. When an account is reassigned, Salesforce moves `Account.OwnerId` but not the open opps' `OwnerId`, so `scope: MINE` alone keeps surfacing stale "zombie" deals on accounts the rep no longer manages. For a tier/team scope (asked for explicitly), drop `scope: MINE` AND this account-owner clause and filter on the requested owner/team instead — a manager reviewing a team wants every deal regardless of account owner.
 
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Opportunity(scope: MINE, where: { IsClosed: { eq: false } }, first: 100) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } NextStep { value } LastActivityDate { value } LastModifiedDate { value } ForecastCategory { value } <OPP_CUSTOM> Account { Name { value } } } } } } } }\"}" })
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Opportunity(scope: MINE, where: { IsClosed: { eq: false }, Account: { OwnerId: { eq: \\\"<UID>\\\" } } }, first: 100) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } <NEXTSTEP> { value } LastActivityDate { value } LastModifiedDate { value } ForecastCategory { value } <OPP_CUSTOM> Account { Name { value } } } } } } } }\"}" })
 ```
 
 ## 2b. Evidence (same turn, only for CRM-flagged accounts — keeps the sweep fast)
