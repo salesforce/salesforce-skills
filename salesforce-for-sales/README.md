@@ -10,6 +10,8 @@ Developed by Salesforce for sales organizations, the plugin provides a practical
 
 An account executive starts with `/salesforce-for-sales:daily-briefing` to see today’s meetings with Salesforce account context, opportunities closing soon, warnings about stale activity, relevant Slack messages, and unread customer emails. Before a call, `/salesforce-for-sales:call-prep` produces a one-page brief covering attendees, account history, recent call notes, and suggested questions. After the call, `/salesforce-for-sales:call-follow-up` turns a transcript into a customer email draft and an internal Slack summary.
 
+Before a customer Quarterly Business Review, `/salesforce-for-sales:qbr-prep` assembles wins, open pipeline, stakeholders, support themes, and a timed agenda from Salesforce account data.
+
 A sales leader uses `/salesforce-for-sales:team-pipeline` to see a team pipeline summary, the opportunities most likely to affect the quarter, recommended actions, and focused coaching questions for each account executive.
 
 Read-only analysis respects each user’s Salesforce permissions. With a read-only connection, analysis remains available, and write steps provide guidance or explain what requires additional access.
