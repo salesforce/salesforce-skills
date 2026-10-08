@@ -127,7 +127,7 @@ Two blocks are embedded below: first the **variable contract** (`renderer.props.
       "example": "Open the Cobalt Robotics renewal + expansion opportunity in Salesforce and summarize its current state."
     },
     "kpiAmountNum": {
-      "description": "KPI 1 value — deal amount, display-formatted.",
+      "description": "KPI 1 value — deal amount. Format: currency symbol + K/M/B, one decimal max, no trailing .0 (e.g., 20K, 1.3M, 20B).",
       "type": "string",
       "example": "$1.8M"
     },
@@ -464,7 +464,7 @@ Two blocks are embedded below: first the **variable contract** (`renderer.props.
               {
                 "definition": "tile/column",
                 "attributes": {
-                  "width": "stretch"
+                  "width": "md"
                 },
                 "children": [
                   {
@@ -519,7 +519,7 @@ Two blocks are embedded below: first the **variable contract** (`renderer.props.
               {
                 "definition": "tile/column",
                 "attributes": {
-                  "width": "stretch"
+                  "width": "md"
                 },
                 "children": [
                   {
@@ -583,7 +583,7 @@ Two blocks are embedded below: first the **variable contract** (`renderer.props.
               {
                 "definition": "tile/column",
                 "attributes": {
-                  "width": "stretch"
+                  "width": "md"
                 },
                 "children": [
                   {
@@ -647,7 +647,7 @@ Two blocks are embedded below: first the **variable contract** (`renderer.props.
               {
                 "definition": "tile/column",
                 "attributes": {
-                  "width": "stretch"
+                  "width": "md"
                 },
                 "children": [
                   {

@@ -51,13 +51,13 @@ Do NOT attempt workarounds, ask clarifying questions, or invent a profile. Just 
 ## 1. Create the daily refresh schedule (first)
 
 **Always create this — do not ask, do not make it optional, and do it first, before gathering and showing the widget.** The job defers to the **`update`** skill — the stable, version-aware maintenance entrypoint that keeps the plugin current; this skill (`configure`) doesn't describe what `update` does — `update` owns that.
-**Name the task `Salesforce Updates`.** If the scheduling tool has a name/title field, set it to exactly `Salesforce Updates`. Regardless, the prompt's **first line must be `Salesforce Updates`** — some schedulers (e.g. `CronCreate`) have no title field, so the first line is the only durable identity, and `update` reads the baseline off this same task. **Create a scheduled task** to run daily (at an off-:00/:30 minute so it doesn't pile up with other jobs) with the prompt below **verbatim** — the `Created with plugin version 1.0.0-beta.2.2` line is build-injected (SKILL.md is a template) and records which plugin version set the job up, so a later run can detect a job created by an older version and re-create it; leave it exactly as rendered.
+**Name the task `Salesforce Updates`.** If the scheduling tool has a name/title field, set it to exactly `Salesforce Updates`. Regardless, the prompt's **first line must be `Salesforce Updates`** — some schedulers (e.g. `CronCreate`) have no title field, so the first line is the only durable identity, and `update` reads the baseline off this same task. **Create a scheduled task** to run daily (at an off-:00/:30 minute so it doesn't pile up with other jobs) with the prompt below **verbatim** — the `Created with plugin version 1.0.0-beta.2.3` line is build-injected (SKILL.md is a template) and records which plugin version set the job up, so a later run can detect a job created by an older version and re-create it; leave it exactly as rendered.
 
-> Salesforce Updates. Created with plugin version 1.0.0-beta.2.2. Run `/update` for the current user to keep the Sales Cloud plugin current. Invoke the `update` skill explicitly by that name (it is not model-auto-invoked). Emit no chat narration unless something fails. (Follow the `update` skill body — don't reproduce its steps or any HTML here.)
+> Salesforce Updates. Created with plugin version 1.0.0-beta.2.3. Run `/update` for the current user to keep the Sales Cloud plugin current. Invoke the `update` skill explicitly by that name (it is not model-auto-invoked). Emit no chat narration unless something fails. (Follow the `update` skill body — don't reproduce its steps or any HTML here.)
 
 Use whatever scheduling capability is available in the session to create a recurring, durable daily task with that instruction as its prompt. **First check for an existing scheduled task that already does this refresh** — list the current scheduled tasks and look for one named `Salesforce Updates` or whose prompt starts with `Salesforce Updates` (match on that stable identity line, NOT the whole prompt — the `Created with plugin version …` line differs between versions). Also match a legacy job — one starting with `Daily Headless 360 update` or `Daily configure refresh` (earlier wordings) — as the same task. Then:
 - **No existing refresh task** → create it now with the prompt above.
-- **An existing refresh task whose version line matches `1.0.0-beta.2.2`** → leave it; do NOT create a second (re-running configure at the same version won't duplicate it).
+- **An existing refresh task whose version line matches `1.0.0-beta.2.3`** → leave it; do NOT create a second (re-running configure at the same version won't duplicate it).
 - **An existing refresh task created with a DIFFERENT (older) plugin version, or a legacy `Daily Headless 360 update` / `Daily configure refresh` job** → it's stale: delete it and create a fresh one with the prompt above, so the job is named `Salesforce Updates`, carries the current version, and defers to `update`. This is exactly the update-on-new-version path.
 
 Either way this is silent setup — don't narrate it or ask permission; just ensure exactly one refresh task exists and it carries the current version, then move on to step 2. If some scheduled tasks auto-expire (e.g. after a fixed number of days), you may note once that they can re-run configure to renew.
@@ -266,11 +266,11 @@ def plugin_root():
 ROOT = plugin_root()
 
 # --- build-injected: the plugin version this run was generated with. SKILL.md is a
-# template, so `1.0.0-beta.2.2` is replaced at plugin build time with the shipped
+# template, so `1.0.0-beta.2.3` is replaced at plugin build time with the shipped
 # version — leave this line EXACTLY as rendered; do not edit, retype, or author it.
 # It is stamped into the artifacts it builds (and the step-1 schedule) so a later plugin
 # update can detect what version built them and refresh anything stale. ---
-PLUGIN_VERSION = "1.0.0-beta.2.2"
+PLUGIN_VERSION = "1.0.0-beta.2.3"
 
 # --- the ONLY things you type out (from step 4 / step 0) ---
 USER_NAME = "<rep first name>"                             # from 1a

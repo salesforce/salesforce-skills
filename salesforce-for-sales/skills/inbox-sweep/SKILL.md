@@ -33,12 +33,16 @@ Read ~30–40 recent **external** sent emails to build an implicit style profile
 
 Collect the candidate sender domains, then ONE Account read matching them (drop `scope: MINE` for a broader sweep).
 
+**Note:** When using `scope: MINE`, do not query `currentUser` for scoping; the scope already identifies the running user's records. Follow the global connectivity rule before reporting the connector unavailable.
+
+**Note:** Salesforce record `Id` is a scalar. When an ID is needed, select it as bare `Id`; never use the invalid `Id { value }` form.
+
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
   queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Account(scope: MINE, first: 200) { edges { node { Name { value } Website { value } Owner { Name { value } } Opportunities(where: { IsClosed: { eq: false } }, first: 5, orderBy: { CloseDate: { order: ASC } }) { edges { node { Name { value } Amount { value displayValue } StageName { value displayValue } CloseDate { value } NextStep { value } } } } } } } } }}\"}" })
 ```
 
-Keep only emails whose sender domain matches a returned Account's `Website`. The open `Opportunities` child (same read) grounds Step 4 prioritization (Amount, soonest CloseDate) and fills the output **Opp** column (`$<Amount> · <StageName label>`) — no per-account follow-up read.
+Match only by normalized sender domain and a returned Account's `Website`. Do not infer a match from Account or Opportunity names; when no exact domain match is returned, do not attach an Account, Opportunity, amount, or stage to that email. The open `Opportunities` child (same read) grounds Step 4 prioritization (Amount, soonest CloseDate) and fills the output **Opp** column (`$<Amount> · <StageName label>`) — no per-account follow-up read.
 
 ## 3. Classify each (read the full thread, not just the latest)
 
