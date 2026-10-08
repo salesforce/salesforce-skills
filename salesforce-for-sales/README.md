@@ -50,7 +50,3 @@ Salesforce write actions require a write-capable connection. With a read-only co
 * **Stay grounded in records.** Skills link the Salesforce records they discuss and preserve queried values.  
 * **Work with your Salesforce configuration.** Skills use the schema, field names, stages, and permissions available in your organization. Additional context such as customer profiles, qualification frameworks, competitors, and preferred writing style can be supplied through Claude instructions.  
 * **Continue when optional context is unavailable.** If a transcript or optional connected service is unavailable, the skill requests the missing input or proceeds with the available Salesforce context and identifies the limitation.
-
-## **Customizing**
-
-Sales Cloud provides a shared foundation that teams can adapt to their sales process. You can add organization-specific context through Claude instructions and tailor individual skill files where appropriate. See [SETUP.md](SETUP.md) for configuration guidance.

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://salesforce.com/anthropicforce/widget-definition.schema.json",
+  "$id": "https://salesforce.com/headless-360/widget-definition.schema.json",
   "title": "Widget definition for display_widget dynamic mode",
   "description": "The declarative renderer envelope an agent authors and passes to the display_widget tool in dynamic mode. The server echoes it to the native Mosaic renderer, which reads renderer.componentOverrides.$ : a tile/widget root whose children are the tile blocks rendered top to bottom. Author fully-hydrated literals; there is no expression compilation on this path. This schema documents the recommended full-envelope form (the server also accepts shorthands: a bare mosaic root, a plain array of blocks, or a single block).",
   "type": "object",
