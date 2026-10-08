@@ -24,7 +24,7 @@ Failing to try first — asking the user to connect, or surfacing a "not connect
 
 # Account Tiering
 
-Ground → (read + evidence, all in ONE turn) → score → tier. Scope: "my accounts", a named list, or a report/list view name. Default tier count: 3 (A/B/C).
+Ground (its own turn) → (read + evidence, all in ONE turn) → score → tier. Scope: "my accounts", a named list, or a report/list view name. Default tier count: 3 (A/B/C).
 
 ## 1. Ground (hardcoded — Account only)
 
@@ -35,9 +35,11 @@ dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
   queryParams: { "queryInput": "{\"query\":\"query { uiapi { objectInfos(apiNames: [\\\"Account\\\"]) { fields { ApiName label relationshipName } } } }\"}" })
 ```
 
-Use exact strings from the result, never guess. Select relevant scalar `__c` fields carrying ICP-fit/engagement signals as `{ value }`, and each relevant custom lookup's exact `relationshipName` for a related record name. `Opportunities` and `Contacts` are standard children hardcoded below.
+**Field policy.** Step 2's standard fields and child spans are fixed — always read, never grounded. Custom fields are optional and come from THIS result only: use exact strings, never guess. Select relevant scalar `__c` fields carrying ICP-fit/engagement signals as `{ value }`, and each relevant custom lookup's exact `relationshipName` for a related record name. Build Step 2 only once this result is in hand — never fire the two together.
 
-The ICP itself (industries, size, titles, disqualifiers) is external knowledge — infer it from the org's own account/opportunity data, or ask the user once. Never invent it.
+**Standard-field fallback.** If Step 1 errors, returns no `fields`, or was saved to a file you could not read in full (read failed, truncated, or token-capped), select NO custom fields — not from a preview, a partial read, or memory. Leave `<ACCOUNT_CUSTOM>` and the custom lookup blocks empty, fire Step 2 exactly as written, and disclose it (Step 5).
+
+The ICP (industries, size, titles, disqualifiers) is set in Step 3 by a fixed rule — never invent it.
 
 ## 2. Read (fill from step 1, one dispatch)
 
@@ -49,10 +51,12 @@ Insert `<ACCOUNT_CUSTOM>` = confirmed scalar `__c { value }` fields relevant to 
 
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Account(%SCOPE%, first: 200) { edges { node { Id Name { value } Industry { value } NumberOfEmployees { value } AnnualRevenue { value displayValue } Website { value } Type { value } LastActivityDate { value } <ACCOUNT_CUSTOM> Owner { Name { value } } <REL_BLOCKS> Opportunities { edges { node { Id StageName { value } IsClosed { value } Amount { value displayValue } CloseDate { value } } } } Contacts { edges { node { Id Title { value } } } } } } } } } }\"}" })
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Account(%SCOPE%, first: 200, orderBy: { Id: { order: ASC } }) { edges { node { Id Name { value } Industry { value } NumberOfEmployees { value } AnnualRevenue { value displayValue } Website { value } Type { value } LastActivityDate { value } <ACCOUNT_CUSTOM> Owner { Name { value } } <REL_BLOCKS> Opportunities(where: { IsClosed: { eq: false } }, first: 1, orderBy: { CloseDate: { order: ASC } }) { edges { node { Id Name { value } StageName { value } CloseDate { value } } } } Contacts(first: 10) { edges { node { Id Title { value } } } } } } pageInfo { hasNextPage } totalCount } } } }\"}" })
 ```
 
-Filter `IsClosed = false` in analysis (Step 4), not the query. Empty `edges` → broaden the scope or confirm account names. `first: 200` caps the book — if the scope is larger, say so and ask the user to narrow it rather than silently truncating.
+`Opportunities` is an existence check: Salesforce applies the open filter, and `first: 1` returns just the open deal with the earliest close date (it may be past due) — show it in the Open Opp column. Step 4's "Open opportunity exists" = a non-empty `Opportunities.edges`. This read supports no opportunity counts or pipeline amounts, so the output shows none — never count these rows or present one deal as the account's pipeline. Empty `Account` `edges` → for `scope: MINE`, follow the empty-`MINE` rule; for a named list, confirm the account names.
+
+**Bounds.** `Account(first: 200)` is the whole book up to 200 accounts. `pageInfo.hasNextPage: true` → the book is larger (`totalCount` accounts): tier the 200 you have and disclose the partial book (Step 5) — never call them the whole book. `Contacts(first: 10)` is a bounded sample per account — enough for the 3+ contacts signal; a full 10 with no target title scores the persona check `maybe`, not `none`.
 
 ## 2b. Evidence (fired IN PARALLEL with step 2 — same turn)
 
@@ -63,6 +67,13 @@ Issue step 2 and step 2b together in one turn; don't wait for the SF read. Keyed
 Use whatever tools are available; skip silently if none (SFDC-only is fine). Never block on these; cite source + date for anything you use.
 
 ## 3. Score ICP fit (0-10)
+
+**ICP source** — use the first that applies, and record which (Step 5):
+1. **Stated** — the industries, size, titles, or disqualifiers the user gives in the request (or earlier in the conversation).
+2. **Derived** — otherwise, from the accounts read in Step 2 that have an open opportunity (Step 4's signal), ignoring nulls: target industries = their 3 most common `Industry` values (ties alphabetical); size range = their min–max `NumberOfEmployees`. Persona = a Contact title containing VP, Director, Head, or Chief, or a C-level acronym (CEO, CFO, CRO, CIO, CTO, COO). Disqualifiers = none, so every account scores clean.
+3. **Ask** — the ICP can't be derived: no account has an open opportunity, or none of those accounts has an `Industry` or none has a `NumberOfEmployees` value. Ask the user for the ICP once, and don't score until they answer — never derive with a missing criterion.
+
+A criterion the user didn't state falls back to its derived value; if that value can't be derived, ask (3).
 
 | Signal | Weight | Scoring |
 |---|---|---|
@@ -75,18 +86,23 @@ Use whatever tools are available; skip silently if none (SFDC-only is fine). Nev
 
 | Signal | Weight | Scoring |
 |---|---|---|
-| Open opportunity exists (`IsClosed=false` in Step 2 data) | 3 | yes=3, no=0 |
+| Open opportunity exists (Step 2) | 3 | yes=3, no=0 |
 | LastActivityDate recency | 3 | <30d=3, 30-90d=2, 90-180d=1, >180d=0 |
 | Inbound signal (Step 2b email, last 90d) | 2 | yes=2, no=0 |
 | Multiple contacts engaged | 2 | 3+=2, 2=1, ≤1=0 |
 
 ## 5. Tier and recommend
 
-Plot on a 2x2 (Fit × Engagement):
+Plot on a 2x2 (Fit × Engagement). **High = 6 or more** on that axis; low = 5 or less.
 - **Tier A** (high fit, high engagement): active pursuit — progress the open opp, multi-thread.
 - **Tier B** (high fit, low engagement): activation — outbound sequence, find a trigger.
 - **Tier C** (low fit, high engagement): qualify hard — one discovery call to confirm fit or DQ.
 - **Deprioritize** (low fit, low engagement): no active motion, revisit quarterly.
+
+**Disclosures** — carry each that applies into the output (the widget `subtitle`; in the text fallback, a line under the heading):
+- Partial book (`hasNextPage: true`): "first 200 of [totalCount] accounts — narrow the scope to tier the rest". The widget `title` and the text heading also count "200 of [totalCount]", never just 200.
+- Standard-field fallback: "custom fit fields unavailable — scored on standard fields".
+- Derived ICP: "ICP derived from your [N] accounts with open deals: [industries], [min–max] employees". Omit when the user stated the ICP.
 
 ## 6. Output — widget FIRST (the rendered UI is the default)
 
@@ -624,7 +640,7 @@ Two blocks below: first the **variable contract** (`renderer.props.schema.json`)
 ```
 # Account Tiering - [N] accounts
 
-## Tier A - Active Pursuit ([N], $[pipeline sum])
+## Tier A - Active Pursuit ([N])
 | Account | Fit | Eng | Open Opp | Last Touch | Next Action |
 |---|---|---|---|---|---|
 ...

@@ -55,17 +55,12 @@ Step 1 is the authority on names — use exact strings, never guess. Note scalar
 
 Fire these as tool calls in **one turn** (independent). Insert `<OPP_CUSTOM>` = confirmed `__c { value }` fields on the sample query only (aggregates don't need them).
 
-**2a. Whole-book rollup by stage (GraphQL aggregate).** No `CloseDate` filter for a health view — a `THIS_QUARTER` filter silently drops deals as quarter boundaries move. If the user names a period, add explicit `CloseDate: { gte: … lte: … }`.
-```
-dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { aggregate { Opportunity(scope: MINE, where: { IsClosed: { eq: false } }, groupBy: { StageName: { group: true } }) { edges { node { aggregate { StageName { value } Id { count { value } } Amount { sum { value } } } } } totalCount } } } }\"}" })
-```
-Returns one row per stage: stage name, count, $ sum. That's the by-stage table and the open total (Σ) — no record pull.
+**2a. Whole-book rollup by stage (GraphQL aggregate — folded into the 2b request).** No `CloseDate` filter for a health view — a `THIS_QUARTER` filter silently drops deals as quarter boundaries move. If the user names a period, add explicit `CloseDate: { gte: … lte: … }`. This rollup rides in the 2b query as an `aggregate` sibling of the sample (one dispatch returns both); it yields one row per stage — stage name, count, $ sum — the by-stage table and the open total (Σ), with no extra record pull.
 
-**2b. Top-N sample per stage (raw — bounded, for concrete specifics).** The rollup gives the shape; this gives named deals to point at. Cap hard (`first: 40`, biggest first) so it never overflows — this is a sample, not the book. Order by `Amount DESC`; take the top few per stage when you present.
+**2b. Top-N sample per stage + whole-book stage rollup (ONE request).** The rollup gives the shape; the sample gives named deals to point at. Cap the sample hard (`first: 40`, biggest first) so it never overflows — this is a sample, not the book. Order by `Amount DESC`; take the top few per stage when you present. The 2a stage `aggregate` rides in this same request as a sibling of the sample — read the by-stage counts/sums and open total from its `aggregate` edges and `totalCount`, the named deals from the sample rows.
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Opportunity(scope: MINE, where: { IsClosed: { eq: false } }, first: 40, orderBy: { Amount: { order: DESC } }) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } CreatedDate { value } NextStep { value } LastActivityDate { value } Type { value } <OPP_CUSTOM> Account { Name { value } } OpportunityContactRoles { edges { node { Id } } } } } } } } }\"}" })
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Opportunity(scope: MINE, where: { IsClosed: { eq: false } }, first: 40, orderBy: { Amount: { order: DESC } }) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } CreatedDate { value } NextStep { value } LastActivityDate { value } Type { value } <OPP_CUSTOM> Account { Name { value } } OpportunityContactRoles { edges { node { Id } } } } } } } aggregate { Opportunity(scope: MINE, where: { IsClosed: { eq: false } }, groupBy: { StageName: { group: true } }) { edges { node { aggregate { StageName { value } Id { count { value } } Amount { sum { value } } } } } totalCount } } } }\"}" })
 ```
 
 **2c. Closed-baseline win rate (GraphQL aggregate, last full quarter).** Counts grouped by won/lost — no record pull, zero date math (`eq: { literal: LAST_QUARTER }`; widen only if asked):
@@ -83,7 +78,7 @@ dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
 
 **Named rep** → swap every `scope: MINE` for `OwnerId: { eq: \"<UserId>\" }`. **Empty** 2a `edges`/`totalCount: 0` → no open pipeline for this scope; say so plainly, skip the rest.
 
-**If a GraphQL `aggregate` query errors** (some orgs throw `DataFetchingException` grouping a picklist/Id field), don't retry the same shape — fall to the SOQL `GROUP BY` equivalent, which groups picklists cleanly:
+**If a GraphQL `aggregate` query errors** (some orgs throw `DataFetchingException` grouping a picklist/Id field), don't retry the same shape — fall to the SOQL `GROUP BY` equivalent, which groups picklists cleanly. **For the 2b combined request specifically**, the grouped `aggregate` sibling (`StageName`) can take the whole request down with it — re-fire 2b as the detail `query` alone (drop the `aggregate` block) to keep the sample, and get the by-stage rollup from this SOQL:
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v63.0/query",
   queryParams: { "q": "SELECT StageName, COUNT(Id) cnt, SUM(Amount) amt FROM Opportunity WHERE IsClosed = false AND OwnerId = '<UserId>' GROUP BY StageName" })
