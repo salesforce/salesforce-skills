@@ -33,7 +33,7 @@
       quota:null if you couldn't source it — the donut degrades to a closed-won summary.
     • var PLUGIN_VERSION = "__PLUGIN_VERSION__";  → the Salesforce plugin
       version this artifact was generated with (SKILL.md substitutes the build's
-      `[[ version ]]`). Stamped into the footer and exposed as `data-plugin-version` on
+      version). Stamped into the footer and exposed as `data-plugin-version` on
       <html> so a later plugin update can detect artifacts built by an older version
       and refresh them. The daily refresh re-stamps it to the then-current
       version, so this view always reflects the version that last built it.
@@ -372,7 +372,7 @@
     // resolved field API name for that concept (fieldFor: layout-driven, standard default).
     // A concept that resolves to "" builds no column.
     var OPEN_COLS = [];
-    [["Name", "name"], ["StageName", "stage"], ["Amount", "amount"], ["Probability", "probability"],
+    [ ["Name", "name"], ["StageName", "stage"], ["Amount", "amount"], ["Probability", "probability"],
      ["CloseDate", "closeDate"], ["LastActivityDate", "lastActivity"]].forEach(function (p) {
       var s = fieldFor(p[1]); if (s) OPEN_COLS.push({ key: p[0], sel: s });
     });
@@ -389,7 +389,7 @@
     }
 
     var CLOSED_COLS = [];
-    [["Amount", "amount"], ["IsWon", "isWon"], ["CloseDate", "closeDate"]].forEach(function (p) {
+    [ ["Amount", "amount"], ["IsWon", "isWon"], ["CloseDate", "closeDate"]].forEach(function (p) {
       var s = fieldFor(p[1]); if (s) CLOSED_COLS.push({ key: p[0], sel: s });
     });
 

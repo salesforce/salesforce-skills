@@ -25,38 +25,46 @@ Failing to try first — asking the user to connect, or surfacing a "not connect
 
 Leader's 1:1 prep on one rep — pipeline, activity, where they're stuck. The named person is an INTERNAL rep (not a customer). Ground → read (pipeline + activity, one turn) → needs-help + questions.
 
-## 1. Ground (hardcoded — Opportunity only)
+## 1. Ground + resolve the rep (one turn)
 
-Opportunity always exists; naming a missing object fails the whole call. Its fields reveal this org's risk/health/next-step `__c` fields — use exact names.
+Opportunity always exists; naming a missing object fails the whole call. Its fields reveal this org's risk/health/next-step `__c` fields — use exact names. **Ground Opportunity and resolve the rep in one request** — `objectInfos` and the `User` resolver are independent `uiapi` siblings in the query below — then hold every rep-scoped read until `<REP_ID>` is resolved.
+
+**Resolve the named rep to one active User.** If the manager supplied a Salesforce User Id, set `<REP_ID>` to it directly. Otherwise resolve a small active-User candidate set first — use the supplied name as a prefix (no leading `%`) in `<REP_PREFIX>`; for an email, swap the `Name` predicate for `Email: { eq: \"<REP_EMAIL>\" }`:
+```
+dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { objectInfos(apiNames: [\\\"Opportunity\\\"]) { fields { ApiName label } } query { User(where: { Name: { like: \\\"<REP_PREFIX>%\\\" }, IsActive: { eq: true } }, orderBy: { Name: { order: ASC } }, first: 5) { pageResultCount pageInfo { hasNextPage } edges { node { Id Name { value } Email { value } Title { value } } } } } } }\"}" })
+```
+Auto-select `<REP_ID>` only when exactly one candidate returns, its `Name` exactly matches the supplied full name, and `hasNextPage` is false (for an email lookup, require one exact email match and `hasNextPage: false`). If `pageResultCount` is 0 or the match is ambiguous, show the returned names/emails/titles and ask the manager to choose or supply the full name, email, or User Id — **do not read the rep's book, activity, Slack, or calendar until `<REP_ID>` is resolved.**
+
+## 2. Read the rep's book + activity (one turn, keyed on `<REP_ID>`)
+
+Filter every read by `OwnerId: { eq: "<REP_ID>" }`. Splice confirmed `__c` fields into `<OPP_CUSTOM>`. **Check `{` vs `}` balance before dispatching.** This is a **Top 20 sample** for named deals — the pipeline totals come from the aggregate below, not from counting these rows.
 
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { objectInfos(apiNames: [\\\"Opportunity\\\"]) { fields { ApiName label } } } }\"}" })
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Opportunity(where: { OwnerId: { eq: \\\"<REP_ID>\\\" }, IsClosed: { eq: false } }, orderBy: { Amount: { order: DESC } }, first: 20) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } NextStep { value } LastActivityDate { value } <OPP_CUSTOM> Account { Name { value } } OpportunityContactRoles { edges { node { Id } } } } } } } } }\"}" })
 ```
 
-## 2. Read the rep's book + activity (one turn)
-
-Filter by `Owner: { Name: { like: "%REP%" } }` (the rep's name/email). Splice confirmed `__c` fields into `<OPP_CUSTOM>`. **Check `{` vs `}` balance before dispatching.**
-
+Fire this SOQL aggregate in the same turn, same owner + `IsClosed` filter as the sample above — it is the authoritative source for `Open: <N> opps, $<total> | by stage: <counts>`:
 ```
-dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Opportunity(where: { Owner: { Name: { like: \\\"%REP%\\\" } }, IsClosed: { eq: false } }, orderBy: { Amount: { order: DESC } }, first: 100) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } NextStep { value } LastActivityDate { value } <OPP_CUSTOM> Account { Name { value } } OpportunityContactRoles { edges { node { Id } } } } } } } } }\"}" })
+dispatch_readonly(method: "GET", url: "/services/data/v63.0/query",
+  queryParams: { "q": "SELECT StageName, COUNT(Id) cnt, SUM(Amount) amt FROM Opportunity WHERE OwnerId = '<REP_ID>' AND IsClosed = false GROUP BY StageName" })
 ```
 
-In the SAME turn, fire the rep's recent activity — both Tasks AND Events (last 14d), plus this-quarter closed-won for the "This Q closed" number. These are independent reads keyed on the rep name (not on each other), so batch all of them in this one turn — no added round-trip depth:
+In the SAME turn, fire the rep's recent activity — both Tasks AND Events (last 14d), plus this-quarter closed-won for the "This Q closed" number. These are independent reads keyed on the rep (not on each other), so batch all of them in this one turn — no added round-trip depth:
 
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v63.0/query",
-  queryParams: { "q": "SELECT Subject, ActivityDate, TaskSubtype, Status FROM Task WHERE Owner.Name LIKE '%REP%' AND ActivityDate >= LAST_N_DAYS:14 ORDER BY ActivityDate DESC" })
+  queryParams: { "q": "SELECT COUNT(Id) cnt FROM Task WHERE OwnerId = '<REP_ID>' AND ActivityDate >= LAST_N_DAYS:14" })
 
 dispatch_readonly(method: "GET", url: "/services/data/v63.0/query",
-  queryParams: { "q": "SELECT Subject, ActivityDate, EventSubtype FROM Event WHERE Owner.Name LIKE '%REP%' AND ActivityDate >= LAST_N_DAYS:14 ORDER BY ActivityDate DESC" })
+  queryParams: { "q": "SELECT COUNT(Id) cnt FROM Event WHERE OwnerId = '<REP_ID>' AND ActivityDate >= LAST_N_DAYS:14" })
 
 dispatch_readonly(method: "GET", url: "/services/data/v63.0/query",
-  queryParams: { "q": "SELECT SUM(Amount) amt, COUNT(Id) cnt FROM Opportunity WHERE Owner.Name LIKE '%REP%' AND IsWon = true AND CloseDate = THIS_QUARTER" })
+  queryParams: { "q": "SELECT SUM(Amount) amt, COUNT(Id) cnt FROM Opportunity WHERE OwnerId = '<REP_ID>' AND IsWon = true AND CloseDate = THIS_QUARTER" })
 ```
 
-Count logged meetings from the Event read alongside Tasks toward the activity tally. `InvalidSyntax` / "offending token `<EOF>`" → missing a closing `}`; add it and retry.
+`<N> activities logged` = the Task `cnt` + Event `cnt` from the COUNT aggregates above. `InvalidSyntax` / "offending token `<EOF>`" → missing a closing `}`; add it and retry.
 
 ## 2b. Evidence (same turn — skip silently if absent)
 
