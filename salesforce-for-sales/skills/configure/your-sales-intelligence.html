@@ -16,7 +16,7 @@
   numbers are LIVE — computed from owner-scoped SOQL over the connected Salesforce
   MCP, never inlined.
 
-  SUBSTITUTE BEFORE CREATING (see SKILL.md step 5):
+  SUBSTITUTE BEFORE CREATING (see the Your Sales Intelligence build step in SKILL.md):
     • var DISPATCH_TOOL = "__DISPATCH_TOOL__";  → the EXACT fully-qualified name of
       the read-only dispatch tool you verified this session (e.g.
       "mcp__<server>__dispatch_readonly", where the server segment can differ by
@@ -26,7 +26,7 @@
       you didn't actually call this session) blocks the artifact from initializing.
     • var OWNER_ID = "__OWNER_ID__";  → the running user's 18/15-char Id (currentUser.Id
       from step 0) so every SOQL is owner-scoped.
-    • var IDENTITY = __IDENTITY__;  → a JSON literal from step 1:
+    • var IDENTITY = __IDENTITY__;  → a JSON literal from the Your Sales Intelligence build step:
       {"userName":"","role":"","quota":<annual quota number or null>,"fyStartMonth":<1-12 or 1>}
       userName/role are display-only; quota (if you found it) drives the Attainment
       donut; fyStartMonth (default 1 = January) scopes "this year" attainment. Inline
@@ -253,12 +253,12 @@
     // ---- agent-substituted values (see header) ---------------------------------
     var DISPATCH_TOOL = "__DISPATCH_TOOL__";   // exact verified tool name; also the sole mcp_tools entry
     var OWNER_ID = "__OWNER_ID__";             // running user's Id → owner-scoped SOQL
-    var IDENTITY = __IDENTITY__;               // {userName, role, quota, fyStartMonth} inlined from step 1
+    var IDENTITY = __IDENTITY__;               // {userName, role, quota, fyStartMonth} inlined from the Your Sales Intelligence build step
     var PLUGIN_VERSION = "__PLUGIN_VERSION__"; // plugin version this artifact was generated with
     var FIELD_MAP = __FIELD_MAP__;             // concept -> Opportunity field API name, resolved from the user's layout (see header)
 
     // Each concept the view SELECTs, with its standard fallback. FIELD_MAP (from configure
-    // step 4a) overrides a concept's field where the org uses a different one; a concept the
+    // the field-map resolution step) overrides a concept's field where the org uses a different one; a concept the
     // map omits falls back to its standard API name; nextStep set to "" disables that signal.
     var FIELD_DEFAULTS = {
       name: "Name", stage: "StageName", amount: "Amount", probability: "Probability",

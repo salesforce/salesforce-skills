@@ -43,14 +43,14 @@ Five independent reads (plus step 1) — batch them in a single turn. Insert `<O
 
 **2a. Today's calendar** — today's meetings for the running user. There is **no `/connect/calendar/...` REST resource on this server** — read the calendar from the `Event` object via GraphQL (below), or a dedicated calendar connector tool if one is present. Do NOT guess a REST path or reach for `discover` on a 404; the query here is the path.
 
-**Shape gotcha — `Event.What`/`Event.Who` are polymorphic** (`Event_What` / `Event_Who` unions) and expose **no `Name` span**: `What { Name { value } }` throws a schema error. Pull the raw `WhatId` / `WhoId` scalars instead. `WhatId` is your best account link — a `001…` Id is an Account, `006…` an Opportunity — resolve it directly in step 3 (no domain-guessing for those). Get attendee email domains from the `Description`/`Location` text, or an `EventRelation` child if you need invitees.
+**Shape gotcha — `Event.What`/`Event.Who` are polymorphic** (`Event_What` / `Event_Who` unions) and expose **no `Name` span**: `What { Name { value } }` throws a schema error. Pull the raw `WhatId` / `WhoId` scalars instead. Inline fragments on the union do work: `What { ... on Opportunity { AccountId { value } } }` returns an Opportunity link's account (an empty `What` for any other type). `WhatId` is your best account link — a `001…` Id is an Account, `006…` an Opportunity (use its `What.AccountId`) — resolve it directly in step 3 (no domain-guessing for those). Get attendee email domains from the `Description`/`Location` text, or an `EventRelation` child if you need invitees.
 
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Event(scope: MINE, where: { ActivityDate: { eq: { literal: TODAY } } }, first: 50, orderBy: { StartDateTime: { order: ASC } }) { edges { node { Id Subject { value } StartDateTime { value } EndDateTime { value } Location { value } WhatId { value } WhoId { value } Description { value } } } } } } }\"}" })
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Event(scope: MINE, where: { ActivityDate: { eq: { literal: TODAY } } }, first: 50, orderBy: { StartDateTime: { order: ASC } }) { edges { node { Id Subject { value } StartDateTime { value } EndDateTime { value } Location { value } WhatId { value } WhoId { value } What { ... on Opportunity { AccountId { value } } } Description { value } } } } } } }\"}" })
 ```
 
-`scope: MINE` returns events **you own** (organize). Meetings where you're only an invitee live under `EventRelation` and may not appear here — an empty calendar usually means that or a genuinely clear day, not a failure; say which. Extract each event's external-attendee email domains and its `WhatId`; those are the input to step 3.
+`scope: MINE` returns events **you own** (organize). Meetings where you're only an invitee live under `EventRelation` and may not appear here — an empty calendar usually means that or a genuinely clear day, not a failure; say which. Extract each event's external-attendee email domains, its `WhatId`, and (for an Opportunity `WhatId`) its `What.AccountId`; those are the input to step 3.
 
 **2b. Closing soon** — the rep's open opps closing in the next 14 days. A small filtered set — pull concrete rows (`first: 50`), not an aggregate.
 
@@ -83,7 +83,7 @@ Use `Name` for the briefing title/date header; `TimeZoneSidKey` to render "today
 
 ## 3. Meeting context — ONE batched turn (depends on 2a's domains)
 
-Resolve every meeting's account in **one** query (not per-meeting), OR-ing two kinds of match together: (a) any `WhatId` from 2a that is an Account (`001…`) → `Id: { eq }`, or an Opportunity (`006…`) → its `AccountId`; (b) the external-attendee domains → `Website` `like`. Prefer the direct `WhatId` link when present — it's exact; fall back to domain match only for meetings with no usable `WhatId`.
+Resolve every meeting's account in **one** query (not per-meeting), OR-ing two kinds of match together: (a) any `WhatId` from 2a that is an Account (`001…`) → `Id: { eq }`, or an Opportunity (`006…`) → its `What.AccountId` from 2a, same `Id` list; (b) the external-attendee domains → `Website` `like`. Prefer the direct `WhatId` link when present — it's exact; fall back to domain match only for meetings with no usable `WhatId`.
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
   queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Account(where: { or: [ { Id: { in: [\\\"<WhatId account 001…>\\\"] } }, { Website: { like: \\\"%domain1%\\\" } }, { Website: { like: \\\"%domain2%\\\" } } ] }, first: 25) { edges { node { Id Name { value } Website { value } LastActivityDate { value } Opportunities(where: { IsClosed: { eq: false } }, first: 5, orderBy: { Amount: { order: DESC } }) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } } } } } } } } } }\"}" })

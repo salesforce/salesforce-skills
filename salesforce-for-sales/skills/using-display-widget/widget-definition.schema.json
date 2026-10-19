@@ -100,6 +100,8 @@
             "tile/icon",
             "tile/avatar",
             "tile/button",
+            "tile/buttonMenu",
+            "tile/menuItem",
             "tile/code",
             "tile/progress",
             "tile/spinner",
@@ -122,7 +124,10 @@
             "tile/datagrid",
             "tile/scatter",
             "tile/timeline",
-            "tile/rangeband"
+            "tile/rangeband",
+            "tile/tabSet",
+            "tile/tab",
+            "tile/richText"
           ],
           "description": "Which tile to render, e.g. tile/text. See the per-definition attribute rules under allOf."
         },
@@ -136,7 +141,7 @@
         },
         "children": {
           "type": "array",
-          "description": "Nested blocks, for layout/container blocks (tile/container, tile/row, tile/column, tile/list, tile/listItem, tile/accordion).",
+          "description": "Nested blocks, for layout/container blocks (tile/container, tile/row, tile/column, tile/list, tile/listItem, tile/accordion, tile/tabSet, tile/tab).",
           "items": {
             "$ref": "#/$defs/block"
           }
