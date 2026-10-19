@@ -23,13 +23,13 @@ Failing to try first — asking the user to connect, or surfacing a "not connect
 
 # Keep the daily schedule current
 
-Keep the daily `Salesforce Updates` schedule alive and stamped with the current plugin version, so when a future plugin version ships the daily job is already in place to pick it up. That is the whole job.
+Keep the daily `Salesforce Updates` schedule, if the user opted in to one, stamped with the current plugin version, so when a future plugin version ships the daily job is already in place to pick it up. That is the whole job.
 
 **Load the scheduling / task-list capability in one ToolSearch.**
 
 List the current scheduled tasks and find the daily job named `Salesforce Updates` (or whose prompt starts with `Salesforce Updates`; also match a legacy `Daily Headless 360 update` or `Daily configure refresh`). Then:
-- **It exists and its `Created with plugin version …` line already equals `1.0.0-beta.2.3`** → leave it; nothing to do.
-- **It exists at an older version, or under a legacy name** → delete it and re-create it with `configure`'s exact step-1 prompt (named `Salesforce Updates`, carrying `Created with plugin version 1.0.0-beta.2.3`), advancing the baseline to the current version.
-- **No such job exists** → create it now with `configure`'s step-1 prompt, so the environment gains the daily job at the current version.
+- **It exists and its `Created with plugin version …` line already equals `1.0.0-beta.3.1`** → leave it; nothing to do.
+- **It exists at an older version, or under a legacy name** → delete it and re-create it with `configure`'s exact daily-refresh prompt (named `Salesforce Updates`, carrying `Created with plugin version 1.0.0-beta.3.1`), advancing the baseline to the current version.
+- **No such job exists** → do not create one; the user declined or never opted in, and `configure` creates it only on their yes.
 
-Follow `configure` step 1 for the exact prompt text and the off-`:00/:30` scheduling detail; don't reproduce it here. This runs unattended — emit no chat narration unless something fails or the user ran `update` interactively (then one line: that the schedule is current at version `1.0.0-beta.2.3`).
+Follow `configure`'s daily-refresh scheduling step for the exact prompt text and the off-`:00/:30` scheduling detail; don't reproduce it here. This runs unattended — emit no chat narration unless something fails or the user ran `update` interactively (then one line: that the schedule is current at version `1.0.0-beta.3.1`).
