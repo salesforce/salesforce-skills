@@ -41,7 +41,7 @@ dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
 
 **If either overflows**, the result auto-persists to a temp file **outside the bash mount** — don't shell to it (`cat`/`python3`/`ls` will fail, it's not on that mount). Read it back with the Read tool only, and go straight to that — don't retry bash first. If the Read tool can't load it either, skip custom-field grounding and proceed with standard fields only; don't keep retrying.
 
-From each response, select relevant `__c` fields by API name and label (segment, industry, employee count, lead score, MQL status, etc.) and take their `{ value }`. The `Owner` spans below are standard and hardcoded.
+From each response, select relevant `__c` fields by API name and label (segment, industry, employee count, lead score, MQL status, etc.) and take their `{ value }`. The `Owner` spans below are standard and hardcoded. Lead `Owner` is polymorphic (`User` | `Group`), so select `Name` via inline fragments — not bare `Owner { Name }`.
 
 ## 2. Read lead + matching account (templated, one turn)
 
@@ -50,7 +50,7 @@ Fire these as tool calls in **one turn** (independent). Insert `<LEAD_CUSTOM>` =
 **Lead (by identifier user provided — Id, email, or name+company):**
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Lead(where: { <LEAD_FILTER> }, first: 1) { edges { node { Id Name { value } Company { value } Title { value } Email { value } LeadSource { value } Status { value } CreatedDate { value } <LEAD_CUSTOM> Owner { ... on User { Name { value } } } } } } } } }\"}" })
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Lead(where: { <LEAD_FILTER> }, first: 1) { edges { node { Id Name { value } Company { value } Title { value } Email { value } LeadSource { value } Status { value } CreatedDate { value } <LEAD_CUSTOM> Owner { ... on User { Name { value } } ... on Group { Name { value } } } } } } } } }\"}" })
 ```
 
 **Account (by company name or domain):**
