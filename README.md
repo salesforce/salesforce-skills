@@ -1,17 +1,16 @@
-# Knowledge Work Plugins
+# Salesforce for Microsoft 365 Copilot
 
-Salesforce plugins that turn Claude into a Salesforce specialist for your role, team, and company. Built for [Claude Cowork](https://claude.com/product/cowork).
+This branch is reserved for the Salesforce for Sales plugin for Microsoft 365 Copilot.
 
-## Why Plugins
+The plugin package is not published yet. This README is a placeholder, not an installation guide.
 
-Cowork lets you set the goal and Claude delivers finished, professional work. Plugins let you go further: tell Claude how you like work done, which tools and data to pull from, how to handle critical workflows, and what slash commands to expose — so your team gets better and more consistent outcomes.
+## Release details
 
-Each plugin bundles the skills for a specific job function. Out of the box, they give Claude a strong starting point for helping anyone in that role. 
+- Claude release mirrored: To be added.
+- Source commit: To be added.
+- Copilot package location: To be added.
+- Setup and installation instructions: To be added.
 
-## Plugin Marketplace
+## Tenant setup
 
-We're open-sourcing 1 plugins built and inspired by our own work:
-
-| Plugin | How it helps | Connectors |
-|--------|-------------|------------|
-| **[salesforce-for-sales](./salesforce-for-sales)** | AI-assisted sales workflows for reps and leaders. Account research, call prep and follow-up, pipeline review, forecast and slip-scenario math, lead triage, outreach drafting, and guided approval-gated Salesforce updates - built on Salesforce, Google Drive, and Slack. | Slack, Google Calander, GMail, Salesforce H360 connector |
+The planned package is a template. Each tenant must complete OAuth setup and replace the manifest's `referenceId` placeholder before use. Do not publish tenant-specific credentials or OAuth reference IDs in this repository.
