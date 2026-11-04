@@ -1,0 +1,10 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "salesforce-for-sales",
+  "version": "1.0.0-beta.3.1",
+  "description": "The full Salesforce sales suite for Gemini Enterprise — pipeline, deals, accounts, prospecting, and daily productivity — grounded live on your org's schema through the Headless 360 MCP server.",
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Salesforce, Inc."
+  }
+}
