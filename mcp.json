@@ -1,0 +1,13 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "salesforce-h360": {
+      "type": "streamable-http",
+      "url": "https://api.salesforce.com/platform/mcp/v1/platform/headless-360"
+    },
+    "slack": {
+      "type": "streamable-http",
+      "url": "https://mcp.slack.com/mcp"
+    }
+  }
+}
