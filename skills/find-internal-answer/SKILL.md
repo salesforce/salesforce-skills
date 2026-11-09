@@ -16,7 +16,7 @@ description: "Find a concise answer with authoritative sources from internal doc
 - **Use plain language.** Choose terms any reader understands on first read, with no domain knowledge or cultural context required. Avoid jargon and colloquialisms, and make labels signal what follows. Test: would a reader unfamiliar with the idiom understand the term and know what content to expect? Use "No engagement", not "went dark" or "ghosted".
 - **Reproduce Salesforce terminology exactly.** Use the field labels, object names, and stage values the data returns; do not paraphrase them. Spell out acronyms on first use unless the term is an industry framework (for example, MEDDIC).
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
-- **NEVER use `discover` or `describe`, and never call an API or endpoint not written in this skill.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
+- **ONLY use the local instructions in this skill file, ONLY call MCP tools mentioned in the skill file and NEVER call an API or endpoint not written in this skill file.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
 <!-- /global-rules-bootstrap -->
 
 
@@ -38,17 +38,25 @@ Fire the independent searches together where you can.
 
 ## Answer with the source
 
+Answer only what was asked — only what the sources actually say — in this order:
+
 ```
-# <The question>
-## Answer
-<2–4 sentences — only what the sources actually say>
-## Source
+**<The answer in one sentence>**
+
+- <one fact the question needs, from the sources, with its key terms in **bold** — threshold, approver, version, date>
+- <…one bullet per fact, 2–4 in all>
+- Confidence is <high / medium / low>; <why — e.g. the recent sources all agree, they conflict, or the newest is old>
+
+<Who can confirm this is current – the person/role the sources point to, and what to ask them.>
+
+Sources (<N>)
 - [<Doc name>](link) — updated <date> — <owner if known>
-- <Slack thread / email> — <date> — answered by <name>
-## Caveats
-- <if sources conflict or the newest is old — and who could confirm>
-## Who to ask if this isn't current
-- <the person/role the sources point to>
+- [<Slack thread / email>](link) — <date> — answered by <name>
 ```
+
+- Bold the facts the user acts on (the threshold, the approver, the document name); no other formatting.
+- The confidence line is always the last bullet. Lower it when sources conflict or the newest one is old, and say which.
+- `<N>` is the number of sources listed.
+- Every source is a link when a URL exists: a doc's link, a Slack thread or email permalink, a Salesforce record `https://[instanceUrl]/lightning/r/[SObjectType]/[Id]/view`, or for a group of records the list view `https://[instanceUrl]/lightning/o/[SObjectType]/list`. Plain text only when there is no URL.
 
 Nothing authoritative? Say so plainly (in the format above, with the closest things found as the sources), list the closest things found, name the person most likely to know — never synthesize a policy that isn't written anywhere.

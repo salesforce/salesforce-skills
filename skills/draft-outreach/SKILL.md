@@ -17,7 +17,7 @@ description: "Create a personalized email draft from Salesforce contact, account
 - **Use plain language.** Choose terms any reader understands on first read, with no domain knowledge or cultural context required. Avoid jargon and colloquialisms, and make labels signal what follows. Test: would a reader unfamiliar with the idiom understand the term and know what content to expect? Use "No engagement", not "went dark" or "ghosted".
 - **Reproduce Salesforce terminology exactly.** Use the field labels, object names, and stage values the data returns; do not paraphrase them. Spell out acronyms on first use unless the term is an industry framework (for example, MEDDIC).
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
-- **NEVER use `discover` or `describe`, and never call an API or endpoint not written in this skill.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
+- **ONLY use the local instructions in this skill file, ONLY call MCP tools mentioned in the skill file and NEVER call an API or endpoint not written in this skill file.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
 <!-- /global-rules-bootstrap -->
 # Rules:
 
@@ -27,6 +27,8 @@ description: "Create a personalized email draft from Salesforce contact, account
 Ground → (read + evidence searches, all in ONE turn) → draft → create draft.
 
 Value prop, proof points, voice/tone, signature block, and competitors (to avoid naming unprompted) are external knowledge — infer from the org's own closed-won data and product catalog, or ask the user once. Never invent them.
+
+- **Scope reading and output to the prompt.** A broad ask ("draft outreach to Priya Anand") gets the full draft with context; a specific follow-up ("make it shorter" / "what's her role?") answers only that. Don't show the full output when the user asked a narrow question.
 
 ## 1. Ground (hardcoded — Contact only)
 
@@ -87,281 +89,174 @@ Subject: 4-7 words, specific not salesy — references the hook, not the product
 
 Use email to create a draft (do not send): To = recipient email, Subject = [generated], Body = [generated]. Return the draft ID/link.
 
-## 5. Widget (default output when `display_widget` is present: Gemini Enterprise)
+## 5. Widget output
 
-When the data is assembled, call `display_widget`; a single one-line "Displaying the visualization now (this may take a minute)." notice may precede it.
+When `display_widget` is present, produce widget output first. If unavailable or it errors, fall back to text (§6).
 
-### Self-verification (before calling display_widget)
+### HXL data contract
 
-- [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
+Build a `data` object per `renderer.props.schema.json` (embedded below) — every key's type + description. Required keys (`title`, `sources`) must be present; optional keys (`draft`) are included ONLY when data exists. Omit keys without data (their blocks are not shown). All values are display-ready — no formatting functions in the template.
 
-The widget template is embedded below — a widget-definition envelope whose leaf values carry `{{token}}` placeholders. Resolve every `{{token}}` to a literal (no `{{…}}`/`{!…}` left — this echo path compiles no expressions), then call `display_widget({ resourceType: "dynamic", widgetDefinition: <hydrated> })` once. A value that is *only* a `{{token}}` (the `{{contextRows}}` datagrid array) becomes the typed literal — arrays stay arrays; a `{{token}}` inside a larger string is interpolated as text. Fabricate nothing — every context row must trace to a real Step 2/2b finding; drop rows you lack data for rather than pad.
-
-Two blocks below: first the **variable contract** (`renderer.props.schema.json`) — every `{{token}}`'s type + a worked example, use it to compute each value; then the **widget template** to hydrate. Substitute your computed values into the template's `{{token}}`s (see the token-typing rules above), leaving no `{{…}}`/`{!…}`.
 ```json
 {
-  "$comment": "Variable contract for the native-mosaic dynamic-mode template (renderer.json, sibling). This is NOT a separate display_widget call — it names every {{token}} in the template with its type and a worked example so you compute the right value for each. Workflow: build a props object with these keys, substitute each into the matching {{token}} in renderer.json (a slot that is only a {{token}} becomes the typed value — arrays stay arrays, numbers stay numbers; a {{token}} inside a larger string interpolates as text; a key you have no data for is omitted so that leaf drops), then call display_widget({ resourceType: 'dynamic', widgetDefinition: <the hydrated template> }) once with no {{…}}/{!…} left. Realistic values: sample-data.json (sibling). Authoring guidance (from the skill): `{{draftTitle}}` header page-title (\"Outreach — [Name], [Title] @ [Company]\"); `{{draftSubtitle}}` caption subhead summarizing CRM status, prior-contact recency, and the hook; `{{intentBadge}}` status badge = the outreach intent (COLD INTRO / WARM FOLLOW-UP / RE-ENGAGE / REFERRAL / EVENT FOLLOW-UP); `{{contextRows}}` datagrid array (Source badge, What-it-told-us text), each row `{ source: { value, badgeVariant }, detail }` with badgeVariant `\"info\"` (CRM), `\"secondary\"` (prior email/activity), `\"success\"` (research signal); `{{subject}}` / `{{emailBody}}` the draft callout title/description — the exact subject and body created in Step 4, verbatim, not a paraphrase; `{{reviseLabel}}` / `{{reviseMsg}}` primary button (`action/sendMessage`) label + first-person revision instruction; `{{draftUrl}}` secondary button (`action/openLink`) = the created draft's deep link from Step 4 — omit that button if the draft tool returned no link. Before calling, confirm no `{{…}}` or `{!…}` remain and `{{subject}}`/`{{emailBody}}` match the Step 4 draft verbatim.",
-  "props": {
-    "draftTitle": {
-      "description": "Header page title — \"Outreach — [Name], [Title] @ [Company]\".",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "description": "Data contract for the draft-outreach HXL widget. Block order: title, email (optional), sources. Required keys: title, sources. Optional: email. Omit a key and its block is not shown. All values are display-ready — no formatting functions in the template.",
+  "properties": {
+    "title": {
       "type": "string",
-      "example": "Outreach — Dana Kwon, CFO @ Cobalt Robotics"
+      "description": "Takeaway sentence describing the drafted outreach (e.g., 'Here's a re-engagement email to Priya Anand...')."
     },
-    "intentBadge": {
-      "description": "Status badge — the outreach intent.",
-      "type": "string",
-      "enum": [
-        "COLD INTRO",
-        "WARM FOLLOW-UP",
-        "RE-ENGAGE",
-        "REFERRAL",
-        "EVENT FOLLOW-UP"
-      ],
-      "example": "WARM FOLLOW-UP"
+    "labels": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "OPTIONAL. Every fixed label in the email draft card. Each key's `default` is its English text; a missing or blank key falls back to it. Omit when the user writes in English.",
+      "properties": {
+        "email": {
+          "type": "string",
+          "default": "EMAIL DRAFT",
+          "description": "Card heading. English: 'EMAIL DRAFT'."
+        },
+        "draft": {
+          "type": "string",
+          "default": "DRAFT",
+          "description": "Draft status badge. English: 'DRAFT'."
+        },
+        "to": {
+          "type": "string",
+          "default": "TO",
+          "description": "Recipient field label. English: 'TO'."
+        },
+        "subject": {
+          "type": "string",
+          "default": "SUBJECT",
+          "description": "Subject field label. English: 'SUBJECT'."
+        },
+        "send": {
+          "type": "string",
+          "default": "Send",
+          "description": "Send button label. English: 'Send'."
+        },
+        "sources": {
+          "type": "string",
+          "default": "Sources",
+          "description": "Sources accordion toggle. English: 'Sources'."
+        }
+      }
     },
-    "draftSubtitle": {
-      "description": "Caption subhead: CRM status, prior-contact recency, and the hook.",
-      "type": "string",
-      "example": "Existing account · last thread 12 days ago · hook: Q4 close-cycle automation"
+    "email": {
+      "type": "object",
+      "description": "OPTIONAL. Email draft card. Include ONLY when a draft was created.",
+      "required": ["toName", "subject", "body", "actionMsg"],
+      "properties": {
+        "toName": {
+          "type": "string",
+          "description": "Recipient name as plain text (e.g. 'Priya Anand')."
+        },
+        "toEmail": {
+          "type": "string",
+          "description": "Recipient email address, shown after the name. Only when known; never guess. Omit otherwise."
+        },
+        "subject": {
+          "type": "string",
+          "description": "Email subject line. Plain text."
+        },
+        "body": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          },
+          "description": "Email body, one array item per paragraph. Each item is markdown: **bold** the key facts (amounts, dates, deliverables)."
+        },
+        "actionMsg": {
+          "type": "string",
+          "description": "First-person request sent to chat when Send is clicked (e.g. 'Send this email to Priya Anand – show it to me to confirm first.')."
+        }
+      }
     },
-    "contextRows": {
-      "description": "Context signals feeding the draft — one row per source. Empty array → the datagrid is omitted.",
+    "sources": {
       "type": "array",
+      "description": "Citation sources array. Each item has label (text) and optional url (link).",
       "items": {
         "type": "object",
         "properties": {
-          "source": {
-            "description": "Source badge cell.",
-            "type": "object",
-            "properties": {
-              "value": {
-                "description": "Source label shown on the badge.",
-                "type": "string"
-              },
-              "badgeVariant": {
-                "description": "Badge color: info=CRM, secondary=prior email/activity, success=research signal.",
-                "type": "string",
-                "enum": [
-                  "neutral",
-                  "primary",
-                  "secondary",
-                  "outline",
-                  "success",
-                  "info",
-                  "warning",
-                  "error"
-                ]
-              }
-            }
+          "label": {
+            "type": "string"
           },
-          "detail": {
-            "description": "What this source told us (text).",
+          "url": {
             "type": "string"
           }
-        }
-      },
-      "example": [
-        {
-          "source": {
-            "value": "CRM",
-            "badgeVariant": "info"
-          },
-          "detail": "$1.8M renewal + expansion in Negotiation, closes Jul 30; owner Priya Nair"
         },
-        {
-          "source": {
-            "value": "Prior email",
-            "badgeVariant": "neutral"
-          },
-          "detail": "Jul 12 thread — Dana asked for the ROI model ahead of budget sign-off"
-        },
-        {
-          "source": {
-            "value": "Activity",
-            "badgeVariant": "neutral"
-          },
-          "detail": "Last logged call Jul 6: budget confirmed for renewal + expansion"
-        },
-        {
-          "source": {
-            "value": "Signal",
-            "badgeVariant": "success"
-          },
-          "detail": "Cobalt posted 14 finance-ops roles in Q1 — capacity strain on the close cycle"
-        }
-      ]
-    },
-    "subject": {
-      "description": "Draft callout title — the exact email subject from Step 4, verbatim.",
-      "type": "string",
-      "example": "ROI model + a Q4 close-cycle idea"
-    },
-    "emailBody": {
-      "description": "Draft callout body — the exact email body from Step 4, verbatim (not a paraphrase).",
-      "type": "string",
-      "example": "Dana — following up on the ROI model you asked for before budget sign-off; it's attached. One thing it surfaced: your Q1 finance-ops hiring suggests the close cycle is getting heavier. The automation tier in the expansion covers exactly that — Meridian Health cut three days off their close with it. Worth a 20-min call to see if it maps to what you're planning for Q4?"
-    },
-    "reviseLabel": {
-      "description": "Primary button label (action/sendMessage).",
-      "type": "string",
-      "example": "Revise the draft"
-    },
-    "reviseMsg": {
-      "description": "First-person revision instruction the primary button sends (action/sendMessage).",
-      "type": "string",
-      "example": "Revise this outreach email to Dana Kwon: keep it under 100 words, lead harder on the Q4 close-cycle time savings, and soften the CTA to a yes/no question."
-    },
-    "draftUrl": {
-      "description": "The created draft's deep link for the secondary \"open\" button (action/openLink); omit if the draft tool returned no link.",
-      "type": "string",
-      "example": "https://mail.google.com/mail/u/0/#drafts"
-    }
-  }
-}
-```
-```json
-{
-  "renderer": {
-    "componentOverrides": {
-      "$": {
-        "type": "mosaic",
-        "definition": "tile/widget",
-        "children": [
-          {
-            "definition": "tile/row",
-            "attributes": {
-              "gap": "sm",
-              "align": "center",
-              "justify": "between",
-              "isWrapped": true
-            },
-            "children": [
-              {
-                "definition": "tile/row",
-                "attributes": {
-                  "gap": "sm",
-                  "align": "center"
-                },
-                "children": [
-                  {
-                    "definition": "tile/icon",
-                    "attributes": {
-                      "name": "mail",
-                      "size": "xl",
-                      "alt": ""
-                    }
-                  },
-                  {
-                    "definition": "tile/text",
-                    "attributes": {
-                      "text": "{{draftTitle}}",
-                      "variant": "h1"
-                    }
-                  }
-                ]
-              },
-              {
-                "definition": "tile/badge",
-                "attributes": {
-                  "label": "{{intentBadge}}",
-                  "variant": "info"
-                }
-              }
-            ]
-          },
-          {
-            "definition": "tile/text",
-            "attributes": {
-              "text": "{{draftSubtitle}}",
-              "variant": "caption",
-              "color": "muted"
-            }
-          },
-          {
-            "definition": "tile/separator"
-          },
-          {
-            "definition": "tile/datagrid",
-            "attributes": {
-              "caption": "Context used to personalize",
-              "appearance": "striped",
-              "size": "sm",
-              "columns": [
-                {
-                  "key": "source",
-                  "header": "Source",
-                  "type": "badge"
-                },
-                {
-                  "key": "detail",
-                  "header": "What it told us",
-                  "type": "text"
-                }
-              ],
-              "rows": "{{contextRows}}"
-            }
-          },
-          {
-            "definition": "tile/callout",
-            "attributes": {
-              "variant": "info",
-              "eyebrow": "DRAFT EMAIL",
-              "title": "{{subject}}",
-              "description": "{{emailBody}}"
-            },
-            "children": [
-              {
-                "definition": "tile/row",
-                "attributes": {
-                  "gap": "sm",
-                  "align": "center",
-                  "isWrapped": true
-                },
-                "children": [
-                  {
-                    "definition": "tile/button",
-                    "attributes": {
-                      "label": "{{reviseLabel}}",
-                      "variant": "primary",
-                      "actions": {
-                        "click": [
-                          {
-                            "definition": "action/sendMessage",
-                            "attributes": {
-                              "content": "{{reviseMsg}}"
-                            }
-                          }
-                        ]
-                      }
-                    }
-                  },
-                  {
-                    "definition": "tile/button",
-                    "attributes": {
-                      "label": "Open draft in email",
-                      "variant": "secondary",
-                      "actions": {
-                        "click": [
-                          {
-                            "definition": "action/openLink",
-                            "attributes": {
-                              "url": "{{draftUrl}}"
-                            }
-                          }
-                        ]
-                      }
-                    }
-                  }
-                ]
-              }
-            ]
-          }
-        ]
+        "required": ["label"]
       }
     }
-  }
+  },
+  "required": ["title", "sources"],
+  "additionalProperties": false
 }
 ```
+
+### Scope the blocks to the prompt
+
+The schema marks only `title` and `sources` as required. **Every other key is a choice, and the choice follows the question — not what you happened to retrieve.** Data you fetched but did not use stays out of the widget.
+
+### What to send
+
+Omit a key and its block is not shown.
+
+#### Worked examples
+
+**Full draft** — recipient known, draft created:
+
+```json
+{
+  "title": "Here's a re-engagement email to Priya Anand — leads with Robert's introduction and a phased-pricing path, not a discount.",
+  "email": {
+    "toName": "Priya Anand",
+    "toEmail": "priya.anand@cedarlinefinancial.com",
+    "subject": "Flexible pricing paths for the Sales Cloud rollout",
+    "body": ["Hi Priya,", "Robert Nkemelu suggested I reach out directly as you've taken over sponsorship of the Sales Cloud initiative. Congratulations on the expanded role. I understand the enterprise package pricing raised concerns — fair, and worth addressing head-on.", "I've put together a couple of options that align with the ROI math behind the rollout and two alternative packaging paths, including a phased structure that shifts spend to align with your realized value. Worth 20 minutes this week to walk the numbers and confirm this still fits your budget priorities? I'll bring the options; you pick the shape.", "Best,\nBryan Corcoran\nSalesforce"],
+    "actionMsg": "Send this email to Priya Anand – show it to me to confirm first."
+  },
+  "sources": [
+    { "label": "Priya Anand (Contact)", "url": "https://cedarline.lightning.force.com/lightning/r/Contact/003xx000004SomfAAC/view" },
+    { "label": "Cedarline Financial (Account)", "url": "https://cedarline.lightning.force.com/lightning/r/Account/001xx000003DKFYAA4/view" },
+    { "label": "Sales Cloud rollout (Opportunity)", "url": "https://cedarline.lightning.force.com/lightning/r/Opportunity/006xx000008tRCLAA2/view" },
+    { "label": "Prior email thread (Task)" }
+  ]
+}
+```
+
+**Guidance only** — no draft created (research/strategy answer without an email):
+
+```json
+{
+  "title": "Approach for re-engaging Darrel Schneider at Pacific Fleet: New CFO, recent industry signal about fleet modernization spend; prior buyer still in seat. Next move: Cold call or LinkedIn InMail — prior thread is stale, email may not land.",
+  "sources": [
+    { "label": "Darrel Schneider (Contact)", "url": "https://pacific.lightning.force.com/lightning/r/Contact/003xx000004SomfAAC/view" },
+    { "label": "Pacific Fleet (Account)", "url": "https://pacific.lightning.force.com/lightning/r/Account/001xx000003DKFYAA4/view" }
+  ]
+}
+```
+
+`data` schema (JSON Schema) is embedded in the HXL data contract section above.
+
+### Rendering
+
+Once data is assembled, call:
+```
+display_widget({
+  resourceType: "dynamic",
+  widgetDefinition: {
+    widget: "draft-outreach",
+    data: <your data object>,
+    renderer: { body: [] }
+  }
+})
+```
+
+A single one-line "Displaying now." notice may precede the call. After success, stop — no assistant text completion.
 
 ## 6. Text — FALLBACK ONLY — DO NOT USE IF `display_widget` SUCCEEDED
 

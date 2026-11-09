@@ -1,6 +1,6 @@
 ---
 name: daily-briefing
-description: "Create today's sales briefing from Salesforce events, near-term and overdue deals, account context, commitments, and unread customer email. Use for a morning rundown combining meetings, pipeline, and inbox priorities; schedule-only requests: calendar-events."
+description: "Answer what needs the rep today, scoped to what was asked: a full morning rundown, the #1 move, the next call, slipping deals, or what's closing soon, from Salesforce events, near-term and overdue deals, commitments, and unread customer email. Schedule-only requests: calendar-events."
 ---
 <!-- global-rules-bootstrap -->
 
@@ -17,10 +17,14 @@ description: "Create today's sales briefing from Salesforce events, near-term an
 - **Use plain language.** Choose terms any reader understands on first read, with no domain knowledge or cultural context required. Avoid jargon and colloquialisms, and make labels signal what follows. Test: would a reader unfamiliar with the idiom understand the term and know what content to expect? Use "No engagement", not "went dark" or "ghosted".
 - **Reproduce Salesforce terminology exactly.** Use the field labels, object names, and stage values the data returns; do not paraphrase them. Spell out acronyms on first use unless the term is an industry framework (for example, MEDDIC).
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
-- **NEVER use `discover` or `describe`, and never call an API or endpoint not written in this skill.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
+- **ONLY use the local instructions in this skill file, ONLY call MCP tools mentioned in the skill file and NEVER call an API or endpoint not written in this skill file.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
 <!-- /global-rules-bootstrap -->
+# Goal:
+Answer what the user asked about their day — today's meetings, deals closing soon or past due, and (when connected) customer email — in one pass. **Read only what the question needs** and present only that: a broad rundown ("kick off my day", "what needs me today?") reads and shows the whole day; a specific ask ("what's my #1 move?", "who's on my next call?", "which deals are slipping?") reads and shows only that.
+
 # Rules:
 
+- **Scope reading and output to the prompt, never a default full briefing.** A broad rundown reads and shows the whole day; a specific ask ("what's my #1 move?", "who's on my next call?") reads and shows only that. Skip reads the question doesn't need, and don't show something just because you fetched it (see step 5).
 - Parallelize everything independent. This is a morning routine — speed matters; fire the running-user lookup, calendar, closing-soon, and inbox in ONE turn.
 - **Anchor today's meetings to the current time.** "Now" is the current time in the rep's timezone (`TimeZoneSidKey`, 2e); `StartDateTime`/`EndDateTime` are UTC, so convert them. A meeting whose `EndDateTime` is before now has already happened: say so ("your 12:00 PM ET with Northpeak already happened") and point at its follow-up if one is owed, never at prepping for it. One under way is "on now". The next call is the first meeting whose `StartDateTime` is after now. When meetings are in the answer, state the current time ("It's 1:15 PM ET") and cover both what has passed and what is still ahead; if every meeting has ended, say the rest of the day is clear.
 
@@ -41,7 +45,7 @@ Step 1 is the authority on names — use exact strings, never guess. **Response 
 
 ## 2. Read — running user + calendar + closing-soon + past-due + inbox, ISSUE ALL IN ONE TURN
 
-Five independent reads (plus step 1) — batch them in a single turn. Insert `<OPP_CUSTOM>` = confirmed `__c { value }` fields.
+Five independent reads (plus step 1) — batch them in a single turn, firing only the ones the prompt needs: a broad rundown fires all five; "who's on my next call?" needs 2a + 2e only; "which deals are slipping?" / "what's closing?" need 2b + 2c + 2e and no calendar or inbox. When 2a isn't fired, skip step 3. Insert `<OPP_CUSTOM>` = confirmed `__c { value }` fields.
 
 **2a. Today's calendar** — today's meetings for the running user. There is **no `/connect/calendar/...` REST resource on this server** — read the calendar from the `Event` object via GraphQL (below), or a dedicated calendar connector tool if one is present. Do NOT guess a REST path or reach for `discover` on a 404; the query here is the path.
 
@@ -68,7 +72,7 @@ dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
 ```
 (To widen the window, change `next_n_days`; for a named period the user gives, swap to the exact-date form `{ value: \"YYYY-MM-DD\" }` on both bounds.)
 
-**2c. Past due** — the rep's open opps with close date in the past (still not closed). Pull concrete rows (`first: 50`) for the `pastDueRows` widget datagrid:
+**2c. Past due** — the rep's open opps with close date in the past (still not closed); 2b starts at today, so this is the only read that finds them. Pull concrete rows (`first: 50`). They have no card of their own: a past-due deal is a `needsMove` row with tone `error`, and the `answer` says so (or "nothing is past due"):
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
   queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Opportunity(scope: MINE, where: { IsClosed: { eq: false }, CloseDate: { lt: { literal: TODAY } } }, first: 50, orderBy: { CloseDate: { order: ASC } }) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } NextStep { value } LastActivityDate { value } <OPP_CUSTOM> Account { Name { value } } } } } } } }\"}" })
@@ -94,6 +98,8 @@ In the same turn, per matched account: **docs** search (most recent transcript/n
 
 ## 4. Flag (record only; cite; invent nothing)
 
+Flag only the areas the prompt covers.
+
 - **Closing soon** — flag blank `NextStep` or stale (`LastActivityDate` 7d+).
 - **Inbox** — count customer-domain unreads; list the top 3 by matched-opp `Amount`.
 - **Per meeting** — time · title · attendees · account · open-opp stage+$ · last touch · one-line "why it matters" · **you owe** (or "nothing outstanding") · **walk in asking** (the one thing to get, given stage + context). A meeting that has already ended (see Rules) gets its follow-up instead of a walk-in ask.
@@ -105,470 +111,319 @@ When the data is assembled, call `display_widget`; a single one-line "Displaying
 ### Self-verification (before calling display_widget)
 
 - [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
-- [ ] The datagrid `rows` are typed: `amount`/`trend` are numbers/number arrays, not strings; risky rows carry `_tone`, healthy rows don't.
-- [ ] Every button's `onClick` is `action/sendMessage` with a real first-person `content` prompt — no decorative buttons.
-- [ ] No pie/bar/meter/heatmap/waterfall tiles — the sparkline column in the opportunity datagrid is the only inline visual.
-- [ ] The #1-move callout leads; the stat strip and flags support it.
+The layout is built into the renderer and registered by name — you send **only the widget name and its data**. Call `display_widget` once:
 
-The widget template is embedded below — resolve its tokens and call `display_widget({ resourceType: "dynamic", widgetDefinition: <hydrated> })` once (see the `widgetDefinition` param for token-resolution rules).
+```
+display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "daily-briefing", data: <object matching the schema below>, renderer: { body: [] } } })
+```
 
-Tokens: `dateEyebrow briefingTitle` (header) · `topMove topMoveDetail topMoveDraftMsg` (the #1 move callout with its primary action button) · `kpiEventsLine kpiEventsSub kpiPipelineLine kpiPipelineSub kpiGapsLine kpiGapsSub kpiFollowupsLine kpiFollowupsSub` (four-up stat strip — each `*Line` is the whole `"<n> <unit>"` headline, e.g. `"7 meetings"`, `"$495K"`, `"2 opps"`) · `flag1Title flag1Sub flag1Msg flag2Title flag2Sub flag2Msg flag3Title flag3Sub flag3Msg flag4Title flag4Sub` (attention flags with sendMessage buttons, except flag4) · `meetingsHeading meeting1Time meeting1Title meeting1Ask meeting2Time meeting2Title meeting2Ask meeting3Line meeting4Line` (`meetingsHeading` is the section title incl. count e.g. `"Today's meetings — 4, 2 external"`; two detailed meetings render as walk-in-asking callouts — put the `"$45K · closes today"`-style tag inline in `meetingNTitle`; the two compact meetings are a single `meetingNLine` string each) · `oweHeading owe1Title owe1Meta owe1Msg owe2Title owe2Meta owe2Msg inboxClear` (`oweHeading` incl. count; open-promise cards; inbox-clear caption when empty) · `oppsSummary closingLabel gridColumns closingRows pastDueLabel pastDueRows` (accordion with two datagrids sharing one `gridColumns` schema; each is preceded by its `*Label` incl. count+$; each row object is `{ name (plain string — format as "<Account> — <Opp Name>", e.g. "Okta — Support Uplift"; concatenate `Account.Name.value` and `Opportunity.Name.value` from the SF response — plain strings, not objects), stage, trend, close (plain string — human-readable relative date, e.g. "Today", "Jul 31 · tomorrow", "Jul 15 · 15d past"; NOT ISO YYYY-MM-DD), amount, next, _tone }` where `amount`/`trend` are numbers/number[], risky rows carry `_tone:"error"`/`"warning"`; `gridColumns` is the typed column array — keep the `trend` sparkline column). Omit any block whose data you lack; drop the column if no activity history; do not send empty arrays or leave stray {{tokens}}.
+- `renderer: { body: [] }` is a required placeholder — send it exactly as written; the renderer fills it in.
+- **Send data only; never author presentation** (colours, pills, icons, HTML, emoji, layout keys, `{!…}`/`{{…}}`): the renderer owns the look and shows or hides each block from the keys you send. Keys outside the schema are rejected.
+- **CRITICAL — `widgetDefinition` and `data` must be nested JSON objects, NOT strings.** ❌ WRONG: `widgetDefinition: "{\"widget\":...}"`. ✅ RIGHT: `widgetDefinition: {"widget": "daily-briefing", "data": {...}, "renderer": {"body": []}}`. If you hold a JSON string, `JSON.parse` it first.
+- When `display_widget` is available the widget is the output; produce the section 6 text only as the fallback when the tool is unavailable (e.g. a terminal).
+
+### What to send
+
+Follow the block order and the per-block inclusion rules in the `data` schema below (the root description and each property's `description`).
+
+Rules:
+- **Language:** when the user writes in English, omit `labels`. When they write in another language, send `labels` with EVERY key translated (headings in upper case) and write every free-text field (`detail`, `closes`, `next`, ...) in that language. Never join translated text with English fragments: each phrase is written whole, because word order differs.
+
+### Scope the blocks to the prompt
+
+The schema marks only `title`, `answer` and `sources` as required. **Every other key is a choice, and the choice follows the question — not what you happened to retrieve.** Data you fetched but did not use stays out of the widget.
+
+| The prompt is… | Send |
+|---|---|
+| Broad ("kick off my day", "what actually needs me today?", "daily briefing", "morning rundown") | `title` + `answer` (bullets) + `needsMove` and `closingSoon` when they have rows + tail only if it applies + `sources` |
+| Slipping / at risk ("which deals are slipping?", "what needs attention?") | `title` + `answer` + **only** `needsMove` + `sources` (the list) |
+| Closing ("what's closing this week?", "what's in the next 14 days?") | `title` + `answer` + **only** `closingSoon` + `sources` (the list) |
+| A question with a direct answer ("what's my #1 move today?", "who's on my next call?", "anything past due?") | `title` + `answer` (paragraph) + `sources` (the one record) — no card |
+
+Rules:
+- **Omit a key and its block is not shown.** Never send empty arrays, empty strings, placeholder text, or "N/A" to fill a block, and never send a card the prompt did not ask for or that does not speed up the answer.
+- **Scope the `answer` too:** for "who's on my next call?", the answer is that meeting — not the pipeline, inbox, or other meetings you also read.
+- **Meetings, past-due deals, "you owe them" promises, and inbox signal have no card of their own:** put what the prompt needs from them in `answer`, or make one the reason in a `needsMove` row's `detail` ("signing call 9:00 AM", "2 unanswered emails since Aug 8"), or say "nothing is past due".
+- **`needsMove[].detail` is exactly `<Stage> · <reason for prioritization>`:** the stage, one ` · `, then the single reason the deal is on the list in a few words ("Negotiation / Review · DocuSign not sent before 9:00 AM call"). No third part, no full sentences; the rest belongs in `answer` or the callout.
+- **`needsMove[].closes` is one phrase with no ` · `:** "closes today", "closes Oct 30". Only a past-due row keeps the dot format ("Oct 20 · 9d past").
+- **`needsMove[].tone` comes from the opportunity fields you read, first match wins:** `error` = slipping (past its `CloseDate`, or `LastActivityDate` 7d+ ago, or `NextStep` blank); `warning` = closes within 3 days with an action still open today (unsigned paperwork, an unprepped call); `success` = on track (activity in the last 3 days and a `NextStep` set) and in the list only because one small move closes it; otherwise `neutral`. Order rows by close date, soonest first.
+- **Tail fork:** `callout` when something is time-sensitive and the user can act on it (one button, a first-person `actionMsg`); otherwise a `nextStep` line; if nothing applies, neither. Never both (if both are sent only the callout renders).
+- **Sources:** a record is `https://<myDomain>/lightning/r/<SObjectType>/<Id>/view` (Opportunity, Event, Account); a list ("Opportunities · Closing in 14 days") is `https://<myDomain>/lightning/o/Opportunity/list`. Omit `url` if you have no Id. When email or Slack wasn't connected, add one source with no `url`: "Email & Slack not connected – Salesforce only".
+- Format every value as a ready-to-display string (currency, dates; `closingSoon.items[].close` is "Aug 30 · 6d"). Names are plain strings, never objects. `closingSoon.items[].next` is "None set" when `NextStep` is blank.
+- Before calling: `data` has no `{!…}`/`{{…}}`, no keys outside the schema, and every optional key you included is justified by the prompt.
+
+#### Worked examples (the `data` object only)
+
+**Broad — "Kick off my day – what actually needs me today?"** (bulleted answer, both cards, a time-sensitive callout, several sources):
 
 ```json
 {
-  "renderer": {
-    "componentOverrides": {
-      "$": {
-        "type": "mosaic",
-        "definition": "tile/widget",
-        "children": [
-          {
-            "definition": "tile/column",
-            "attributes": {
-              "gap": "sm"
-            },
-            "children": [
-              {
-                "definition": "tile/text",
-                "attributes": {
-                  "text": "{{dateEyebrow}}",
-                  "weight": "semibold",
-                  "color": "muted",
-                  "variant": "caption"
-                }
-              },
-              {
-                "definition": "tile/text",
-                "attributes": {
-                  "text": "{{briefingTitle}}",
-                  "variant": "h1"
-                }
-              }
-            ]
+  "title": "One deal closes today; three others are slipping.",
+  "answer": "- It's **8:10 AM PT** and your one meeting, the Lumina signing call, is still ahead.\n- The only sure thing on the board is **Lumina – $95K, signing call at 9:00 AM.** Send the order form before the call and it's booked.\n- Everything else this week is about keeping three At Risk deals engaged.\n- **$865K** is closing in the next 14 days and nothing is past due.",
+  "needsMove": [
+    { "name": "Lumina Software", "amount": "$95K", "closes": "closes today", "detail": "Negotiation / Review · DocuSign not sent before 9:00 AM call", "tone": "warning" },
+    { "name": "Summit Health Partners", "amount": "$360K", "closes": "closes Aug 30", "detail": "Proposal / Price Quote · 2 unanswered emails since Aug 8", "tone": "error" },
+    { "name": "Brightview Media", "amount": "$410K", "closes": "closes Aug 31", "detail": "Negotiation / Review · MSA redlines idle since Aug 12", "tone": "error" }
+  ],
+  "closingSoon": { "items": [
+    { "name": "Lumina Software", "stage": "Negotiation / Review", "close": "Aug 24 · today", "amount": "$95K", "next": "Send DocuSign; confirm start date" },
+    { "name": "Summit Health Partners", "stage": "Proposal / Price Quote", "close": "Aug 30 · 6d", "amount": "$360K", "next": "Book exec readout with Dr. Whitmore" },
+    { "name": "Brightview Media", "stage": "Negotiation / Review", "close": "Aug 31 · 7d", "amount": "$410K", "next": "Chase legal on MSA redlines; schedule signing" }
+  ] },
+  "callout": { "lead": "Lumina closes today – signing call 9:00 AM, DocuSign not sent.", "text": "Send the order form now so it's in Jessica Tam's inbox before the call, or the close date is At Risk. Then draft the Summit exec-readout ask.", "buttonLabel": "Send the Lumina DocuSign", "actionMsg": "Send the Lumina Software DocuSign order form to Jessica Tam before the 9:00 AM signing call." },
+  "sources": [
+    { "label": "Opportunity · Lumina Software", "url": "https://<myDomain>/lightning/r/Opportunity/<Id>/view" },
+    { "label": "Event · 9:00 AM · Lumina signing call", "url": "https://<myDomain>/lightning/r/Event/<Id>/view" },
+    { "label": "Opportunities · Closing in 14 days", "url": "https://<myDomain>/lightning/o/Opportunity/list" },
+    { "label": "Email & Slack not connected – Salesforce only" }
+  ]
+}
+```
+
+**Direct — "What's my #1 move today?"** (paragraph answer, no card, no tail, one source):
+
+```json
+{
+  "title": "Send the Lumina DocuSign before your 9:00 AM signing call.",
+  "answer": "Lumina Software – **$95K, closes today.** The order form isn't out yet, and the signing call is your only meeting. Get it into Jessica Tam's inbox before 9:00 AM and the deal is booked. Just say the word and I'll send the Lumina DocuSign for you.",
+  "sources": [{ "label": "Opportunity · Lumina Software", "url": "https://<myDomain>/lightning/r/Opportunity/<Id>/view" }]
+}
+```
+
+**Direct — "Who's on my next call?"** (paragraph answer about that meeting only, the event as the source):
+
+```json
+{
+  "title": "Jessica Tam – Lumina signing call, 9:00–9:30 AM PT.",
+  "answer": "She's the sole external attendee (**Economic Buyer**). It's the **$95K Lumina Software** signing that closes today.",
+  "sources": [{ "label": "Event · 9:00 AM · Contact: Jessica Tam", "url": "https://<myDomain>/lightning/r/Event/<Id>/view" }]
+}
+```
+
+**Specific — "Which deals are slipping?"** (the needsMove card only, the list as the source, no tail):
+
+```json
+{
+  "title": "Three deals are slipping – $865K closing in 14 days.",
+  "answer": "All three close within 14 days and each has stalled. Summit and Brightview are the biggest risk; Lumina still closes today if the DocuSign goes out.",
+  "needsMove": [
+    { "name": "Lumina Software", "amount": "$95K", "closes": "closes today", "detail": "Negotiation / Review · DocuSign not sent before 9:00 AM call", "tone": "warning" },
+    { "name": "Summit Health Partners", "amount": "$360K", "closes": "closes Aug 30", "detail": "Proposal / Price Quote · 2 unanswered emails since Aug 8", "tone": "error" },
+    { "name": "Brightview Media", "amount": "$410K", "closes": "closes Aug 31", "detail": "Negotiation / Review · MSA redlines idle since Aug 12", "tone": "error" }
+  ],
+  "sources": [{ "label": "Opportunities · Closing in 14 days", "url": "https://<myDomain>/lightning/o/Opportunity/list" }]
+}
+```
+
+`data` schema (JSON Schema). Only `title`, `answer` and `sources` are required; include any other key only when the prompt asks for it or it clearly speeds up the answer (see "Scope the blocks to the prompt"):
+
+```json
+{
+  "type": "object",
+  "description": "Block order: title, answer, then the optional cards (needsMove, closingSoon), then at most one tail (callout OR nextStep), then sources. Only title, answer and sources are required. Which optional cards to include: see the scope table in the skill instructions. Omit a key and its block is not shown: never send empty arrays, empty strings, placeholders or 'N/A', and never a card the prompt did not ask for. A direct question ('who's on my next call?') usually gets no tail. Format every value as a ready-to-display string (currency, dates); names are plain strings, never objects.",
+  "required": [
+    "title",
+    "answer",
+    "sources"
+  ],
+  "properties": {
+    "labels": {
+      "type": "object",
+      "description": "OPTIONAL. Every fixed label of the widget (card headings, table headers, the sources toggle); each key's `default` is its English text, and a missing or blank key falls back to it. Omit when the user writes in English; for another language follow the Language rule in SKILL.md.",
+      "properties": {
+        "needsMove": {
+          "type": "string",
+          "default": "YOUR PRIORITIES FOR TODAY",
+          "description": "Heading of the priorities card. English: 'YOUR PRIORITIES FOR TODAY'."
+        },
+        "closingSoon": {
+          "type": "string",
+          "default": "OPPORTUNITIES CLOSING SOON",
+          "description": "Heading of the closing-soon card. English: 'OPPORTUNITIES CLOSING SOON'."
+        },
+        "colOpportunity": {
+          "type": "string",
+          "default": "Opportunity",
+          "description": "Closing-soon table header. English: 'Opportunity'."
+        },
+        "colStage": {
+          "type": "string",
+          "default": "Stage",
+          "description": "Closing-soon table header. English: 'Stage'."
+        },
+        "colClose": {
+          "type": "string",
+          "default": "Close Date",
+          "description": "Closing-soon table header. English: 'Close Date'."
+        },
+        "colAmount": {
+          "type": "string",
+          "default": "Amount",
+          "description": "Closing-soon table header. English: 'Amount'."
+        },
+        "colNextStep": {
+          "type": "string",
+          "default": "Next Step",
+          "description": "Closing-soon table header. English: 'Next Step'."
+        },
+        "sources": {
+          "type": "string",
+          "default": "Sources",
+          "description": "Word shown on the sources toggle; the renderer appends the count, e.g. 'Sources (3)'. Send the word only, no number. English: 'Sources'."
+        }
+      }
+    },
+    "title": {
+      "type": "string",
+      "description": "REQUIRED. The takeaway for today in the user's context, one bold sentence that already answers the question (e.g. 'One deal closes today; three others are slipping.'). Never the skill name or 'Daily Briefing'."
+    },
+    "answer": {
+      "type": "string",
+      "description": "REQUIRED. Answer-first markdown with **bold** on the key facts (amounts, times, names). A broad ask gets 2-4 short '- ' bullets; a direct question ('what's my #1 move?', 'who's on my next call?') gets a 1-3 sentence paragraph. Answer ONLY what the user asked; do not restate the cards below it."
+    },
+    "needsMove": {
+      "type": "array",
+      "description": "OPTIONAL card 'YOUR PRIORITIES FOR TODAY'. Include ONLY if the prompt asks what needs attention/what is slipping/at risk/today's priorities, or the user asked for a broad rundown and there are deals needing action today. Omit the key otherwise; never an empty array. Ordered by close date, soonest first.",
+      "items": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Account name, the row's bold title (e.g. 'Lumina Software')."
           },
-          {
-            "definition": "tile/separator"
+          "amount": {
+            "type": "string",
+            "description": "Pre-formatted opportunity amount (e.g. '$95K')."
           },
-          {
-            "definition": "tile/callout",
-            "attributes": {
-              "variant": "recommended",
-              "eyebrow": "YOUR #1 MOVE TODAY",
-              "title": "{{topMove}}",
-              "description": "{{topMoveDetail}}"
-            },
-            "children": [
-              {
-                "definition": "tile/button",
-                "attributes": {
-                  "label": "Draft next step",
-                  "variant": "primary",
-                  "actions": {
-                    "click": [
-                      {
-                        "definition": "action/sendMessage",
-                        "attributes": {
-                          "content": "{{topMoveDraftMsg}}"
-                        }
-                      }
-                    ]
-                  }
-                }
-              }
-            ]
+          "closes": {
+            "type": "string",
+            "description": "When it closes, as one whole phrase in the user's language with no ' · ' inside (e.g. 'closes today', 'closes Oct 30'); shown after the amount. Only a past-due row keeps the dot format (e.g. 'Oct 20 · 9d past')."
           },
-          {
-            "definition": "tile/row",
-            "attributes": {
-              "gap": "md",
-              "align": "stretch",
-              "isWrapped": true
-            },
-            "children": [
-              {
-                "definition": "tile/column",
-                "attributes": {
-                  "gap": "none"
-                },
-                "children": [
-                  {
-                    "definition": "tile/text",
-                    "attributes": {
-                      "text": "{{kpiEventsLine}}",
-                      "variant": "h4"
-                    }
-                  },
-                  {
-                    "definition": "tile/text",
-                    "attributes": {
-                      "text": "{{kpiEventsSub}}",
-                      "variant": "caption",
-                      "color": "muted"
-                    }
-                  }
-                ]
-              },
-              {
-                "definition": "tile/column",
-                "attributes": {
-                  "gap": "none"
-                },
-                "children": [
-                  {
-                    "definition": "tile/text",
-                    "attributes": {
-                      "text": "{{kpiPipelineLine}}",
-                      "variant": "h4"
-                    }
-                  },
-                  {
-                    "definition": "tile/text",
-                    "attributes": {
-                      "text": "{{kpiPipelineSub}}",
-                      "variant": "caption",
-                      "color": "muted"
-                    }
-                  }
-                ]
-              },
-              {
-                "definition": "tile/column",
-                "attributes": {
-                  "gap": "none"
-                },
-                "children": [
-                  {
-                    "definition": "tile/text",
-                    "attributes": {
-                      "text": "{{kpiGapsLine}}",
-                      "variant": "h4",
-                      "color": "error"
-                    }
-                  },
-                  {
-                    "definition": "tile/text",
-                    "attributes": {
-                      "text": "{{kpiGapsSub}}",
-                      "variant": "caption",
-                      "color": "muted"
-                    }
-                  }
-                ]
-              },
-              {
-                "definition": "tile/column",
-                "attributes": {
-                  "gap": "none"
-                },
-                "children": [
-                  {
-                    "definition": "tile/text",
-                    "attributes": {
-                      "text": "{{kpiFollowupsLine}}",
-                      "variant": "h4"
-                    }
-                  },
-                  {
-                    "definition": "tile/text",
-                    "attributes": {
-                      "text": "{{kpiFollowupsSub}}",
-                      "variant": "caption",
-                      "color": "muted"
-                    }
-                  }
-                ]
-              }
-            ]
+          "detail": {
+            "type": "string",
+            "description": "Small grey line, exactly '<Stage> · <reason for prioritization>': the stage, then the one reason this deal is on the list in a few words (e.g. 'Negotiation / Review · DocuSign not sent before 9:00 AM call'). No third part, no full sentences."
           },
-          {
-            "definition": "tile/separator"
-          },
-          {
-            "definition": "tile/text",
-            "attributes": {
-              "text": "Needs your attention",
-              "variant": "section-title"
-            }
-          },
-          {
-            "definition": "tile/column",
-            "attributes": {
-              "gap": "sm"
-            },
-            "children": [
-              {
-                "definition": "tile/callout",
-                "attributes": {
-                  "variant": "error",
-                  "title": "{{flag1Title}}",
-                  "description": "{{flag1Sub}}"
-                },
-                "children": [
-                  {
-                    "definition": "tile/button",
-                    "attributes": {
-                      "label": "Draft next step",
-                      "variant": "secondary",
-                      "actions": {
-                        "click": [
-                          {
-                            "definition": "action/sendMessage",
-                            "attributes": {
-                              "content": "{{flag1Msg}}"
-                            }
-                          }
-                        ]
-                      }
-                    }
-                  }
-                ]
-              },
-              {
-                "definition": "tile/callout",
-                "attributes": {
-                  "variant": "error",
-                  "title": "{{flag2Title}}",
-                  "description": "{{flag2Sub}}"
-                },
-                "children": [
-                  {
-                    "definition": "tile/button",
-                    "attributes": {
-                      "label": "Draft CFO ask",
-                      "variant": "secondary",
-                      "actions": {
-                        "click": [
-                          {
-                            "definition": "action/sendMessage",
-                            "attributes": {
-                              "content": "{{flag2Msg}}"
-                            }
-                          }
-                        ]
-                      }
-                    }
-                  }
-                ]
-              },
-              {
-                "definition": "tile/callout",
-                "attributes": {
-                  "variant": "warning",
-                  "title": "{{flag3Title}}",
-                  "description": "{{flag3Sub}}"
-                },
-                "children": [
-                  {
-                    "definition": "tile/button",
-                    "attributes": {
-                      "label": "Nudge signer",
-                      "variant": "secondary",
-                      "actions": {
-                        "click": [
-                          {
-                            "definition": "action/sendMessage",
-                            "attributes": {
-                              "content": "{{flag3Msg}}"
-                            }
-                          }
-                        ]
-                      }
-                    }
-                  }
-                ]
-              },
-              {
-                "definition": "tile/callout",
-                "attributes": {
-                  "variant": "warning",
-                  "title": "{{flag4Title}}",
-                  "description": "{{flag4Sub}}"
-                }
-              }
-            ]
-          },
-          {
-            "definition": "tile/separator"
-          },
-          {
-            "definition": "tile/text",
-            "attributes": {
-              "text": "{{meetingsHeading}}",
-              "variant": "section-title"
-            }
-          },
-          {
-            "definition": "tile/column",
-            "attributes": {
-              "gap": "sm"
-            },
-            "children": [
-              {
-                "definition": "tile/callout",
-                "attributes": {
-                  "variant": "recommended",
-                  "eyebrow": "{{meeting1Time}} · WALK IN ASKING",
-                  "title": "{{meeting1Title}}",
-                  "description": "{{meeting1Ask}}"
-                }
-              },
-              {
-                "definition": "tile/callout",
-                "attributes": {
-                  "variant": "recommended",
-                  "eyebrow": "{{meeting2Time}} · WALK IN ASKING",
-                  "title": "{{meeting2Title}}",
-                  "description": "{{meeting2Ask}}"
-                }
-              },
-              {
-                "definition": "tile/text",
-                "attributes": {
-                  "text": "{{meeting3Line}}",
-                  "variant": "body"
-                }
-              },
-              {
-                "definition": "tile/text",
-                "attributes": {
-                  "text": "{{meeting4Line}}",
-                  "variant": "body"
-                }
-              }
-            ]
-          },
-          {
-            "definition": "tile/separator"
-          },
-          {
-            "definition": "tile/text",
-            "attributes": {
-              "text": "{{oweHeading}}",
-              "variant": "section-title"
-            }
-          },
-          {
-            "definition": "tile/column",
-            "attributes": {
-              "gap": "sm"
-            },
-            "children": [
-              {
-                "definition": "tile/callout",
-                "attributes": {
-                  "title": "{{owe1Title}}",
-                  "description": "{{owe1Meta}}"
-                },
-                "children": [
-                  {
-                    "definition": "tile/button",
-                    "attributes": {
-                      "label": "Draft email",
-                      "variant": "secondary",
-                      "actions": {
-                        "click": [
-                          {
-                            "definition": "action/sendMessage",
-                            "attributes": {
-                              "content": "{{owe1Msg}}"
-                            }
-                          }
-                        ]
-                      }
-                    }
-                  }
-                ]
-              },
-              {
-                "definition": "tile/callout",
-                "attributes": {
-                  "title": "{{owe2Title}}",
-                  "description": "{{owe2Meta}}"
-                },
-                "children": [
-                  {
-                    "definition": "tile/button",
-                    "attributes": {
-                      "label": "Draft CFO ask",
-                      "variant": "secondary",
-                      "actions": {
-                        "click": [
-                          {
-                            "definition": "action/sendMessage",
-                            "attributes": {
-                              "content": "{{owe2Msg}}"
-                            }
-                          }
-                        ]
-                      }
-                    }
-                  }
-                ]
-              },
-              {
-                "definition": "tile/text",
-                "attributes": {
-                  "text": "{{inboxClear}}",
-                  "variant": "caption",
-                  "color": "muted"
-                }
-              }
-            ]
-          },
-          {
-            "definition": "tile/separator"
-          },
-          {
-            "definition": "tile/accordion",
-            "children": [
-              {
-                "definition": "tile/accordionItem",
-                "attributes": {
-                  "title": "Opportunities",
-                  "subtitle": "{{oppsSummary}}",
-                  "iconName": "briefcase",
-                  "isExpanded": true
-                },
-                "children": [
-                  {
-                    "definition": "tile/text",
-                    "attributes": {
-                      "text": "{{closingLabel}}",
-                      "variant": "body",
-                      "weight": "semibold"
-                    }
-                  },
-                  {
-                    "definition": "tile/datagrid",
-                    "attributes": {
-                      "appearance": "striped",
-                      "size": "sm",
-                      "columns": "{{gridColumns}}",
-                      "rows": "{{closingRows}}"
-                    }
-                  },
-                  {
-                    "definition": "tile/text",
-                    "attributes": {
-                      "text": "{{pastDueLabel}}",
-                      "variant": "body",
-                      "weight": "semibold"
-                    }
-                  },
-                  {
-                    "definition": "tile/datagrid",
-                    "attributes": {
-                      "appearance": "striped",
-                      "size": "sm",
-                      "columns": "{{gridColumns}}",
-                      "rows": "{{pastDueRows}}"
-                    }
-                  }
-                ]
-              }
-            ]
+          "tone": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning",
+              "success",
+              "neutral"
+            ],
+            "description": "Colour of the row's left rule, from the opportunity fields, first match wins: error (red) = slipping: past its CloseDate, LastActivityDate 7d+ ago, or NextStep blank; warning (orange) = closes within 3 days with an action still open today; success (green) = on track (activity in the last 3 days and a NextStep set); neutral (grey, the default) = anything else."
           }
-        ]
+        }
+      }
+    },
+    "closingSoon": {
+      "type": "object",
+      "description": "OPTIONAL card 'OPPORTUNITIES CLOSING SOON'. Include ONLY if the prompt asks what is closing/this week's or this month's pipeline/closing soon, or for a broad rundown when deals close in the next 14 days. Omit the key otherwise.",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "description": "One table row per open opportunity closing in the next 14 days, soonest first (never an empty array - omit closingSoon instead).",
+          "items": {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Account name (e.g. 'Summit Health Partners')."
+              },
+              "stage": {
+                "type": "string",
+                "description": "Stage display value (e.g. 'Negotiation / Review')."
+              },
+              "close": {
+                "type": "string",
+                "description": "Pre-formatted close date plus days left (e.g. 'Aug 24 · today', 'Aug 30 · 6d'). Never ISO YYYY-MM-DD."
+              },
+              "amount": {
+                "type": "string",
+                "description": "Pre-formatted amount (e.g. '$360K')."
+              },
+              "next": {
+                "type": "string",
+                "description": "The next step to take (e.g. 'Book exec readout with Dr. Whitmore'). Use 'None set' when NextStep is blank."
+              }
+            }
+          }
+        }
+      }
+    },
+    "callout": {
+      "type": "object",
+      "description": "OPTIONAL tail, time-sensitive. Warning icon, a bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if something is time-sensitive today AND the user can act on it.",
+      "required": [
+        "lead",
+        "text",
+        "buttonLabel",
+        "actionMsg"
+      ],
+      "properties": {
+        "lead": {
+          "type": "string",
+          "description": "The bold first sentence of the callout (the caution in one sentence, ending with a period, e.g. 'Lumina closes today – DocuSign not sent.')."
+        },
+        "text": {
+          "type": "string",
+          "description": "One to three sentences: what, why now, and the move."
+        },
+        "buttonLabel": {
+          "type": "string",
+          "description": "Label of the single primary button (e.g. 'Send the Lumina DocuSign')."
+        },
+        "actionMsg": {
+          "type": "string",
+          "description": "First-person request sent to chat when the button is clicked."
+        }
+      }
+    },
+    "nextStep": {
+      "type": "object",
+      "description": "OPTIONAL tail, not time-sensitive: a plain suggestion line with NO button. Use INSTEAD of callout, never both.",
+      "required": [
+        "lead",
+        "text"
+      ],
+      "properties": {
+        "lead": {
+          "type": "string",
+          "description": "Bold lead (the suggested move)."
+        },
+        "text": {
+          "type": "string",
+          "description": "One or two sentences of reasoning, ending with an offer to help if natural."
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "description": "REQUIRED. Where the answer came from: the Salesforce records/lists you actually read, linked (this is where Opportunity/Account record links go). Shown as a compact 'Salesforce · Sources (N)' toggle (the word comes from labels.sources). When email/Slack connectors were unavailable, add one source with no url saying so (e.g. 'Email & Slack not connected – Salesforce only').",
+      "items": {
+        "type": "object",
+        "required": [
+          "label"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "Source name: object · record (e.g. 'Opportunity · Lumina Software', 'Event · 9:00 AM · Contact: Jessica Tam', 'Opportunities · Closing in 14 days')."
+          },
+          "url": {
+            "type": "string",
+            "description": "Record URL https://<myDomain>/lightning/r/<SObjectType>/<Id>/view, or for a list https://<myDomain>/lightning/o/Opportunity/list. Omit if none."
+          }
+        }
       }
     }
   }
@@ -577,6 +432,8 @@ Tokens: `dateEyebrow briefingTitle` (header) · `topMove topMoveDetail topMoveDr
 
 
 ## 6. Text — FALLBACK ONLY — DO NOT USE IF `display_widget` SUCCEEDED
+
+Scope this to the prompt too: lead with the one-line answer, then only the sections the question covers (e.g. "who's on my next call?" gets that one meeting; "which deals are slipping?" gets only the at-risk closing-soon rows). The template below is the broad rundown.
 
 ```
 # Daily Briefing — [Date]
@@ -588,7 +445,7 @@ Tokens: `dateEyebrow briefingTitle` (header) · `topMove topMoveDetail topMoveDr
   → Walk in asking: [the one thing]
 …
 
-## Closing in 14 Days ([N] opps, $[total])
+## Opportunities Closing Soon
 - **[Account]** — [Stage] $[Amount] closes [Date] · Next: [NextStep or "⚠ BLANK"] · Last activity: [N]d[ "⚠ 7+d stale"]
 …
 

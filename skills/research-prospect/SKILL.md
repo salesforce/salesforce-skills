@@ -17,7 +17,7 @@ description: "Build a prospect brief from web research and Salesforce, covering 
 - **Use plain language.** Choose terms any reader understands on first read, with no domain knowledge or cultural context required. Avoid jargon and colloquialisms, and make labels signal what follows. Test: would a reader unfamiliar with the idiom understand the term and know what content to expect? Use "No engagement", not "went dark" or "ghosted".
 - **Reproduce Salesforce terminology exactly.** Use the field labels, object names, and stage values the data returns; do not paraphrase them. Spell out acronyms on first use unless the term is an industry framework (for example, MEDDIC).
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
-- **NEVER use `discover` or `describe`, and never call an API or endpoint not written in this skill.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
+- **ONLY use the local instructions in this skill file, ONLY call MCP tools mentioned in the skill file and NEVER call an API or endpoint not written in this skill file.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
 <!-- /global-rules-bootstrap -->
 # Rules:
 
@@ -103,407 +103,457 @@ When the data is assembled, call `display_widget`; a single one-line "Displaying
 - [ ] Omitted keys have no data or weren't asked for — never send empty placeholders.
 - [ ] The section 6 markdown is produced only when `display_widget` is unavailable (the terminal fallback) — not alongside a rendered widget.
 
+Send only the widget name and its data — no layout, no `{!…}`:
 
-Send everything you have (the model computes visibility):
 ```
-display_widget({ resourceType: "dynamic", widgetDefinition: <hydrated template below> })
+display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "research-prospect", data: <object matching the schema below>, renderer: { body: [] } } })
 ```
 
-Template:
+- `renderer: { body: [] }` is a required placeholder.
+- Send data only; no layout and no `{!…}`.
+- **`widgetDefinition` and `data` are nested JSON objects, NOT strings.**
+- The widget is the output. §6 is the fallback only.
+
+### What to send
+
+Follow the block order and the per-block inclusion rules in the `data` schema below (the root description and each property's `description`).
+
+Rules:
+- **Scope reading and output to the prompt.** Broad asks ("Research [Company]", "Brief me on [Company]") get the full card set (ICP score, signals, contacts); specific asks ("Is [Company] a good fit?", "Who should I reach out to?") get only the matching card. Don't show something just because you fetched it.
+- **Language:** when the user writes in English, omit `labels`. When they write in another language, send `labels` with EVERY key translated and write every free-text field in that language.
+- **Send data only; never author presentation** (colors, layout, template expressions): the renderer owns the look and shows or hides each block from the keys you send.
+
+### The response is lego blocks, in this fixed order
+
+1. **`title`** (required): The takeaway sentence in the user's context — ICP fit read + hook + ownership status. Never the skill name.
+2. **`answer`** (required): 2–4 markdown bullets with **bold** facts. Scope to the prompt: broad → firmographics + CRM status + whitespace + timing; specific → only what was asked.
+3. **`icpScore`**: ICP fit score card with numeric score + rating + threshold + flag rows. **ALWAYS include for broad prompts** ("Research [Company]", "Brief me on [Company]"). Also include when specifically asked about ICP fit.
+   - `score` (number, required): Numeric ICP fit score out of 100. Example: 72
+   - `rating` (string, required): Qualitative rating based on score. Example: "moderate", "strong", "weak"
+   - `threshold` (number, required): Threshold score for "strong" rating. Example: 80
+   - `flags` (array, required): Fit dimension rows, ranked by impact (blockers first)
+4. **`signals`** (optional): External signals table (M&A, funding, earnings). Include ONLY when the prompt is broad or asks about signals/timing.
+5. **`contacts`** (optional): Stakeholder rows ranked by fit, with draft-outreach hooks and buttons. Include ONLY when the prompt is broad or asks about who to contact.
+6. **Tail (XOR)**: Either `callout` (time-sensitive/blocked) OR `nextStep` (non-urgent), never both.
+7. **`sources`** (required): Provenance footer: CRM records and web sources.
+
+### Scope the blocks to the prompt
+
+| The prompt is… | Send |
+|---|---|
+| Broad ("Research [Company]", "Brief me on [Company]") | `title` + `answer` + `icpScore` + `signals` + `contacts` + tail + `sources` |
+| Specific about ICP ("Is [Company] a good fit?") | `title` + `answer` + `icpScore` + tail + `sources` |
+| Specific about contacts ("Who should I reach out to at [Company]?") | `title` + `answer` + `contacts` + tail + `sources` |
+| Specific about signals ("What recent events matter at [Company]?") | `title` + `answer` + `signals` + tail + `sources` |
+| Direct question ("What's [Company]'s industry?") | `title` + `answer` + `sources`; a card only if it speeds up the answer |
+
+### Rules
+
+- Omit a key and its block is not shown; never send empty or placeholder values.
+- Scope the `answer` too: if the user asked only about ICP fit, give only the fit facts in `answer`.
+- The tail is XOR in the data: send `callout` when time-sensitive or blocked, `nextStep` otherwise, never both.
+- Currency, dates, and counts are display-ready strings (e.g., "$230K", "Jan 2026", "3 open opportunities").
+- Names are plain strings, URLs follow Lightning format (`https://<myDomain>/lightning/r/<Type>/<Id>/view`).
+- Rank `icpScore.flags` most-severe first (blockers → cautions → context).
+- Rank `signals.rows` by relevance to the value prop.
+- Rank `contacts` by fit (best entry point first).
+- Optionally include `queriedAt` timestamp for when the data was retrieved (e.g., "Sep 24, 2026 · scope: sample").
+- Before calling: no template expressions, no keys outside the schema.
+
+#### Worked examples (the data object only)
+
+**Broad — "Research Acme United Corp before I reach out."** (all blocks — ICP fit, signals, contacts, next step):
+
 ```json
 {
-  "renderer": {
-    "componentOverrides": {
-      "$": {
-        "type": "mosaic",
-        "definition": "tile/widget",
-        "children": [
-          {
-            "definition": "tile/row",
-            "attributes": {
-              "gap": "sm",
-              "align": "center",
-              "justify": "between",
-              "isWrapped": true
-            },
-            "children": [
-              {
-                "definition": "tile/row",
-                "attributes": {
-                  "gap": "sm",
-                  "align": "center",
-                  "isWrapped": false
-                },
-                "children": [
-                  {
-                    "definition": "tile/icon",
-                    "attributes": {
-                      "name": "search",
-                      "size": "xl",
-                      "alt": ""
-                    }
-                  },
-                  {
-                    "definition": "tile/text",
-                    "attributes": {
-                      "text": "{{prospectTitle}}",
-                      "variant": "h1"
-                    }
-                  }
-                ]
-              },
-              {
-                "definition": "tile/badge",
-                "attributes": {
-                  "label": "{{fitStatus}}",
-                  "variant": "success"
-                }
-              }
-            ]
-          },
-          {
-            "definition": "tile/text",
-            "attributes": {
-              "text": "{{prospectSubtitle}}",
-              "variant": "caption",
-              "color": "muted"
-            }
-          },
-          {
-            "definition": "tile/separator"
-          },
-          {
-            "definition": "tile/meter",
-            "attributes": {
-              "label": "ICP fit",
-              "value": "{{icpValue}}",
-              "min": 0,
-              "max": 100,
-              "target": "{{icpTarget}}",
-              "valueFormat": "number",
-              "valueLabel": "{{icpValueLabel}}",
-              "targetLabel": "{{icpTargetLabel}}",
-              "status": "{{icpStatus}}",
-              "bands": "{{icpBands}}"
-            }
-          },
-          {
-            "definition": "tile/datagrid",
-            "attributes": {
-              "caption": "External Signals",
-              "appearance": "striped",
-              "size": "sm",
-              "columns": [
-                {
-                  "key": "topic",
-                  "header": "SIGNAL",
-                  "type": "text"
-                },
-                {
-                  "key": "note",
-                  "header": "DETAIL",
-                  "type": "text"
-                }
-              ],
-              "rows": "{{signalRows}}"
-            }
-          },
-          {
-            "definition": "tile/callout",
-            "attributes": {
-              "variant": "recommended",
-              "title": "{{synthTitle}}",
-              "description": "{{synthDetail}}"
-            },
-            "children": [
-              {
-                "definition": "tile/row",
-                "attributes": {
-                  "gap": "sm",
-                  "align": "center",
-                  "isWrapped": true
-                },
-                "children": [
-                  {
-                    "definition": "tile/button",
-                    "attributes": {
-                      "label": "{{ctaLabel}}",
-                      "variant": "primary",
-                      "actions": {
-                        "click": [
-                          {
-                            "definition": "action/sendMessage",
-                            "attributes": {
-                              "content": "{{ctaMsg}}"
-                            }
-                          }
-                        ]
-                      }
-                    }
-                  },
-                  {
-                    "definition": "tile/button",
-                    "attributes": {
-                      "label": "View in Salesforce",
-                      "iconName": "open-in-new",
-                      "variant": "secondary",
-                      "actions": {
-                        "click": [
-                          {
-                            "definition": "action/openLink",
-                            "attributes": {
-                              "url": "{{prospectUrl}}"
-                            }
-                          }
-                        ]
-                      }
-                    }
-                  }
-                ]
-              }
-            ]
-          }
-        ]
+  "title": "Acme United is a moderate fit (72/100) — the hook is efficiency, and this account is already owned.",
+  "answer": "- **Manufacturing, 680 employees, mid-market, public on NYSE as ACU** — a reasonable Ideal Customer Profile match, but not a clean one.\n- **Already in Salesforce, owned by OrgFarm EPIC with 3 open opportunities ($230K)** on a stale 2024 close date — so this is a coordinate-first motion, not a cold reach.\n- **Whitespace is Sales Cloud and Service Cloud**; the strongest angle is efficiency and cost reduction, not growth.",
+  "icpScore": {
+    "score": 72,
+    "rating": "moderate",
+    "threshold": 80,
+    "flags": [
+      {
+        "title": "Fits the profile — Manufacturing, 680 employees, public on NYSE as ACU.",
+        "detail": "Industry, size, and public-company profile match the ideal profile.",
+        "tone": "success"
+      },
+      {
+        "title": "Ownership conflict — already in Salesforce under a different representative.",
+        "detail": "Owned by OrgFarm EPIC with $230K of open pipeline on a stale 2024 close date. Coordinate before any outreach.",
+        "tone": "warning"
       }
+    ]
+  },
+  "signals": {
+    "rows": [
+      {
+        "signal": "M&A",
+        "headline": "SLED Distribution acquisition · Jan 2026.",
+        "context": "Asset acquisition adds integration and scaling needs — a natural expansion conversation once ownership is coordinated. Best entry point."
+      }
+    ]
+  },
+  "contacts": [
+    {
+      "name": "Edward Stamos",
+      "title": "President & CEO",
+      "email": "estamos@acmeunited.com",
+      "phone": "+1 (203) 555-0142",
+      "hook": "Why reach out: lead with the efficiency and cost-reduction story.",
+      "draftLabel": "DRAFT",
+      "draftText": "Edward — congratulations on the SLED Distribution close...",
+      "draftMsg": "Draft an intro email to Edward Stamos at Acme United, leading with the efficiency angle and the SLED acquisition."
     }
-  }
+  ],
+  "nextStep": {
+    "text": "This is a coordinate-first account — align with OrgFarm EPIC on the efficiency angle before any outreach.",
+    "buttonLabel": "Save to Salesforce",
+    "actionMsg": "Save this research to the Acme United account record in Salesforce."
+  },
+  "sources": [
+    {
+      "label": "Account: Acme United Corp",
+      "url": "https://orgfarm.lightning.force.com/lightning/r/Account/001AX000005mNq8YAE/view"
+    }
+  ],
+  "queriedAt": "Sep 24, 2026 · scope: sample"
 }
 ```
 
-`{{token}}` contract (each key's type and a worked example). Resolve every `{{token}}` in the template to a literal before calling — numbers stay numbers, arrays stay arrays. See `sample-data.json` in this dir for a fully-worked example of every token:
+**Specific — "Is Acme United a good fit for our ICP?"** (ICP score only, answer scoped to fit):
+
 ```json
 {
-  "$comment": "Variable contract for the native-mosaic dynamic-mode template (renderer.json, sibling). This is NOT a separate display_widget call — it names every {{token}} in the template with its type and a worked example so you compute the right value for each. Workflow: build a props object with these keys, substitute each into the matching {{token}} in renderer.json (a slot that is only a {{token}} becomes the typed value — arrays stay arrays, numbers stay numbers; a {{token}} inside a larger string interpolates as text; a key you have no data for is omitted so that leaf drops), then call display_widget({ resourceType: 'dynamic', widgetDefinition: <the hydrated template> }) once with no {{…}}/{!…} left. Realistic values: sample-data.json (sibling). Authoring guidance (from the skill): - [ ] Every `{{token}}` placeholder replaced with a resolved literal — no `{{…}}` left, no `{!…}` expressions in the widget definition.\nThe widget template is embedded below. Call `display_widget` in **dynamic** mode with it. It is a skeleton: replace every `{{token}}` with a fully-resolved literal computed from the data you researched and scored — this echo path does no expression compilation, so no `{!…}` bindings. See `sample-data.json` in this dir for a fully-worked example of every token.\n- **Header** — an icon (search) + page-title text (`{{prospectTitle}}`, the prospect brief title) + a status badge (`{{fitStatus}}`, e.g. \"STRONG FIT\", variant by ICP verdict), with a one-line caption subhead (`{{prospectSubtitle}}`) summarizing firmographics (industry/employees/revenue/fit), and a separator.\n- **One meter** — \"ICP fit\": `{{icpValue}}` against `{{icpTarget}}` (max 100), `valueFormat:\"number\"`, with `{{icpValueLabel}}`, `{{icpTargetLabel}}`, `{{icpStatus}}`, and `{{icpBands}}` (Weak/Fair/Strong). This is the single chart.\n- **Signals and openings datagrid** (`{{signalRows}}`) — one row per signal. Columns: Signal (text), Read (badge), Detail (text). Every row carries a leading `status` object (`{value,badgeVariant}` — value Buy/Fit/Watch, badgeVariant success/info/warning); the leading Status column reads each row's `status`.\n- **One synthesis callout** (`variant:\"recommended\"`) — `{{synthTitle}}` (the prospect's single most important read) and `{{synthDetail}}`. It carries two real buttons: a primary prompt button (`{{ctaLabel}}` / `{{ctaMsg}}`, `action/sendMessage`) and a secondary \"View in Salesforce\" (`{{prospectUrl}}`, `action/openLink`).\n1. Start from the embedded template above — a valid-JSON widget-definition envelope whose leaf values carry `{{token}}` placeholders.\n2. Resolve every `{{token}}`. A value that is **only** a `{{token}}` (meter `value`/`bands`, datagrid `rows`) becomes the resolved **typed** literal — numbers stay numbers, arrays stay arrays. A `{{token}}` **inside** a larger string is interpolated as text.\n3. `{{signalRows}}` is an array of signal objects — each with `topic` (signal name), `tag` (`{ value, badgeVariant }`), `note` (detail text), and `status` (`{value,badgeVariant}` — value Buy/Fit/Watch, badgeVariant success/info/warning).\n4. The result is hydrated widget definition (no `{{…}}` placeholders remain). Then call:\n- Resolve every `{{token}}` to a literal before calling — numbers stay numbers (`{{icpValue}}`, `{{icpTarget}}`), arrays stay arrays (`{{icpBands}}`, `{{signalRows}}`), strings stay strings.\n- `{{icpBands}}` is an array of `{ from, to, variant, label }` (variants error/warning/success) covering the meter's full 0→100 range in order.\n- Callout buttons: the primary is `action/sendMessage` with a first-person `content` prompt (`{{ctaMsg}}`, e.g. \"Draft a warm intro request…\"); the secondary is `action/openLink` with `{{prospectUrl}}` — the account's Lightning URL (`https://<myDomain>/lightning/r/Account/<Id>/view`), opening a new tab. Omit the openLink button if you lack the Id.",
-  "props": {
-    "prospectTitle": {
-      "description": "Header page title — the prospect brief title.",
+  "title": "Acme United is a moderate fit (72/100) — Manufacturing profile matches, but ownership conflict requires coordination.",
+  "answer": "- **Fits on industry, size, and public-company profile** — Manufacturing, 680 employees, NYSE-listed.\n- **Ownership conflict blocks direct outreach** — already owned by OrgFarm EPIC with $230K stale pipeline.\n- **Mixed financials** — tariff pressure makes efficiency story stronger than growth.",
+  "icpScore": {
+    "score": 72,
+    "rating": "moderate",
+    "threshold": 80,
+    "flags": [
+      {
+        "title": "Fits the profile — Manufacturing, 680 employees, public on NYSE as ACU.",
+        "detail": "Industry, size, and public-company profile match the ideal profile.",
+        "tone": "success"
+      },
+      {
+        "title": "Ownership conflict — already in Salesforce under a different representative.",
+        "detail": "Owned by OrgFarm EPIC with $230K of open pipeline on a stale 2024 close date. Coordinate before any outreach.",
+        "tone": "warning"
+      }
+    ]
+  },
+  "sources": [
+    {
+      "label": "Account: Acme United Corp",
+      "url": "https://orgfarm.lightning.force.com/lightning/r/Account/001AX000005mNq8YAE/view"
+    }
+  ],
+  "queriedAt": "Sep 24, 2026 · scope: sample"
+}
+```
+
+
+`data` schema (JSON Schema). Only `title`, `answer` and `sources` are required; include any other key only when the prompt asks for it or it clearly speeds up the answer (see "Scope the blocks to the prompt").
+
+The optional `labels` object lets you override fixed eyebrow text for non-English prompts. For English prompts, omit `labels` entirely — the renderer uses defaults. Only include it when the user's prompt is clearly non-English.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "title",
+    "answer",
+    "sources"
+  ],
+  "description": "Data contract for research-prospect lego widget. The model sends {widget: 'research-prospect', data: <this shape>, renderer: {body: []}}. Only title/answer/sources are required; include any other key only when the prompt asks for it or when it speeds understanding.",
+  "properties": {
+    "title": {
       "type": "string",
-      "example": "Prospect brief — Beacon Health"
+      "description": "The takeaway sentence in the user's context \u2014 ICP fit read + hook + ownership status. Never the skill name."
     },
-    "fitStatus": {
-      "description": "Header status badge — ICP verdict (e.g. \"STRONG FIT\").",
+    "answer": {
       "type": "string",
-      "example": "STRONG FIT"
+      "description": "2\u20134 markdown bullets with **bold** facts. Scope to the prompt: broad \u2192 firmographics + CRM status + whitespace + timing; specific \u2192 only what was asked."
     },
-    "prospectSubtitle": {
-      "description": "Caption subhead: firmographics (industry / employees / revenue / fit).",
-      "type": "string",
-      "example": "Healthcare · 4,200 employees · $890M revenue · strong ICP fit"
+    "icpScore": {
+      "type": "object",
+      "description": "Include ONLY when the prompt is broad or asks about ICP fit. ICP fit score card with flag rows explaining the score dimensions.",
+      "additionalProperties": false,
+      "required": [
+        "flags"
+      ],
+      "properties": {
+        "score": {
+          "type": "number",
+          "description": "Numeric ICP fit score out of 100. Example: 72"
+        },
+        "rating": {
+          "type": "string",
+          "description": "Qualitative rating based on score. Example: 'moderate', 'strong', 'weak'"
+        },
+        "threshold": {
+          "type": "number",
+          "description": "Threshold score for 'strong' rating. Example: 80"
+        },
+        "flags": {
+          "type": "array",
+          "description": "Fit dimension rows, ranked by impact (blockers first). Each row: title (the dimension + verdict), detail (evidence), tone (error/warning/success).",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "title",
+              "tone"
+            ],
+            "properties": {
+              "title": {
+                "type": "string",
+                "description": "Bold dimension line with verdict. Example: 'Fits the profile \u2014 Manufacturing, 680 employees, public on NYSE as ACU.'"
+              },
+              "detail": {
+                "type": "string",
+                "description": "Muted evidence line beneath. Example: 'Industry, size, and public-company profile match the ideal profile; the Jan 2026 SLED Distribution acquisition signals integration and scaling needs.'"
+              },
+              "tone": {
+                "type": "string",
+                "enum": [
+                  "error",
+                  "warning",
+                  "success",
+                  "muted"
+                ],
+                "description": "Severity: error (blocker), warning (caution), success (strong fit), muted (context)."
+              }
+            }
+          }
+        }
+      }
     },
-    "icpValue": {
-      "description": "ICP fit score — the meter's current value (0–100).",
-      "type": "number",
-      "example": 88
+    "signals": {
+      "type": "object",
+      "description": "Include ONLY when the prompt is broad or asks about signals/timing. External signals (M&A, funding, earnings, etc.).",
+      "additionalProperties": false,
+      "required": [
+        "rows"
+      ],
+      "properties": {
+        "rows": {
+          "type": "array",
+          "description": "Signal rows, ranked by relevance to the value prop.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "signal",
+              "headline",
+              "context"
+            ],
+            "properties": {
+              "signal": {
+                "type": "string",
+                "description": "Signal category (bold, short). Example: 'M&A', 'Financing', 'Earnings'"
+              },
+              "headline": {
+                "type": "string",
+                "description": "Bold lead for the detail. Example: 'SLED Distribution acquisition \u00b7 Jan 2026.' or 'Q1 2026 results:'"
+              },
+              "context": {
+                "type": "string",
+                "description": "Plain text context following the headline. Example: 'Asset acquisition adds integration and scaling needs \u2014 a natural expansion conversation once ownership is coordinated. Best entry point.'"
+              }
+            }
+          }
+        }
+      }
     },
-    "icpTarget": {
-      "description": "Target marker on the ICP meter.",
-      "type": "number",
-      "example": 70
-    },
-    "icpValueLabel": {
-      "description": "Display string for the ICP score.",
-      "type": "string",
-      "example": "88 / 100"
-    },
-    "icpTargetLabel": {
-      "description": "Display string for the target.",
-      "type": "string",
-      "example": "70 = qualified"
-    },
-    "icpStatus": {
-      "description": "Short read shown on the meter (Weak / Fair / Strong).",
-      "type": "string",
-      "example": "strong fit"
-    },
-    "icpBands": {
-      "description": "Color bands for the ICP meter, in order covering 0→100 (Weak / Fair / Strong).",
+    "contacts": {
       "type": "array",
+      "description": "Include ONLY when the prompt is broad or asks about who to contact. Stakeholder rows ranked by fit, with draft-outreach hooks and buttons.",
       "items": {
         "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "title",
+          "hook"
+        ],
         "properties": {
-          "from": {
-            "description": "Band start value.",
-            "type": "number"
-          },
-          "to": {
-            "description": "Band end value.",
-            "type": "number"
-          },
-          "variant": {
-            "description": "Band color.",
+          "name": {
             "type": "string",
-            "enum": [
-              "error",
-              "warning",
-              "success"
-            ]
+            "description": "Full name. Example: 'Edward Stamos'"
           },
-          "label": {
-            "description": "Short band label.",
-            "type": "string"
+          "title": {
+            "type": "string",
+            "description": "Role and any context. Example: 'President & CEO' or 'VP Customer Support \u00b7 potential champion'"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email address if known."
+          },
+          "phone": {
+            "type": "string",
+            "description": "Formatted phone if known. Example: '+1 (203) 555-0142'"
+          },
+          "hook": {
+            "type": "string",
+            "description": "Why reach out statement. Example: 'Why reach out: lead with the efficiency and cost-reduction story.'"
+          },
+          "draftLabel": {
+            "type": "string",
+            "description": "Draft button label. Example: 'Draft' or omit if no draft message."
+          },
+          "draftText": {
+            "type": "string",
+            "description": "The actual drafted message body to show in the card. Example: 'Edward \u2013 congratulations on the SLED Distribution close. As you integrate those assets, a few manufacturing peers have used us to consolidate ops and protect margin against tariff pressure. Worth a 20-minute conversation on where the efficiency gains land first?'"
+          },
+          "draftMsg": {
+            "type": "string",
+            "description": "First-person prompt for action/sendMessage. Example: 'Draft an intro email to Edward Stamos at Acme United, leading with the efficiency angle and the SLED acquisition.'"
+          },
+          "source": {
+            "type": "string",
+            "description": "Context badge for non-CRM contacts. Example: 'Not in Salesforce \u00b7 from LinkedIn'"
           }
         }
-      },
-      "example": [
-        {
-          "from": 0,
-          "to": 50,
-          "variant": "error",
-          "label": "Weak"
-        },
-        {
-          "from": 50,
-          "to": 70,
-          "variant": "warning",
-          "label": "Fair"
-        },
-        {
-          "from": 70,
-          "to": 100,
-          "variant": "success",
-          "label": "Strong"
-        }
-      ]
+      }
     },
-    "signalRows": {
-      "description": "Signals and openings — one row per signal. Empty array → the datagrid is omitted.",
+    "callout": {
+      "type": "object",
+      "description": "Include ONLY for time-sensitive or urgent recommendations. Mutually exclusive with nextStep (tail fork).",
+      "additionalProperties": false,
+      "required": [
+        "lead",
+        "text"
+      ],
+      "properties": {
+        "lead": {
+          "type": "string",
+          "description": "Bold callout heading. Example: 'Coordinate with the owner first'"
+        },
+        "text": {
+          "type": "string",
+          "description": "Callout body \u2014 what to do and why."
+        },
+        "level": {
+          "type": "string",
+          "enum": [
+            "tip",
+            "note",
+            "blocker"
+          ],
+          "description": "Emphasis level per design rules: tip (quiet context), note (standard move), blocker (time-sensitive/blocked). Omit to default to 'note'."
+        },
+        "buttonLabel": {
+          "type": "string",
+          "description": "Primary action button label. Omit if no button."
+        },
+        "actionMsg": {
+          "type": "string",
+          "description": "First-person prompt for action/sendMessage when button is clicked."
+        }
+      }
+    },
+    "nextStep": {
+      "type": "object",
+      "description": "Include ONLY when no callout (tail fork). Non-urgent suggested next action.",
+      "additionalProperties": false,
+      "required": [
+        "text"
+      ],
+      "properties": {
+        "lead": {
+          "type": "string",
+          "description": "Optional bold lead-in. Example: 'Save this research to the account record'"
+        },
+        "text": {
+          "type": "string",
+          "description": "Suggested next step. Example: 'This is a coordinate-first account \u2014 align with OrgFarm EPIC on the efficiency angle before any outreach. Save this research to the account record so the owner has the signals and draft messages in context.'"
+        },
+        "buttonLabel": {
+          "type": "string",
+          "description": "Action button label. Example: 'Save to Salesforce'. Omit if no button."
+        },
+        "actionMsg": {
+          "type": "string",
+          "description": "First-person prompt for action/sendMessage when button is clicked."
+        }
+      }
+    },
+    "sources": {
       "type": "array",
+      "description": "Always required. Provenance footer: CRM records and web sources.",
       "items": {
         "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "label"
+        ],
         "properties": {
-          "status": {
-            "description": "Leading Status badge cell; omit on normal rows.",
-            "type": "object",
-            "properties": {
-              "value": {
-                "description": "Status label.",
-                "type": "string"
-              },
-              "badgeVariant": {
-                "description": "Badge color.",
-                "type": "string",
-                "enum": [
-                  "neutral",
-                  "primary",
-                  "secondary",
-                  "outline",
-                  "success",
-                  "info",
-                  "warning",
-                  "error"
-                ]
-              }
-            }
+          "label": {
+            "type": "string",
+            "description": "Source name. Example: 'Account: Acme United Corp' or 'Acme United Q1 2026 Earnings'"
           },
-          "topic": {
-            "description": "Signal name.",
-            "type": "string"
-          },
-          "tag": {
-            "description": "Read badge cell.",
-            "type": "object",
-            "properties": {
-              "value": {
-                "description": "Read label (Buy / Fit / Watch).",
-                "type": "string"
-              },
-              "badgeVariant": {
-                "description": "Badge color.",
-                "type": "string",
-                "enum": [
-                  "neutral",
-                  "primary",
-                  "secondary",
-                  "outline",
-                  "success",
-                  "info",
-                  "warning",
-                  "error"
-                ]
-              }
-            }
-          },
-          "note": {
-            "description": "Detail for the signal.",
-            "type": "string"
+          "url": {
+            "type": "string",
+            "description": "Link if available. CRM records use Lightning URLs; web sources use their public URL."
           }
         }
-      },
-      "example": [
-        {
-          "status": {
-            "value": "Buy",
-            "badgeVariant": "success"
-          },
-          "topic": "Recent funding",
-          "tag": {
-            "value": "Opportunity",
-            "badgeVariant": "success"
-          },
-          "note": "$120M Series D in May — budget available"
+      }
+    },
+    "queriedAt": {
+      "type": "string",
+      "description": "Optional timestamp when the data was queried. Format: readable date/time string like 'Oct 20, 2026 at 10:45 PM'."
+    },
+    "labels": {
+      "type": "object",
+      "description": "Optional fixed label text for non-English prompts. Model omits this for English; host fills missing values from defaults.",
+      "additionalProperties": false,
+      "properties": {
+        "icpScoreCaption": {
+          "type": "string",
+          "default": "ICP Fit Summary",
+          "description": "ICP fit card heading"
         },
-        {
-          "status": {
-            "value": "Buy",
-            "badgeVariant": "success"
-          },
-          "topic": "New CIO hired",
-          "tag": {
-            "value": "Opportunity",
-            "badgeVariant": "success"
-          },
-          "note": "From a customer of ours — warm angle"
+        "icpFlagsCaption": {
+          "type": "string",
+          "default": "Fit Dimensions",
+          "description": "ICP flags table caption"
         },
-        {
-          "status": {
-            "value": "Fit",
-            "badgeVariant": "info"
-          },
-          "topic": "Hiring data engineers",
-          "tag": {
-            "value": "Signal",
-            "badgeVariant": "info"
-          },
-          "note": "12 open reqs — scaling analytics"
+        "signalsCaption": {
+          "type": "string",
+          "default": "Recent Findings",
+          "description": "Signals card heading"
         },
-        {
-          "status": {
-            "value": "Watch",
-            "badgeVariant": "warning"
-          },
-          "topic": "Uses competitor for CRM",
-          "tag": {
-            "value": "Obstacle",
-            "badgeVariant": "warning"
-          },
-          "note": "Contract renews Q1 — time the approach"
+        "signalCategoryHeader": {
+          "type": "string",
+          "default": "Signal Category",
+          "description": "Signals table first column header"
+        },
+        "signalHeader": {
+          "type": "string",
+          "default": "Signal",
+          "description": "Signals table second column header"
+        },
+        "contactsCaption": {
+          "type": "string",
+          "default": "Who to Contact",
+          "description": "Contacts card heading"
+        },
+        "hookPrefix": {
+          "type": "string",
+          "default": "Why Reach Out",
+          "description": "Hook prefix label"
+        },
+        "send": {
+          "type": "string",
+          "default": "Send",
+          "description": "Send button label"
         }
-      ]
-    },
-    "synthTitle": {
-      "description": "Synthesis callout heading — the prospect's single most important read.",
-      "type": "string",
-      "example": "Lead with the new CIO and the funding"
-    },
-    "synthDetail": {
-      "description": "Synthesis callout body.",
-      "type": "string",
-      "example": "Beacon just raised $120M and hired a CIO who knows us from a prior account. Open with a warm intro to the CIO framed around scaling their new data-engineering team — and time it ahead of their Q1 CRM renewal."
-    },
-    "ctaLabel": {
-      "description": "Primary button label (action/sendMessage).",
-      "type": "string",
-      "example": "Draft warm intro"
-    },
-    "ctaMsg": {
-      "description": "First-person prompt the primary button sends (action/sendMessage).",
-      "type": "string",
-      "example": "Draft a warm intro request to connect me to the Beacon Health CIO, mentioning they know our product from a prior account."
-    },
-    "prospectUrl": {
-      "description": "Account Lightning URL for the secondary \"View in Salesforce\" button; omit if no Id.",
-      "type": "string",
-      "example": "https://org.lightning.force.com/lightning/r/Account/001AX000005mNq8YAE/view"
+      }
     }
   }
 }

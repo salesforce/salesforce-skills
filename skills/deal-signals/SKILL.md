@@ -1,6 +1,6 @@
 ---
 name: deal-signals
-description: "Build a deal-risk digest from Salesforce close dates, activity, next steps and forecast fields plus email, documents and Slack. Use to find quiet or overdue deals, close-date danger, renewal windows, competitor mentions or other risks needing attention."
+description: "Answer questions about the signals on a rep's open deals, scoped to what was asked: a weekly sweep of worrying and positive signals with the book health score, the health score alone, what is wrong with one account, or what to do about it, from Salesforce close dates, activity, next steps and forecast fields plus email, documents and Slack."
 ---
 <!-- global-rules-bootstrap -->
 
@@ -17,9 +17,14 @@ description: "Build a deal-risk digest from Salesforce close dates, activity, ne
 - **Use plain language.** Choose terms any reader understands on first read, with no domain knowledge or cultural context required. Avoid jargon and colloquialisms, and make labels signal what follows. Test: would a reader unfamiliar with the idiom understand the term and know what content to expect? Use "No engagement", not "went dark" or "ghosted".
 - **Reproduce Salesforce terminology exactly.** Use the field labels, object names, and stage values the data returns; do not paraphrase them. Spell out acronyms on first use unless the term is an industry framework (for example, MEDDIC).
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
-- **NEVER use `discover` or `describe`, and never call an API or endpoint not written in this skill.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
+- **ONLY use the local instructions in this skill file, ONLY call MCP tools mentioned in the skill file and NEVER call an API or endpoint not written in this skill file.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
 <!-- /global-rules-bootstrap -->
+# Goal:
+Answer what the user asked about their deals' signals (which deals are showing worrying signals this week, the book's health score, what's wrong with one account, or what to do about it) in one pass. **Read only what the question needs** and present only that: a broad sweep ("any deals showing worrying signals this week?") reads and shows the whole book; a specific ask ("what's wrong with Cedarline?", "what's my book health score?") reads and shows only that.
+
 # Rules:
+
+- **Scope reading and output to the prompt, never a default full sweep.** A broad sweep reads and shows the whole book; a specific ask reads and shows only that. Skip reads the question doesn't need (each read step says which), and don't show something just because you fetched it.
 
 # Deal Signals
 
@@ -40,6 +45,8 @@ Record `currentUser.Id` as `<UID>`. Note scalar `__c` fields relevant to signals
 
 `scope: MINE` = the running user's book (no user lookup needed). Add confirmed `__c { value }` fields into `<OPP_CUSTOM>`, and select the resolved next-step field as `<NEXTSTEP> { value }` (default `NextStep { value }`). **Also account-scope the book:** add `Account: { OwnerId: { eq: \"<UID>\" } }` to the `where` so the sweep only covers opps on accounts the rep currently owns. When an account is reassigned, Salesforce moves `Account.OwnerId` but not the open opps' `OwnerId`, so `scope: MINE` alone keeps surfacing stale "zombie" deals on accounts the rep no longer manages. For a tier/team scope (asked for explicitly), drop `scope: MINE` AND this account-owner clause and filter on the requested owner/team instead — a manager reviewing a team wants every deal regardless of account owner.
 
+Every ask sends this one read: the health score and a one-account answer both need the whole book's signals. A one-account ask keeps only that account's opps from the result; a "what should I do about it?" follow-up reuses what was already read in this conversation and sends nothing new.
+
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
   queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Opportunity(scope: MINE, where: { IsClosed: { eq: false }, Account: { OwnerId: { eq: \\\"<UID>\\\" } } }, first: 100) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } <NEXTSTEP> { value } LastActivityDate { value } LastModifiedDate { value } ForecastCategory { value } <OPP_CUSTOM> Account { Name { value } } } } } } } }\"}" })
@@ -48,6 +55,8 @@ dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
 ## 2b. Evidence (same turn, only for CRM-flagged accounts — keeps the sweep fast)
 
 After threshold checks flag accounts, in ONE turn fire (parallel, if tools present): **email** (last reply from us / **inbound from them with no reply from us in 3+ business days** / bounce / OOO / departure), **docs/transcripts** (competitor mention), **slack** (deal-desk/exec concerns). Keyed on the flagged account names. No tools present → skip silently.
+
+A one-account ask fires the evidence for that account only; a "what should I do about it?" follow-up fires none.
 
 **No extra Salesforce reads.** Step 2 already returned every CRM field the thresholds need (LastActivityDate, CloseDate, LastModifiedDate, NextStep, ForecastCategory, `__c` signals). Do NOT dispatch per-opp SF follow-ups (EmailMessage / Task / OpportunityFieldHistory / activity queries) — each is a serial round-trip. Evidence here is ONLY the external email/doc/slack connectors above; if those aren't present, skip.
 
@@ -64,6 +73,16 @@ Per open opp, fire a signal only when the record shows the trigger:
 - **Renewal opening** — renewal entering lead-time window
 - **Competitor mention** — named in recent email/transcript
 
+Positive momentum, from the same fields (no extra read):
+- **Rising** — no negative signal fired AND LastActivityDate within 7d AND `<NEXTSTEP>` names a dated step within the next 14d.
+
+Then, over the whole swept book:
+- **Assessment** — each open deal is **negative** (any negative signal fired), **positive** (Rising) or **neutral** (neither).
+- **Health score** = round(5 + 5 × (positive − negative) ÷ open deals swept), a number 0–10: 5 is a neutral book, 0 all negative, 10 all positive (e.g. 7 negative and 2 positive of 11 → round(5 + 5 × −5 ÷ 11) = 3). With no open deals there is no score: send no `health` card, never a 0 or 5, and say in `answer` that the book has no open deals.
+- **Trend** — call the book "falling" or "trending down" only when negative deals outnumber positive ones (score below 5); otherwise say it is holding.
+
+Assemble only what the prompt needs from this.
+
 ## 4. Widget (default output when `display_widget` is present: Gemini Enterprise)
 
 When the data is assembled, call `display_widget`; a single one-line "Displaying the visualization now (this may take a minute)." notice may precede it.
@@ -72,448 +91,401 @@ When the data is assembled, call `display_widget`; a single one-line "Displaying
 
 - [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 
-The widget template is embedded below — a widget-definition envelope whose leaf values carry `{{token}}` placeholders. Resolve every `{{token}}` to a literal (no `{{…}}`/`{!…}` left), then call `display_widget({ resourceType: "dynamic", widgetDefinition: <hydrated> })` once. A value that is *only* a `{{token}}` (chart/meter/datagrid arrays) becomes the typed literal — arrays stay arrays, numbers stay numbers; a `{{token}}` inside a larger string is interpolated as text. Compute every leaf from data already fetched; no `{!…}` bindings, no fabrication (blank fields stay blank; drop signals with no data).
+The layout is built into the renderer and registered by name — you send **only the widget name and its data**. Call `display_widget` once:
 
-Synthesis-forward layout — header, two graphs, one datagrid, one callout:
-- **Header** — activity icon, title (`{{title}}`), status badge (`{{headerStatus}}`), one-line caption (`{{subtitle}}`) summarizing score/trend/signal counts, and a second muted caption (`{{dealContext}}`) carrying this opp's shared deal facts — StageName label · Amount · CloseDate · next step · last activity — joined by ` · ` (constant across the signals below, so it sits once in the header, not per row).
-- **Two graphs** — line chart of the 6-week signal-score trend (`{{chartCaption}}`, `{{chartCategories}}` = week labels, `{{chartSeries}}` = one `[{ name, data: [numbers] }]`); and a meter for the composite score (`{{meterLabel}}`, `{{meterValue}}` vs target `{{meterTarget}}` max `{{meterMax}}`, `valueFormat:"number"`, `{{meterValueLabel}}`, `{{meterTargetLabel}}`, `{{meterStatus}}`, and `{{meterBands}}` = ordered `[{ from, to, variant, label }]` covering 0→max for Cold/Warm/Hot, variants error/warning/success).
-- **Signals datagrid** (`{{datagridCaption}}`, `{{datagridRows}}`) — one row per signal, strongest first: `signal` (name), `dir` (badge `{ value, badgeVariant }` — success Positive / warning Watch), `when` (ISO `YYYY-MM-DD`), `note` (detail), plus a leading `status` object (`{value,badgeVariant}` — value Buy/Watch, badgeVariant success/warning); the leading Status column reads each row's `status`.
-- **One synthesis callout** (`variant:"success"`) closes the widget — `{{calloutTitle}}` (the single most important read) and `{{calloutDescription}}`, with two real buttons: primary `action/sendMessage` (`{{primaryButtonLabel}}` / first-person `{{primaryButtonContent}}`) and secondary "View in Salesforce" `action/openLink` to `{{oppUrl}}` (`https://<myDomain>/lightning/r/Opportunity/<Id>/view`; omit if you lack the Id). No decorative buttons.
+```
+display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "deal-signals", data: <object matching the schema below>, renderer: { body: [] } } })
+```
 
-Before calling, verify: no `{{…}}`/`{!…}` remain; `{{chartCategories}}`/`{{chartSeries}}`/`{{meterBands}}`/`{{datagridRows}}` are arrays and `{{meterValue}}`/`{{meterMax}}`/`{{meterTarget}}` numbers; both buttons wired (real sendMessage `content`, openLink `url`); two graphs present; the callout closes it.
+- `renderer: { body: [] }` is a required placeholder — send it exactly as written; the renderer fills it in.
+- **Send data only; never author presentation** (colours, pills, icons, HTML, emoji, layout keys, `{!…}`/`{{…}}`): the renderer owns the look and shows or hides each block from the keys you send. Keys outside the schema are rejected.
+- **CRITICAL — `widgetDefinition` and `data` must be nested JSON objects, NOT strings.** ❌ WRONG: `widgetDefinition: "{\"widget\":...}"`. ✅ RIGHT: `widgetDefinition: {"widget": "deal-signals", "data": {...}, "renderer": {"body": []}}`. If you hold a JSON string, `JSON.parse` it first.
+- When `display_widget` is available the widget is the output; produce the section 5 text only as the fallback when the tool is unavailable (e.g. a terminal).
 
-Two blocks below: first the **variable contract** (`renderer.props.schema.json`) — every `{{token}}`'s type + a worked example, use it to compute each value; then the **widget template** to hydrate. Substitute your computed values into the template's `{{token}}`s (see the token-typing rules above), leaving no `{{…}}`/`{!…}`.
+### What to send
+
+Follow the block order and the per-block inclusion rules in the `data` schema below (the root description and each property's `description`).
+
+Rules:
+- **Language:** when the user writes in English, omit `labels`. When they write in another language, send `labels` with EVERY key translated (headings in upper case) and write every free-text field (`signals`, `detail`, `detected`, `accountSignals.heading`, ...) in that language. Never join translated text with English fragments: each phrase is written whole, because word order differs.
+
+### Scope the blocks to the prompt
+
+The schema marks only `title`, `answer` and `sources` as required. **Every other key is a choice, and the choice follows the question — not what you happened to retrieve.** Data you fetched but did not use stays out of the widget.
+
+| The prompt is… | Send |
+|---|---|
+| Broad ("any deals showing worrying signals this week?", "deal signals", "what changed in my book?") | `title` + `answer` (bullets) + `health` + `signals` + tail only if it applies + `sources` |
+| The book's health ("what's my book health score?", "how healthy is my book?") | `title` + `answer` (paragraph: the score and why) + `sources` — no card, no tail |
+| One account or deal ("what's wrong with Cedarline?", "why is Lumina flagged?") | `title` + `answer` (paragraph) + **only** `accountSignals` + `sources` (that deal) |
+| What to do ("what should I do about it?", "what's my next move?") | `title` + `answer` (paragraph) + `callout` (or `nextStep` when nothing is time-sensitive) + `sources` — no card |
+
+Rules:
+- **Omit a key and its block is not shown.** Never send empty arrays, empty strings, placeholder text, or "N/A" to fill a block, and never send a card the prompt did not ask for or that does not speed up the answer.
+- **Scope the `answer` too:** for "what's my book health score?", the answer is the score, the trend and the one reason — not the per-deal signals you also read.
+- **`health`:** `score` is the step 3 health score as a number; `marker` is "Today · <score>"; `reason` is one sentence with the reason in **bold** (how many of the swept deals are negative and how many positive).
+- **`signals`:** one row per opportunity with a fired signal. `sentiment` is `atRisk` when a negative signal puts a close this week in danger or 2 or more negative signals fired, `needsAttention` for any other negative signal, and `healthy` for a positive (Rising) deal; it renders as the Sentiment badge and the row's left rail. Negative rows first (most signals, then soonest close), then positive. At most 10 rows; when more fired, keep the 10 most urgent and give the full count in `answer`. `tag` only when 2 or more signals fired on the deal.
+- **`accountSignals`:** the signals on the one deal asked about, one item each, strongest first. `tone` is `error` when the signal puts a close this week at risk, `warning` for other negative signals, `success` for positive momentum.
+- **Tail fork:** `callout` when one move is time-sensitive and the user can act on it (one button, a first-person `actionMsg`); otherwise a `nextStep` line; if nothing applies, neither. A specific ask usually gets no tail; the "what should I do?" ask gets the callout. Never both (if both are sent only the callout renders).
+- **Sources:** a record is `https://<myDomain>/lightning/r/Opportunity/<Id>/view`; the book is `https://<myDomain>/lightning/o/Opportunity/list`. Omit `url` if you have no Id.
+- Format every value as a ready-to-display string (currency, dates, "closes 8/31") except `health.score`, which is a number. Names are plain strings, never objects. `detected` is relative ("Today", "3 days ago"), never ISO.
+- Before calling: `data` has no `{!…}`/`{{…}}`, no keys outside the schema, and every optional key you included is justified by the prompt.
+
+#### Worked examples (the `data` object only)
+
+**Broad — "Any deals showing worrying signals this week?"** (bulleted answer, both cards, a callout, several sources; the signals table is trimmed here):
+
 ```json
 {
-  "$comment": "Variable contract for the native-mosaic dynamic-mode template (renderer.json, sibling). This is NOT a separate display_widget call — it names every {{token}} in the template with its type and a worked example so you compute the right value for each. Workflow: build a props object with these keys, substitute each into the matching {{token}} in renderer.json (a slot that is only a {{token}} becomes the typed value — arrays stay arrays, numbers stay numbers; a {{token}} inside a larger string interpolates as text; a key you have no data for is omitted so that leaf drops), then call display_widget({ resourceType: 'dynamic', widgetDefinition: <the hydrated template> }) once with no {{…}}/{!…} left. Realistic values: sample-data.json (sibling). Authoring guidance (from the skill): The widget template is embedded below — a widget-definition envelope whose leaf values carry `{{token}}` placeholders. Resolve every `{{token}}` to a literal (no `{{…}}`/`{!…}` left), then call `display_widget({ resourceType: \"dynamic\", widgetDefinition: <hydrated> })` once. A value that is *only* a `{{token}}` (chart/meter/datagrid arrays) becomes the typed literal — arrays stay arrays, numbers stay numbers; a `{{token}}` inside a larger string is interpolated as text. Compute every leaf from data already fetched; no `{!…}` bindings, no fabrication (blank fields stay blank; drop signals with no data).\n- **Header** — activity icon, title (`{{title}}`), status badge (`{{headerStatus}}`), one-line caption (`{{subtitle}}`) summarizing score/trend/signal counts, and a second muted caption (`{{dealContext}}`) carrying this opp's shared deal facts — StageName label · Amount · CloseDate · next step · last activity — joined by ` · ` (constant across the signals below, so it sits once in the header, not per row).\n- **Two graphs** — line chart of the 6-week signal-score trend (`{{chartCaption}}`, `{{chartCategories}}` = week labels, `{{chartSeries}}` = one `[{ name, data: [numbers] }]`); and a meter for the composite score (`{{meterLabel}}`, `{{meterValue}}` vs target `{{meterTarget}}` max `{{meterMax}}`, `valueFormat:\"number\"`, `{{meterValueLabel}}`, `{{meterTargetLabel}}`, `{{meterStatus}}`, and `{{meterBands}}` = ordered `[{ from, to, variant, label }]` covering 0→max for Cold/Warm/Hot, variants error/warning/success).\n- **Signals datagrid** (`{{datagridCaption}}`, `{{datagridRows}}`) — one row per signal, strongest first: `signal` (name), `dir` (badge `{ value, badgeVariant }` — success Positive / warning Watch), `when` (ISO `YYYY-MM-DD`), `note` (detail), plus a leading `status` object (`{value,badgeVariant}` — value Buy/Watch, badgeVariant success/warning); the leading Status column reads each row's `status`.\n- **One synthesis callout** (`variant:\"success\"`) closes the widget — `{{calloutTitle}}` (the single most important read) and `{{calloutDescription}}`, with two real buttons: primary `action/sendMessage` (`{{primaryButtonLabel}}` / first-person `{{primaryButtonContent}}`) and secondary \"View in Salesforce\" `action/openLink` to `{{oppUrl}}` (`https://<myDomain>/lightning/r/Opportunity/<Id>/view`; omit if you lack the Id). No decorative buttons.\nBefore calling, verify: no `{{…}}`/`{!…}` remain; `{{chartCategories}}`/`{{chartSeries}}`/`{{meterBands}}`/`{{datagridRows}}` are arrays and `{{meterValue}}`/`{{meterMax}}`/`{{meterTarget}}` numbers; both buttons wired (real sendMessage `content`, openLink `url`); two graphs present; the callout closes it. Tokens: title subtitle dealContext headerStatus meterLabel/Value/Max/Target/ValueLabel/TargetLabel/Status/Bands chartCaption/chartCategories/chartSeries datagridCaption/datagridRows calloutTitle/calloutDescription primaryButtonLabel/primaryButtonContent oppUrl.",
-  "props": {
-    "title": {
-      "description": "Header title for the buying-signals view.",
-      "type": "string",
-      "example": "Buying signals — Cobalt Robotics"
-    },
-    "headerStatus": {
-      "description": "Header status badge (overall signal strength).",
-      "type": "string",
-      "example": "STRONG BUY"
-    },
-    "subtitle": {
-      "description": "Caption: composite score, trend, and signal counts.",
-      "type": "string",
-      "example": "Signal score 74 / 100 · trending up · 3 strong buys, 1 warning"
-    },
-    "dealContext": {
-      "description": "Muted second caption with the opp's shared deal facts — stage · amount · close date · next step · last activity, joined by ' · '.",
-      "type": "string",
-      "example": "Negotiation · $1.8M · close Sep 30 · next: exec review Jul 28 · last activity Jul 20"
-    },
-    "chartCaption": {
-      "description": "Caption for the 6-week signal-score trend line chart.",
-      "type": "string",
-      "example": "Signal score, last 6 weeks"
-    },
-    "chartCategories": {
-      "description": "Week labels for the trend chart's x-axis, as strings.",
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "example": [
-        "Wk 1",
-        "Wk 2",
-        "Wk 3",
-        "Wk 4",
-        "Wk 5",
-        "Wk 6"
-      ]
-    },
-    "chartSeries": {
-      "description": "Trend series — one object {name, data}.",
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "description": "Series name.",
-            "type": "string"
-          },
-          "data": {
-            "description": "Weekly signal scores — a number array matching chartCategories.",
-            "type": "array",
-            "items": {
-              "type": "number"
-            }
-          }
-        }
-      },
-      "example": [
-        {
-          "name": "Score",
-          "data": [
-            48,
-            52,
-            60,
-            63,
-            70,
-            74
-          ]
-        }
-      ]
-    },
-    "meterLabel": {
-      "description": "Label for the composite-score meter.",
-      "type": "string",
-      "example": "Composite signal score"
-    },
-    "meterValue": {
-      "description": "Composite signal score — the meter's current value.",
-      "type": "number",
-      "example": 74
-    },
-    "meterMax": {
-      "description": "The meter's max.",
-      "type": "number",
-      "example": 100
-    },
-    "meterTarget": {
-      "description": "Target marker on the meter.",
-      "type": "number",
-      "example": 70
-    },
-    "meterValueLabel": {
-      "description": "Display string for the score.",
-      "type": "string",
-      "example": "74 / 100"
-    },
-    "meterTargetLabel": {
-      "description": "Display string for the target.",
-      "type": "string",
-      "example": "70 = strong"
-    },
-    "meterStatus": {
-      "description": "Short read shown on the meter (Cold / Warm / Hot).",
-      "type": "string",
-      "example": "strong buy"
-    },
-    "meterBands": {
-      "description": "Color bands for the meter, in order covering 0→max (Cold / Warm / Hot).",
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "from": {
-            "description": "Band start value.",
-            "type": "number"
-          },
-          "to": {
-            "description": "Band end value.",
-            "type": "number"
-          },
-          "variant": {
-            "description": "Band color.",
-            "type": "string",
-            "enum": [
-              "error",
-              "warning",
-              "success"
-            ]
-          },
-          "label": {
-            "description": "Short band label.",
-            "type": "string"
-          }
-        }
-      },
-      "example": [
-        {
-          "from": 0,
-          "to": 40,
-          "variant": "error",
-          "label": "Cold"
-        },
-        {
-          "from": 40,
-          "to": 70,
-          "variant": "warning",
-          "label": "Warm"
-        },
-        {
-          "from": 70,
-          "to": 100,
-          "variant": "success",
-          "label": "Hot"
-        }
-      ]
-    },
-    "datagridCaption": {
-      "description": "Caption for the signals datagrid.",
-      "type": "string",
-      "example": "Signals detected, strongest first"
-    },
-    "datagridRows": {
-      "description": "Buying signals — one row per signal, strongest first. Empty array → the datagrid is omitted.",
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "description": "Leading Status badge cell; omit on normal rows.",
-            "type": "object",
-            "properties": {
-              "value": {
-                "description": "Status label.",
-                "type": "string"
-              },
-              "badgeVariant": {
-                "description": "Badge color.",
-                "type": "string",
-                "enum": [
-                  "neutral",
-                  "primary",
-                  "secondary",
-                  "outline",
-                  "success",
-                  "info",
-                  "warning",
-                  "error"
-                ]
-              }
-            }
-          },
-          "signal": {
-            "description": "Signal name.",
-            "type": "string"
-          },
-          "dir": {
-            "description": "Direction badge cell.",
-            "type": "object",
-            "properties": {
-              "value": {
-                "description": "Direction label (Positive / Watch).",
-                "type": "string"
-              },
-              "badgeVariant": {
-                "description": "Badge color: success=Positive, warning=Watch.",
-                "type": "string",
-                "enum": [
-                  "neutral",
-                  "primary",
-                  "secondary",
-                  "outline",
-                  "success",
-                  "info",
-                  "warning",
-                  "error"
-                ]
-              }
-            }
-          },
-          "when": {
-            "description": "Signal date, ISO YYYY-MM-DD.",
-            "type": "string"
-          },
-          "note": {
-            "description": "Short detail for the signal.",
-            "type": "string"
-          }
-        }
-      },
-      "example": [
-        {
-          "status": {
-            "value": "Buy",
-            "badgeVariant": "success"
-          },
-          "signal": "Budget approved",
-          "dir": {
-            "value": "Positive",
-            "badgeVariant": "success"
-          },
-          "when": "2026-07-06",
-          "note": "CFO confirmed renewal + expansion budget"
-        },
-        {
-          "status": {
-            "value": "Buy",
-            "badgeVariant": "success"
-          },
-          "signal": "Multi-thread widening",
-          "dir": {
-            "value": "Positive",
-            "badgeVariant": "success"
-          },
-          "when": "2026-07-13",
-          "note": "5 contacts engaged, up from 2"
-        },
-        {
-          "status": {
-            "value": "Buy",
-            "badgeVariant": "success"
-          },
-          "signal": "Usage climbing",
-          "dir": {
-            "value": "Positive",
-            "badgeVariant": "success"
-          },
-          "when": "2026-07-18",
-          "note": "Platform seats +12% this month"
-        },
-        {
-          "status": {
-            "value": "Watch",
-            "badgeVariant": "warning"
-          },
-          "signal": "Competitor mentioned",
-          "dir": {
-            "value": "Watch",
-            "badgeVariant": "warning"
-          },
-          "when": "2026-07-20",
-          "note": "CIO referenced in-house build option"
-        }
-      ]
-    },
-    "calloutTitle": {
-      "description": "Synthesis callout heading — the single most important read.",
-      "type": "string",
-      "example": "Signals say press now"
-    },
-    "calloutDescription": {
-      "description": "Synthesis callout body — the read and the move.",
-      "type": "string",
-      "example": "Score climbed 48→74 in six weeks on budget approval, wider threading, and rising usage. The one caution is the CIO's in-house-build comment — get ahead of it in the exec meeting and this closes on time."
-    },
-    "primaryButtonLabel": {
-      "description": "Primary button label (action/sendMessage).",
-      "type": "string",
-      "example": "Draft exec ask"
-    },
-    "primaryButtonContent": {
-      "description": "First-person prompt the primary button sends (action/sendMessage).",
-      "type": "string",
-      "example": "Draft an exec ask for the Cobalt meeting focused on addressing the in-house-build option the CIO mentioned."
-    },
-    "oppUrl": {
-      "description": "Opportunity Lightning URL for the secondary \"View in Salesforce\" button; omit if no Id.",
-      "type": "string",
-      "example": "https://org.lightning.force.com/lightning/r/Opportunity/006AX00000M8k2pYAD/view"
-    }
-  }
+  "title": "Seven deals are flashing warning signals – and Cedarline is stacking three.",
+  "answer": "- Overall health is a **3 out of 10 and falling**.\n- Across your 11 open opps, **7 deals have negative signals** this week and 2 are showing positive momentum.\n- The risk isn't evenly spread: **$735K is time-sensitive** – Lumina closes tomorrow and Cedarline is compounding three red signals at once.",
+  "health": {
+    "score": 3,
+    "marker": "Today · 3",
+    "reason": "It's a **3 because 7 of your 11 deals are negative and only 2 positive this week** – most of the book needs attention."
+  },
+  "signals": [
+    {"opportunity": "Cedarline", "tag": "3 signals", "deal": "$640K · Neg/Review · closes 8/31", "detected": "Today", "signals": "Champion Robert Nkemelu re-orged out · CFO Priya Anand silent **16d** · Vaultline CRM introduced by procurement.", "sentiment": "atRisk"},
+    {"opportunity": "Lumina Software", "deal": "$95K · Neg/Review · closes 8/24", "detected": "Today", "signals": "Closes **tomorrow** · DocuSign not sent per Next Step · Jessica Tam on the signing call.", "sentiment": "atRisk"},
+    {"opportunity": "Northpeak Dispatch", "deal": "$265K · Proposal · closes 9/14", "detected": "Today", "signals": "Presenting to **Marcus Reyes** Aug 24 · rollout pricing aligned.", "sentiment": "healthy"}
+  ],
+  "callout": {
+    "lead": "$735K is time-sensitive across 6 days.",
+    "text": "Lumina ($95K) closes tomorrow with DocuSign unsent, and Cedarline ($640K) is compounding three negative signals. Send the Lumina DocuSign first to lock the sure thing, then re-engage Cedarline's CFO before the signals stall the deal.",
+    "buttonLabel": "Send the Lumina DocuSign",
+    "actionMsg": "Draft the DocuSign send for the Lumina Software order form so it's in Jessica Tam's inbox before tomorrow's signing call."
+  },
+  "sources": [
+    {"label": "Opportunities · 11 open", "url": "https://<myDomain>/lightning/o/Opportunity/list"},
+    {"label": "Opportunity · Cedarline Financial", "url": "https://<myDomain>/lightning/r/Opportunity/<Id>/view"},
+    {"label": "Opportunity · Lumina Software", "url": "https://<myDomain>/lightning/r/Opportunity/<Id>/view"},
+    {"label": "Activities · last 7 days"}
+  ]
 }
 ```
+
+**Direct — "What's my book health score?"** (a paragraph answer, no card, no tail):
+
 ```json
 {
-  "renderer": {
-    "componentOverrides": {
-      "$": {
-        "type": "mosaic",
-        "definition": "tile/widget",
-        "children": [
-          {
-            "definition": "tile/row",
-            "attributes": { "gap": "sm", "align": "center", "justify": "between", "isWrapped": true },
-            "children": [
-              {
-                "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center" },
-                "children": [
-                  { "definition": "tile/icon", "attributes": { "name": "activity", "size": "xl", "alt": "" } },
-                  { "definition": "tile/text", "attributes": { "text": "{{title}}", "variant": "h1" } }
-                ]
-              },
-              { "definition": "tile/badge", "attributes": { "label": "{{headerStatus}}", "variant": "success" } }
-            ]
+  "title": "Your book health score is 3 out of 10 – and it's trending down.",
+  "answer": "**7 of your 11 open deals** are showing negative signals this week, and only 2 have positive momentum. The drag is concentrated: **Cedarline and Lumina hold $735K** of the at-risk money.",
+  "sources": [
+    {"label": "Opportunities · 11 open", "url": "https://<myDomain>/lightning/o/Opportunity/list"}
+  ]
+}
+```
+
+**Specific — "What's wrong with Cedarline?"** (a paragraph answer, only the account card):
+
+```json
+{
+  "title": "Cedarline is stacking three negative signals at once.",
+  "answer": "Your champion is gone, the CFO has gone quiet, and procurement brought in a competitor – all on a **$640K deal closing 8/31**.",
+  "accountSignals": {
+    "heading": "CEDARLINE SIGNALS THIS WEEK",
+    "items": [
+      {"signal": "Champion lost", "detail": "Robert Nkemelu reorged out", "tone": "warning"},
+      {"signal": "CFO dark", "detail": "Priya Anand silent 16 days", "tone": "warning"},
+      {"signal": "Competitor introduced", "detail": "Vaultline CRM via procurement", "tone": "warning"}
+    ]
+  },
+  "sources": [
+    {"label": "Opportunity · Cedarline Financial", "url": "https://<myDomain>/lightning/r/Opportunity/<Id>/view"}
+  ]
+}
+```
+
+**Next move — "What should I do about it?"** (after the Cedarline answer; a paragraph and the callout, no card):
+
+```json
+{
+  "title": "Re-engage Priya Anand this week – she's the deal now.",
+  "answer": "With Robert gone, **the CFO is your only path to signature** before 8/31. A short ROI recap gives her a reason to reply and puts you ahead of Vaultline.",
+  "callout": {
+    "lead": "Cedarline closes 8/31 – the CFO has been silent for 16 days.",
+    "text": "Send Priya a short ROI recap and ask for 20 minutes this week.",
+    "buttonLabel": "Draft the CFO re-engagement",
+    "actionMsg": "Draft a re-engagement email to Priya Anand, CFO at Cedarline Financial, with an ROI recap to restart the $640K deal."
+  },
+  "sources": [
+    {"label": "Opportunity · Cedarline Financial", "url": "https://<myDomain>/lightning/r/Opportunity/<Id>/view"}
+  ]
+}
+```
+
+
+
+`data` schema (JSON Schema). Only `title`, `answer` and `sources` are required; include any other key only when the prompt asks for it or it clearly speeds up the answer (see "Scope the blocks to the prompt"):
+
+```json
+{
+  "type": "object",
+  "description": "Block order: title, answer, then the optional cards (health, signals, accountSignals), then at most one tail (callout OR nextStep), then sources. Only title, answer and sources are required. Which optional cards to include: see the scope table in the skill instructions. Omit a key and its block is not shown: never send empty arrays, empty strings, placeholders or 'N/A', and never a card the prompt did not ask for. A direct question ('what's my book health score?') usually gets no tail. Format every value as a ready-to-display string (currency, dates) except health.score, which is a number; names are plain strings, never objects.",
+  "required": [
+    "title",
+    "answer",
+    "sources"
+  ],
+  "properties": {
+    "labels": {
+      "type": "object",
+      "description": "OPTIONAL. Every fixed label of the widget (card headings, scale captions, table headers, the sources toggle); each key's `default` is its English text, and a missing or blank key falls back to it. Omit when the user writes in English; for another language follow the Language rule in SKILL.md.",
+      "properties": {
+        "health": {
+          "type": "string",
+          "default": "OVERALL HEALTH",
+          "description": "Heading of the health card. English: 'OVERALL HEALTH'."
+        },
+        "scaleLow": {
+          "type": "string",
+          "default": "Danger · 0",
+          "description": "Caption under the left end of the health scale. English: 'Danger · 0'."
+        },
+        "scaleMid": {
+          "type": "string",
+          "default": "Neutral · 5",
+          "description": "Caption under the middle of the health scale. English: 'Neutral · 5'."
+        },
+        "scaleHigh": {
+          "type": "string",
+          "default": "Healthy · 10",
+          "description": "Caption under the right end of the health scale. English: 'Healthy · 10'."
+        },
+        "signals": {
+          "type": "string",
+          "default": "SIGNALS ACROSS OPPORTUNITIES",
+          "description": "Heading of the signals table card. English: 'SIGNALS ACROSS OPPORTUNITIES'."
+        },
+        "colSentiment": {
+          "type": "string",
+          "default": "Sentiment",
+          "description": "Signals table header over the sentiment badge column. English: 'Sentiment'."
+        },
+        "atRisk": {
+          "type": "string",
+          "default": "At risk",
+          "description": "Badge for an at-risk deal. English: 'At risk'."
+        },
+        "needsAttention": {
+          "type": "string",
+          "default": "Needs attention",
+          "description": "Badge for a deal that needs attention. English: 'Needs attention'."
+        },
+        "healthy": {
+          "type": "string",
+          "default": "Healthy",
+          "description": "Badge for a healthy deal. English: 'Healthy'."
+        },
+        "colOpportunity": {
+          "type": "string",
+          "default": "Opportunity",
+          "description": "Signals table header. English: 'Opportunity'."
+        },
+        "colDetected": {
+          "type": "string",
+          "default": "Detected date",
+          "description": "Signals table header. English: 'Detected date'."
+        },
+        "colSignals": {
+          "type": "string",
+          "default": "Signals",
+          "description": "Signals table header. English: 'Signals'."
+        },
+        "sources": {
+          "type": "string",
+          "default": "Sources",
+          "description": "Word shown on the sources toggle; the renderer appends the count, e.g. 'Sources (4)'. Send the word only, no number. English: 'Sources'."
+        }
+      }
+    },
+    "title": {
+      "type": "string",
+      "description": "REQUIRED. The takeaway in the user's context, one bold sentence that already answers the question (e.g. 'Seven deals are flashing warning signals – and Cedarline is stacking three.'). Never the skill name or 'Deal Signals'."
+    },
+    "answer": {
+      "type": "string",
+      "description": "REQUIRED. Answer-first markdown with **bold** on the key facts (score, counts, amounts, names). A broad sweep gets 2-4 short '- ' bullets; a direct or specific question ('what's my book health score?', 'what's wrong with Cedarline?') gets a 1-3 sentence paragraph. Answer ONLY what the user asked; do not restate the cards below it."
+    },
+    "health": {
+      "type": "object",
+      "description": "OPTIONAL card 'OVERALL HEALTH': one sentence on why the book scores what it does, over a danger-to-healthy scale with a marker at the score. Include ONLY for a broad sweep ('any deals showing worrying signals this week?', 'deal signals'). A direct 'what's my book health score?' puts the score in title and answer instead, no card. Omit the key otherwise.",
+      "required": [
+        "score",
+        "marker",
+        "reason"
+      ],
+      "properties": {
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Book health score 0-10 as a NUMBER: 5 is neutral, lower when negative deals outnumber positive ones (see the score rule in the skill instructions)."
+        },
+        "marker": {
+          "type": "string",
+          "description": "Caption over the marker (e.g. 'Today · 3')."
+        },
+        "reason": {
+          "type": "string",
+          "description": "One markdown sentence with the reason in **bold** (e.g. \"It's a **3 because 7 of your 11 deals are showing negative signals this week** – most of the book needs attention.\")."
+        }
+      }
+    },
+    "signals": {
+      "type": "array",
+      "description": "OPTIONAL card 'SIGNALS ACROSS OPPORTUNITIES': one row per opportunity with a fired signal, falling first (most signals, then soonest close), then rising. Include ONLY for a broad sweep. Omit the key otherwise; never an empty array.",
+      "items": {
+        "type": "object",
+        "required": [
+          "opportunity",
+          "deal",
+          "detected",
+          "signals",
+          "sentiment"
+        ],
+        "properties": {
+          "opportunity": {
+            "type": "string",
+            "description": "Account or opportunity name as the rep says it (e.g. 'Cedarline')."
           },
-          { "definition": "tile/text", "attributes": { "text": "{{subtitle}}", "variant": "caption", "color": "muted" } },
-          { "definition": "tile/text", "attributes": { "text": "{{dealContext}}", "variant": "caption", "color": "muted" } },
-
-          { "definition": "tile/separator" },
-
-          {
-            "definition": "tile/column",
-            "attributes": { "gap": "md" },
-            "children": [
-              {
-                "definition": "tile/chart",
-                "attributes": {
-                  "chartType": "line",
-                  "caption": "{{chartCaption}}",
-                  "categories": "{{chartCategories}}",
-                  "series": "{{chartSeries}}",
-                  "valueFormat": "number",
-                  "showValues": false,
-                  "showLegend": false
-                }
-              },
-              {
-                "definition": "tile/meter",
-                "attributes": {
-                  "label": "{{meterLabel}}",
-                  "value": "{{meterValue}}",
-                  "min": 0,
-                  "max": "{{meterMax}}",
-                  "target": "{{meterTarget}}",
-                  "valueFormat": "number",
-                  "valueLabel": "{{meterValueLabel}}",
-                  "targetLabel": "{{meterTargetLabel}}",
-                  "status": "{{meterStatus}}",
-                  "size": "lg",
-                  "bands": "{{meterBands}}"
-                }
-              }
-            ]
+          "tag": {
+            "type": "string",
+            "description": "OPTIONAL. Signal count when 2 or more fired on this deal (e.g. '3 signals'). Omit for a single signal."
           },
-
-          {
-            "definition": "tile/datagrid",
-            "attributes": {
-              "caption": "{{datagridCaption}}",
-              "appearance": "striped",
-              "columns": [
-                { "key": "status", "header": "Status", "type": "badge" },
-                { "key": "signal", "header": "Signal", "type": "text" },
-                { "key": "dir", "header": "Direction", "type": "badge" },
-                { "key": "when", "header": "Detected", "type": "date" },
-                { "key": "note", "header": "Detail", "type": "text" }
-              ],
-              "rows": "{{datagridRows}}"
-            }
+          "deal": {
+            "type": "string",
+            "description": "Amount · short stage · close, joined by ' · ' (e.g. '$640K · Neg/Review · closes 8/31')."
           },
-
-          {
-            "definition": "tile/callout",
-            "attributes": {
-              "variant": "success",
-              "title": "{{calloutTitle}}",
-              "description": "{{calloutDescription}}"
-            },
-            "children": [
-              {
-                "definition": "tile/row",
-                "attributes": { "gap": "sm", "align": "center", "isWrapped": true },
-                "children": [
-                  {
-                    "definition": "tile/button",
-                    "attributes": {
-                      "label": "{{primaryButtonLabel}}",
-                      "variant": "primary",
-                      "actions": { "click": [ { "definition": "action/sendMessage", "attributes": { "content": "{{primaryButtonContent}}" } } ] }
-                    }
-                  },
-                  {
-                    "definition": "tile/button",
-                    "attributes": {
-                      "label": "View in Salesforce",
-                      "iconName": "open-in-new",
-                      "variant": "secondary",
-                      "actions": { "click": [ { "definition": "action/openLink", "attributes": { "url": "{{oppUrl}}" } } ] }
-                    }
-                  }
-                ]
-              }
-            ]
+          "detected": {
+            "type": "string",
+            "description": "When the newest signal was detected, relative (e.g. 'Today', '3 days ago'). Never ISO YYYY-MM-DD."
+          },
+          "signals": {
+            "type": "string",
+            "description": "The fired signals with their evidence, joined by ' · ', ending with a period; **bold** at most the one or two decisive facts (e.g. 'Closes **tomorrow** · DocuSign not sent per Next Step.'). Write signal names and facts in sentence case (e.g. 'Overdue since 8/20'), never all caps."
+          },
+          "sentiment": {
+            "type": "string",
+            "enum": [
+              "atRisk",
+              "needsAttention",
+              "healthy"
+            ],
+            "description": "REQUIRED. Row assessment shown as the Sentiment badge and the left rail: 'atRisk' when a negative signal puts a close this week in danger or 2 or more negative signals fired; 'needsAttention' for any other negative signal; 'healthy' for positive momentum only."
           }
-        ]
+        }
+      }
+    },
+    "accountSignals": {
+      "type": "object",
+      "description": "OPTIONAL card '<ACCOUNT> SIGNALS THIS WEEK': the signals that fired on one named account or deal. Include ONLY when the prompt asks about one account or deal ('what's wrong with Cedarline?'). Omit the key otherwise; never an empty items array.",
+      "required": [
+        "heading",
+        "items"
+      ],
+      "properties": {
+        "heading": {
+          "type": "string",
+          "description": "Card heading in upper case, in the user's language (e.g. 'CEDARLINE SIGNALS THIS WEEK')."
+        },
+        "items": {
+          "type": "array",
+          "description": "One entry per fired signal, newest first (never an empty array - omit accountSignals instead).",
+          "items": {
+            "type": "object",
+            "required": [
+              "signal",
+              "detail",
+              "tone"
+            ],
+            "properties": {
+              "signal": {
+                "type": "string",
+                "description": "Signal name in a few words (e.g. 'Champion lost', 'CFO dark', 'Competitor introduced')."
+              },
+              "detail": {
+                "type": "string",
+                "description": "The evidence in a few words (e.g. 'Robert Nkemelu reorged out', 'Priya Anand silent 16 days')."
+              },
+              "tone": {
+                "type": "string",
+                "enum": [
+                  "error",
+                  "warning",
+                  "success"
+                ],
+                "description": "Rail color: 'error' when it puts this week's close at risk, 'warning' for other negative signals, 'success' for positive momentum."
+              }
+            }
+          }
+        }
+      }
+    },
+    "callout": {
+      "type": "object",
+      "description": "OPTIONAL tail, time-sensitive. Warning icon, a bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if one move is time-sensitive (a close date is days away, a signal will stall the deal) AND the user can act on it now.",
+      "required": [
+        "lead",
+        "text",
+        "buttonLabel",
+        "actionMsg"
+      ],
+      "properties": {
+        "lead": {
+          "type": "string",
+          "description": "The bold first sentence of the callout (the stake in one sentence, ending with a period, e.g. '$735K is time-sensitive across 6 days.')."
+        },
+        "text": {
+          "type": "string",
+          "description": "One to three sentences: what, why now, and the move."
+        },
+        "buttonLabel": {
+          "type": "string",
+          "description": "Label of the single primary button (e.g. 'Send the Lumina DocuSign')."
+        },
+        "actionMsg": {
+          "type": "string",
+          "description": "First-person request sent to chat when the button is clicked."
+        }
+      }
+    },
+    "nextStep": {
+      "type": "object",
+      "description": "OPTIONAL tail, not time-sensitive: a plain suggestion line with NO button. Use INSTEAD of callout, never both.",
+      "required": [
+        "lead",
+        "text"
+      ],
+      "properties": {
+        "lead": {
+          "type": "string",
+          "description": "Bold lead (the suggested move, e.g. 'Re-engage the CFO first.')."
+        },
+        "text": {
+          "type": "string",
+          "description": "One or two sentences of reasoning, ending with an offer to help if natural."
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "description": "REQUIRED. Where the answer came from: the Salesforce records/lists you actually read, linked (this is where Opportunity record links go). Shown as a compact 'Salesforce · Sources (N)' toggle (the word comes from labels.sources).",
+      "items": {
+        "type": "object",
+        "required": [
+          "label"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "Source name: object · record (e.g. 'Opportunities · 11 open', 'Opportunity · Cedarline Financial')."
+          },
+          "url": {
+            "type": "string",
+            "description": "Record URL https://<myDomain>/lightning/r/<SObjectType>/<Id>/view, or for a list https://<myDomain>/lightning/o/Opportunity/list. Omit if none."
+          }
+        }
       }
     }
   }
@@ -522,6 +494,8 @@ Two blocks below: first the **variable contract** (`renderer.props.schema.json`)
 
 
 ## 5. Text — FALLBACK ONLY — DO NOT USE IF `display_widget` SUCCEEDED
+
+Scope this to the prompt too: a specific ask ("what's wrong with Cedarline?", "what's my book health score?") gets only the lines that answer it, not the whole digest below.
 
 Per fired signal, surface the trigger value **plus one or two supporting facts** from the Step 2 record (all already fetched — no new read), separated by ` • ` so the evidence is scannable, not a single condensed fact. Blank line between the 🔴 and 🟡 groups.
 
@@ -536,4 +510,4 @@ Per fired signal, surface the trigger value **plus one or two supporting facts**
 
 ✅ Nothing else crossed a threshold (<N> opps swept)
 ```
-Link each record. CRM fix → offer `update-opportunity`; a touch → `draft-outreach`/`schedule-meeting`. Scheduled run: lead with count of new items since last run; a quiet digest is success.
+Link each record. A touch → `draft-outreach`/`schedule-meeting`. Scheduled run: lead with count of new items since last run; a quiet digest is success.
