@@ -17,7 +17,7 @@ description: "Rank an account list or full book into action tiers from Salesforc
 - **Use plain language.** Choose terms any reader understands on first read, with no domain knowledge or cultural context required. Avoid jargon and colloquialisms, and make labels signal what follows. Test: would a reader unfamiliar with the idiom understand the term and know what content to expect? Use "No engagement", not "went dark" or "ghosted".
 - **Reproduce Salesforce terminology exactly.** Use the field labels, object names, and stage values the data returns; do not paraphrase them. Spell out acronyms on first use unless the term is an industry framework (for example, MEDDIC).
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
-- **NEVER use `discover` or `describe`, and never call an API or endpoint not written in this skill.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
+- **ONLY use the local instructions in this skill file, ONLY call MCP tools mentioned in the skill file and NEVER call an API or endpoint not written in this skill file.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
 <!-- /global-rules-bootstrap -->
 # Rules:
 
@@ -98,20 +98,36 @@ A criterion the user didn't state falls back to its derived value; if that value
 
 ## 4b. Calculate ARR, whitespace, and engagement % (HXL widgets only)
 
+For each account, compute these display values from Step 2 data:
+
+**ARR (Annual Recurring Revenue):**
+- Sum `Amount.value` from `ClosedWonOpportunities` where `CloseDate` is within the last 12 months
+- Format as compact currency: "$75K", "$1.2M" (K for thousands, M for millions)
+- If no closed-won opportunities in last 12 months, set to "$0"
+
+**Whitespace (expansion opportunity):**
+- Sum `Amount.value` from open `Opportunities` (IsClosed = false)
+- Format as compact currency: "$640K", "$2.3M"
+- If no open opportunities, set to "$0"
+
+**Engagement % (for display):**
+- Convert the 0-10 engagement score from Step 4 to a percentage string
+- Formula: `Math.round((engagementScore / 10) * 100)` + "%"
+- Example: score of 6 → "60%"
+
 
 ## 5. Tier and recommend
 
-Assign each account to **Tier A, B, or C** based on **Fit × Engagement**:
+Assign each account to **Tier A** (active pursuit), **Tier B** (nurture), or **Tier C** (monitor) based on **four factors**:
+1. **ICP fit** (0-10 from section 3)
+2. **Engagement** (0-10 from section 4)
+3. **Annual Recurring Revenue (ARR)** — existing revenue relationship
+4. **Whitespace** — expansion / upsell opportunity
 
-| | High Engagement (≥6) | Low Engagement (<6) |
-|---|---|---|
-| **High Fit (≥6)** | Tier A - Activate | Tier B - Develop |
-| **Low Fit (<6)** | Tier B - Develop | Tier C - Qualify or DQ |
-
-**Tier meanings:**
-- **Tier A (Activate):** High fit AND high engagement — pursue now
-- **Tier B (Develop):** One strength (fit OR engagement) — nurture toward A or DQ to C
-- **Tier C (Qualify or DQ):** Low fit AND low engagement — monitor, revisit when signal changes
+**Tier assignment guidance:**
+- **Tier A** (active pursuit): High ICP fit (≥6) AND high engagement (≥6) AND (ARR >$0 OR whitespace >$100K). These accounts warrant immediate, multi-threaded pursuit.
+- **Tier B** (nurture): Exactly one strength — (ICP fit ≥6 XOR engagement ≥6). Keep warm with light touch; revisit when signals improve.
+- **Tier C** (monitor): Both low — ICP fit <6 AND engagement <6. Periodic check-ins; escalate if conditions change.
 
 
 **Disclosures** — carry each that applies into the output (the widget `subtitle`; in the text fallback, a line under the heading):
@@ -119,526 +135,318 @@ Assign each account to **Tier A, B, or C** based on **Fit × Engagement**:
 - Standard-field fallback: "custom fit fields unavailable — scored on standard fields".
 - Derived ICP: "ICP derived from your [N] accounts with open deals: [industries], [min–max] employees". Omit when the user stated the ICP.
 
-## 6. Output — legacy widget
+## 6. Output — HXL widget
 
-When the data is assembled, call `display_widget({ resourceType: "dynamic", widgetDefinition: <hydrated legacy template> })` once. The template and its token contract are embedded below. Legacy branch: hydrate all tokens (mustache-style placeholders), leaving no template syntax.
+**CRITICAL LAYOUT RULE: You MUST call display_widget with this EXACT format:**
+
+```javascript
+display_widget({ 
+  resourceType: "dynamic", 
+  widgetDefinition: { 
+    widget: "account-tiering", 
+    data: <object matching the schema below>, 
+    renderer: { body: [] } 
+  } 
+})
+```
+
+- **DO NOT omit `resourceType: "dynamic"` or `widgetDefinition`** — the tool requires this envelope.
+- **DO NOT construct tile layouts yourself** (tile/container, tile/row, tile/markdown, etc.) inside `widgetDefinition`.
+- **Your job is DATA ONLY**: compute the `data` object per the schema below. The `renderer: { body: [] }` part stays empty.
+- The `widget: "account-tiering"` value tells the renderer to use the pre-designed layout from renderer.json, which handles all visual structure (the segmented bar, collapsible Sources, datagrid, callouts, etc.).
+- **If you send a different format or build custom tile layouts, the layout will be wrong.**
+
+The schema below names every key (all optional except `title`, `answer`, `sources`), its type, and when to include it.
+
+**Widget contract:**
+- **Block order**: title, answer, tierBar (optional), accounts datagrid (optional), nextStep (optional), sources.
+- **Always include**: `title`, `answer`, `sources`. Optional: `tierBar` (tier distribution counts), `labels`, `accounts`, `nextStep`.
+- **Prompt scoping**: Include the accounts datagrid when the prompt calls for a detailed breakdown (not just tier counts). For a summary-level prompt ("How should I tier my accounts?"), include accounts. For a tier-count-only prompt, omit accounts.
+- **tierBar — REQUIRED, SEGMENTED BAR ONLY**: Always populate as nested objects with three keys: `tierA`, `tierB`, `tierC`. Each has `value` (count as number) and `label` (display string, e.g., "Tier A - 4"). This renders a **horizontal segmented bar chart** showing tier distribution. **DO NOT use a donut/pie chart, circular chart, or any other chart type — the tierBar must always be a horizontal segmented bar.** This layout is fixed by design and must not be changed.
+- **Tier badge variants** (semantic, HXL design system): Tier A = `"success"` (green, top priority), Tier B = `"info"` (blue, medium priority), Tier C = `"neutral"` (gray, low priority). Every tier badge in the accounts datagrid must include both `value` (the letter) and `badgeVariant` (the semantic color).
+- **Account names**: Pass account names as plain text strings. DO NOT include Markdown link syntax like `[Name](URL)` in the account field — the datagrid renders it literally. Clickable account links belong in the `sources` array at the bottom.
 
 ```json
 {
-  "$comment": "Variable contract for the native-mosaic dynamic-mode template (renderer.json, sibling). This is NOT a separate display_widget call — it names every {{token}} in the template with its type and a worked example so you compute the right value for each. Workflow: build a props object with these keys, substitute each into the matching {{token}} in renderer.json (a slot that is only a {{token}} becomes the typed value — arrays stay arrays, numbers stay numbers; a {{token}} inside a larger string interpolates as text; a key you have no data for is omitted so that leaf drops), then call display_widget({ resourceType: 'dynamic', widgetDefinition: <the hydrated template> }) once with no {{…}}/{!…} left. Realistic values: sample-data.json (sibling). Authoring guidance (from the skill): `title` (page title with account count), `subtitle` (tier counts summary) · `heatmapCaption`, `heatmapXLabels`, `heatmapYLabels`, `heatmapDomain` (array `[min, max]`), `heatmapCells` (array of `{x, y, value, valueLabel?}`, one per quadrant) · `piechartCaption`, `piechartCenterLabel`, `piechartCenterValue`, `piechartSlices` (array of `{label, value, role?}`, role:\"highlight\" on Tier A) · `datagridCaption`, `datagridRows` (array, one per Tier A account: `{account, fit: 1-5 number, engage: 0-100 number, arr: number, white: number, motion: {value, badgeVariant}}`) · `calloutTitle`, `calloutDescription` (coverage gap), `primaryButtonLabel`, `primaryButtonMsg` (sendMessage action), `salesforceUrl` (Account list view URL).",
-  "props": {
+  "type": "object",
+  "description": "HXL widget data contract for account-tiering. Block order: title, answer, accounts datagrid, nextStep (optional), sources. Only title, answer, and sources are required; omit accounts or nextStep and their blocks are not shown.",
+  "properties": {
     "title": {
-      "description": "Page title for the tiering view, with the book size (e.g. account count).",
       "type": "string",
-      "example": "Account tiering — book of 40"
+      "description": "Contextual title — the tier-count takeaway in one sentence (e.g., 'Your 10 accounts are sorted into 4 Tier A, 4 Tier B, and 2 Tier C — so you can pour your time into the 4 worth pursuing now.')."
     },
-    "subtitle": {
-      "description": "One-line summary caption — how accounts were scored and the tier counts.",
+    "answer": {
       "type": "string",
-      "example": "Scored on ICP fit × engagement · 6 Tier A, 14 Tier B, 20 Tier C"
+      "description": "Answer in markdown format — 2-4 bullet items with **bold** facts. Explains how accounts were tiered (ICP fit, engagement, ARR, whitespace) and what each tier means (Tier A = active pursuit, Tier B = nurture, Tier C = monitor)."
     },
-    "heatmapCaption": {
-      "description": "Caption above the fit×engagement heatmap.",
-      "type": "string",
-      "example": "Accounts by ICP fit and engagement; count per quadrant"
+    "labels": {
+      "type": "object",
+      "description": "Fixed label text for card headings and table headers. Each has an English default.",
+      "properties": {
+        "accountsCaption": {
+          "type": "string",
+          "description": "Accounts table eyebrow.",
+          "default": "Accounts"
+        },
+        "tierHeader": {
+          "type": "string",
+          "description": "Tier column header.",
+          "default": "Tier"
+        },
+        "accountHeader": {
+          "type": "string",
+          "description": "Account column header.",
+          "default": "Account"
+        },
+        "icpFitHeader": {
+          "type": "string",
+          "description": "ICP Fit column header.",
+          "default": "ICP Fit"
+        },
+        "engagementHeader": {
+          "type": "string",
+          "description": "Engagement column header.",
+          "default": "Engagement"
+        },
+        "arrHeader": {
+          "type": "string",
+          "description": "ARR column header.",
+          "default": "ARR"
+        },
+        "whitespaceHeader": {
+          "type": "string",
+          "description": "Whitespace column header.",
+          "default": "Whitespace"
+        },
+        "motionHeader": {
+          "type": "string",
+          "description": "Motion column header.",
+          "default": "Motion"
+        },
+        "sourcesToggle": {
+          "type": "string",
+          "description": "Sources toggle label.",
+          "default": "Sources"
+        },
+        "tierBarCaption": {
+          "type": "string",
+          "description": "Tier bar eyebrow caption.",
+          "default": "Accounts by Tier"
+        },
+        "tierA": {
+          "type": "string",
+          "description": "Tier A legend detail (e.g., 'active pursuit').",
+          "default": "active pursuit"
+        },
+        "tierB": {
+          "type": "string",
+          "description": "Tier B legend detail (e.g., 'nurture').",
+          "default": "nurture"
+        },
+        "tierC": {
+          "type": "string",
+          "description": "Tier C legend detail (e.g., 'monitor').",
+          "default": "monitor"
+        }
+      }
     },
-    "heatmapXLabels": {
-      "description": "Heatmap X-axis labels (engagement bands), low→high. Keep each ≤12 chars, one or two short words — column headers sit in narrow equal-width columns and do NOT truncate, so long labels overrun into the neighboring header. Abbreviate (e.g. 'Low engage', 'High engage').",
-      "type": "array",
-      "items": {
-        "type": "string",
-        "maxLength": 12
+    "tierBar": {
+      "type": "object",
+      "description": "OPTIONAL card 'ACCOUNTS BY TIER': segmented proportion bar showing tier distribution (A/B/C counts). Always populate with nested objects for each tier.",
+      "properties": {
+        "tierA": {
+          "type": "object",
+          "description": "Tier A segment data.",
+          "properties": {
+            "value": {"type": "number", "description": "Tier A count (e.g., 5)."},
+            "label": {"type": "string", "description": "Display label (e.g., 'Tier A - 5')."}
+          },
+          "required": ["value", "label"]
+        },
+        "tierB": {
+          "type": "object",
+          "description": "Tier B segment data.",
+          "properties": {
+            "value": {"type": "number", "description": "Tier B count (e.g., 6)."},
+            "label": {"type": "string", "description": "Display label (e.g., 'Tier B - 6')."}
+          },
+          "required": ["value", "label"]
+        },
+        "tierC": {
+          "type": "object",
+          "description": "Tier C segment data.",
+          "properties": {
+            "value": {"type": "number", "description": "Tier C count (e.g., 1)."},
+            "label": {"type": "string", "description": "Display label (e.g., 'Tier C - 1')."}
+          },
+          "required": ["value", "label"]
+        }
       },
-      "example": [
-        "Low engage",
-        "Mid engage",
-        "High engage"
-      ]
+      "required": ["tierA", "tierB", "tierC"]
     },
-    "heatmapYLabels": {
-      "description": "Heatmap Y-axis labels (ICP-fit bands), high→low. Keep each ≤16 chars; long labels widen the row-label gutter and squeeze the grid.",
+    "accounts": {
       "type": "array",
-      "items": {
-        "type": "string",
-        "maxLength": 16
-      },
-      "example": [
-        "High fit",
-        "Mid fit",
-        "Low fit"
-      ]
-    },
-    "heatmapDomain": {
-      "description": "Color-scale domain as [min, max] — the value range the heatmap colors span.",
-      "type": "array",
-      "items": {
-        "type": "number"
-      },
-      "example": [
-        0,
-        8
-      ]
-    },
-    "heatmapCells": {
-      "description": "One entry per occupied fit×engagement quadrant; drives the heatmap coloring. Omit empty quadrants.",
-      "type": "array",
+      "description": "OPTIONAL card 'ACCOUNTS'. One row per account, showing Tier, Account name, ICP Fit, Engagement %, ARR, Whitespace, and Motion. Include ONLY when the prompt calls for a detailed account breakdown. Omit the key otherwise; never an empty array.",
       "items": {
         "type": "object",
         "properties": {
-          "x": {
-            "description": "Engagement-band label (matches an entry in heatmapXLabels).",
-            "type": "string"
+          "tier": {
+            "type": "object",
+            "description": "Tier badge (A/B/C) with semantic variant.",
+            "properties": {
+              "value": {
+                "type": "string",
+                "description": "Tier letter: A, B, or C."
+              },
+              "badgeVariant": {
+                "type": "string",
+                "description": "Badge variant: 'success' (green, Tier A), 'info' (blue, Tier B), or 'neutral' (gray, Tier C).",
+                "enum": ["success", "info", "neutral"]
+              }
+            },
+            "required": ["value", "badgeVariant"]
           },
-          "y": {
-            "description": "ICP-fit-band label (matches an entry in heatmapYLabels).",
-            "type": "string"
+          "account": {
+            "type": "string",
+            "description": "Account name (display-ready)."
           },
-          "value": {
-            "description": "Account count in this quadrant — drives the cell color.",
-            "type": "number"
+          "icpFit": {
+            "type": "number",
+            "description": "ICP fit score (0-10 scale, display as integer)."
           },
-          "valueLabel": {
-            "description": "Optional display label for the cell (e.g. \"6 · Tier A\").",
-            "type": "string"
+          "engagement": {
+            "type": "string",
+            "description": "Engagement percentage derived from 0-10 score (display-ready, e.g., '60%'). Calculated as (score/10)*100%."
+          },
+          "arr": {
+            "type": "string",
+            "description": "Annual recurring revenue - sum of closed-won opportunity amounts from last 12 months (display-ready currency, e.g., '$75K', '$0' if none)."
+          },
+          "whitespace": {
+            "type": "string",
+            "description": "Whitespace / expansion opportunity - sum of open opportunity amounts (display-ready currency, e.g., '$640K', '$0' if none)."
+          },
+          "motion": {
+            "type": "string",
+            "description": "Recommended sales motion (e.g., 'Active pursuit', 'Nurture', 'Monitor')."
           }
+        },
+        "required": ["tier", "account", "icpFit", "engagement", "arr", "whitespace", "motion"]
+      }
+    },
+    "nextStep": {
+      "type": "object",
+      "description": "OPTIONAL next-step recommendation. Include when there's a suggested move or follow-up action.",
+      "properties": {
+        "lead": {
+          "type": "string",
+          "description": "Optional bold lead-in (e.g., 'Put this week's energy into the 4 Tier A accounts.'). Omit when the recommendation has no bold lead."
+        },
+        "text": {
+          "type": "string",
+          "description": "Main recommendation text. Ends with a follow-up question to hand the turn back to the user."
         }
       },
-      "example": [
-        {
-          "x": "High engage",
-          "y": "High fit",
-          "value": 6,
-          "valueLabel": "6 · Tier A"
-        },
-        {
-          "x": "Mid engage",
-          "y": "High fit",
-          "value": 4
-        },
-        {
-          "x": "Low engage",
-          "y": "High fit",
-          "value": 3
-        },
-        {
-          "x": "High engage",
-          "y": "Mid fit",
-          "value": 5
-        },
-        {
-          "x": "Mid engage",
-          "y": "Mid fit",
-          "value": 7
-        },
-        {
-          "x": "Low engage",
-          "y": "Mid fit",
-          "value": 2
-        },
-        {
-          "x": "Mid engage",
-          "y": "Low fit",
-          "value": 3
-        },
-        {
-          "x": "Low engage",
-          "y": "Low fit",
-          "value": 8
-        }
-      ]
+      "required": ["text"]
     },
-    "piechartCaption": {
-      "description": "Caption above the book-by-tier pie chart.",
-      "type": "string",
-      "example": "Book by tier"
-    },
-    "piechartCenterLabel": {
-      "description": "Pie center label — what the total counts (e.g. \"Accounts\").",
-      "type": "string",
-      "example": "Accounts"
-    },
-    "piechartCenterValue": {
-      "description": "Pie center value — the total (e.g. \"40\").",
-      "type": "string",
-      "example": "40"
-    },
-    "piechartSlices": {
-      "description": "One slice per tier — the book split by tier. Empty → the pie is omitted.",
+    "sources": {
       "type": "array",
+      "description": "Source citations — where the answer came from (Account records, list views). Required.",
       "items": {
         "type": "object",
         "properties": {
           "label": {
-            "description": "Tier name (e.g. \"Tier A\").",
-            "type": "string"
-          },
-          "value": {
-            "description": "Account count in this tier.",
-            "type": "number"
-          },
-          "role": {
-            "description": "Optional emphasis; set \"highlight\" on the Tier A slice.",
             "type": "string",
-            "enum": [
-              "normal",
-              "highlight"
-            ]
-          }
-        }
-      },
-      "example": [
-        {
-          "label": "Tier A",
-          "value": 6,
-          "role": "highlight"
-        },
-        {
-          "label": "Tier B",
-          "value": 14
-        },
-        {
-          "label": "Tier C",
-          "value": 20
-        }
-      ]
-    },
-    "datagridCaption": {
-      "description": "Caption above the Tier A accounts datagrid.",
-      "type": "string",
-      "example": "Tier A — invest: named plan, exec alignment, quarterly on-site"
-    },
-    "datagridRows": {
-      "description": "Tier A accounts to invest in — one row per account, highest fit/engagement first. Empty → the datagrid is omitted.",
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "account": {
-            "description": "Account name.",
-            "type": "string"
+            "description": "Citation label (e.g., 'Account: Cedarline Financial')."
           },
-          "fit": {
-            "description": "ICP fit score, 1–5.",
-            "type": "number"
-          },
-          "engage": {
-            "description": "Engagement score, 0–100.",
-            "type": "number"
-          },
-          "arr": {
-            "description": "Current ARR, in dollars.",
-            "type": "number"
-          },
-          "white": {
-            "description": "Whitespace / expansion opportunity, in dollars.",
-            "type": "number"
-          },
-          "motion": {
-            "description": "Recommended sales motion badge.",
-            "type": "object",
-            "properties": {
-              "value": {
-                "description": "Motion label (e.g. \"Expand\" / \"Deepen\").",
-                "type": "string"
-              },
-              "badgeVariant": {
-                "description": "Badge color: success / info / warning / error.",
-                "type": "string",
-                "enum": [
-                  "neutral",
-                  "primary",
-                  "secondary",
-                  "outline",
-                  "success",
-                  "info",
-                  "warning",
-                  "error"
-                ]
-              }
-            }
-          }
-        }
-      },
-      "example": [
-        {
-          "account": "Meridian Health",
-          "fit": 5,
-          "engage": 92,
-          "arr": 1200000,
-          "white": 800000,
-          "motion": {
-            "value": "Expand",
-            "badgeVariant": "success"
+          "url": {
+            "type": "string",
+            "description": "Optional link to the record or list view."
           }
         },
-        {
-          "account": "Pier 9 Retail",
-          "fit": 5,
-          "engage": 78,
-          "arr": 700000,
-          "white": 500000,
-          "motion": {
-            "value": "Expand",
-            "badgeVariant": "success"
-          }
-        },
-        {
-          "account": "Alto Financial",
-          "fit": 4,
-          "engage": 61,
-          "arr": 400000,
-          "white": 900000,
-          "motion": {
-            "value": "Deepen",
-            "badgeVariant": "info"
-          }
-        },
-        {
-          "account": "Northwind Log.",
-          "fit": 4,
-          "engage": 55,
-          "arr": 350000,
-          "white": 600000,
-          "motion": {
-            "value": "Deepen",
-            "badgeVariant": "info"
-          }
-        }
-      ]
-    },
-    "calloutTitle": {
-      "description": "Synthesis callout heading — the single biggest coverage gap or opportunity.",
-      "type": "string",
-      "example": "Coverage gap"
-    },
-    "calloutDescription": {
-      "description": "Synthesis callout body — the gap and the recommended move.",
-      "type": "string",
-      "example": "3 high-fit accounts sit in the low-engagement column with no active opportunity — the fastest path to Tier A. Book an exec intro on each before quarter end."
-    },
-    "primaryButtonLabel": {
-      "description": "Primary button label (action/sendMessage).",
-      "type": "string",
-      "example": "Draft exec intro plan"
-    },
-    "primaryButtonMsg": {
-      "description": "First-person prompt the primary button sends (action/sendMessage).",
-      "type": "string",
-      "example": "Draft an exec intro plan for the 3 high-fit, low-engagement accounts to move them to Tier A. Focus on booking exec intros before quarter end."
-    },
-    "salesforceUrl": {
-      "description": "Account list-view Lightning URL for the \"View in Salesforce\" link.",
-      "type": "string",
-      "example": "https://org.lightning.force.com/lightning/o/Account/list?filterName=Recent"
-    }
-  }
-}
-```
-```json
-{
-  "renderer": {
-    "componentOverrides": {
-      "$": {
-        "type": "mosaic",
-        "definition": "tile/widget",
-        "children": [
-          {
-            "definition": "tile/row",
-            "attributes": {
-              "gap": "sm",
-              "align": "center",
-              "isWrapped": false
-            },
-            "children": [
-              {
-                "definition": "tile/icon",
-                "attributes": {
-                  "name": "layers",
-                  "size": "xl",
-                  "alt": ""
-                }
-              },
-              {
-                "definition": "tile/text",
-                "attributes": {
-                  "text": "{{title}}",
-                  "variant": "h1"
-                }
-              }
-            ]
-          },
-          {
-            "definition": "tile/text",
-            "attributes": {
-              "text": "{{subtitle}}",
-              "variant": "caption",
-              "color": "muted"
-            }
-          },
-          {
-            "definition": "tile/separator"
-          },
-          {
-            "definition": "tile/row",
-            "attributes": {
-              "gap": "lg",
-              "align": "stretch",
-              "isWrapped": false
-            },
-            "children": [
-              {
-                "definition": "tile/column",
-                "attributes": {
-                  "width": "stretch"
-                },
-                "children": [
-                  {
-                    "definition": "tile/heatmap",
-                    "attributes": {
-                      "layout": "matrix",
-                      "caption": "{{heatmapCaption}}",
-                      "xLabels": "{{heatmapXLabels}}",
-                      "yLabels": "{{heatmapYLabels}}",
-                      "encode": "color",
-                      "scale": "sequential",
-                      "valueFormat": "number",
-                      "domain": "{{heatmapDomain}}",
-                      "cells": "{{heatmapCells}}"
-                    }
-                  }
-                ]
-              },
-              {
-                "definition": "tile/column",
-                "attributes": {
-                  "width": "stretch"
-                },
-                "children": [
-                  {
-                    "definition": "tile/piechart",
-                    "attributes": {
-                      "caption": "{{piechartCaption}}",
-                      "variant": "donut",
-                      "valueFormat": "number",
-                      "centerLabel": "{{piechartCenterLabel}}",
-                      "centerValue": "{{piechartCenterValue}}",
-                      "slices": "{{piechartSlices}}"
-                    }
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "definition": "tile/datagrid",
-            "attributes": {
-              "caption": "{{datagridCaption}}",
-              "appearance": "striped",
-              "size": "sm",
-              "defaultSort": {
-                "key": "fit",
-                "direction": "desc"
-              },
-              "columns": [
-                {
-                  "key": "account",
-                  "header": "Account",
-                  "type": "text"
-                },
-                {
-                  "key": "fit",
-                  "header": "ICP fit",
-                  "type": "number",
-                  "align": "right",
-                  "sortable": true
-                },
-                {
-                  "key": "engage",
-                  "header": "Engagement",
-                  "type": "databar",
-                  "target": 100
-                },
-                {
-                  "key": "arr",
-                  "header": "ARR",
-                  "type": "currency",
-                  "align": "right",
-                  "sortable": true
-                },
-                {
-                  "key": "white",
-                  "header": "Whitespace",
-                  "type": "currency",
-                  "align": "right"
-                },
-                {
-                  "key": "motion",
-                  "header": "Motion",
-                  "type": "badge"
-                }
-              ],
-              "rows": "{{datagridRows}}"
-            }
-          },
-          {
-            "definition": "tile/callout",
-            "attributes": {
-              "variant": "recommended",
-              "title": "{{calloutTitle}}",
-              "description": "{{calloutDescription}}"
-            },
-            "children": [
-              {
-                "definition": "tile/row",
-                "attributes": {
-                  "gap": "sm",
-                  "align": "center",
-                  "isWrapped": true
-                },
-                "children": [
-                  {
-                    "definition": "tile/button",
-                    "attributes": {
-                      "label": "{{primaryButtonLabel}}",
-                      "variant": "primary",
-                      "actions": {
-                        "click": [
-                          {
-                            "definition": "action/sendMessage",
-                            "attributes": {
-                              "content": "{{primaryButtonMsg}}"
-                            }
-                          }
-                        ]
-                      }
-                    }
-                  },
-                  {
-                    "definition": "tile/button",
-                    "attributes": {
-                      "label": "View in Salesforce",
-                      "iconName": "open-in-new",
-                      "variant": "secondary",
-                      "actions": {
-                        "click": [
-                          {
-                            "definition": "action/openLink",
-                            "attributes": {
-                              "url": "{{salesforceUrl}}"
-                            }
-                          }
-                        ]
-                      }
-                    }
-                  }
-                ]
-              }
-            ]
-          }
-        ]
+        "required": ["label"]
       }
     }
-  }
+  },
+  "required": ["title", "answer", "sources"],
+  "additionalProperties": false
+}
+```
+
+### Scope the blocks to the prompt
+
+The schema marks only `title`, `answer` and `sources` as required. **Both `tierBar` and `accounts` are optional** — include tierBar for multi-account tier distribution, include accounts datagrid when the prompt asks for details, omit both for single-account queries.
+
+| The prompt is… | Send |
+|---|---|
+| Broad ("Tier my accounts", "How should I prioritize my book?") | `title` + `answer` + `tierBar` + `accounts` (full breakdown) + `nextStep` (if actionable) + `sources` |
+| Summary-level ("Just the tier counts", "How many Tier A accounts?") | `title` + `answer` + `tierBar` + `sources` (omit `accounts` datagrid) |
+| Specific account inquiry ("Which tier is Acme in?") | `title` + `answer` + `sources` (omit both `tierBar` and `accounts` if answering about one account) |
+
+### What to send
+
+Rules:
+- **Omit a key and its block is not shown.** Never send empty arrays, empty strings or placeholders. Drop `accounts` or `nextStep` when you have no data for them.
+- **Scope reading and output to the prompt.** Steps 1–5 still tier the full book, but a summary-prompt outputs counts only; a specific-account prompt returns that account's tier.
+- **Display-ready strings:** Format percentages as "60%", currency as "$75K", tier letters as "A"/"B"/"C" with matching `badgeVariant`.
+- **Tier badges:** Every account row's `tier` field must be an object with `value` (the letter) and `badgeVariant` (`"success"` for A, `"info"` for B, `"neutral"` for C).
+- **Account names** are plain text, never Markdown links. Clickable account URLs go in `sources`.
+- **Source URLs:** Construct Salesforce record URLs as `https://{orgMyDomain}/lightning/r/{SObjectType}/{Id}/view` (e.g., `https://example.my.salesforce.com/lightning/r/Account/001xx000003DHhfAAG/view`). Omit the `url` field when the record ID is unknown.
+- **Language:** omit `labels` for English. For any other response language, translate all `labels` values (tierBar segment labels like tierA/tierB/tierC detail strings, column headers, sources toggle) and keep tier badge letters (A/B/C) and account names unchanged.
+- **Before calling:** no `{!…}` or `{{…}}` anywhere in `data`, and no keys outside the schema.
+
+#### Worked examples (the `data` object only)
+
+**Broad — "Tier my accounts."** (includes accounts datagrid; trimmed):
+
+```json
+{
+  "title": "Your 10 accounts are sorted into 4 Tier A, 4 Tier B, and 2 Tier C — so you can pour your time into the 4 worth pursuing now.",
+  "answer": "- Your book of 10 accounts breaks down: **4 Tier A** (active pursuit), **4 Tier B** (nurture), and **2 Tier C** (monitor).\n- Tiers are set by **Ideal Customer Profile (ICP) fit**, **engagement**, **annual recurring revenue (ARR)**, and **whitespace** — not a single score.\n- Tier A accounts score high on ICP fit and carry the most open whitespace, so each warrants active pursuit this quarter.\n- Tier B are a fit but earlier or quieter — worth nurturing. Tier C are lower fit or engagement; monitor them and revisit if a signal changes.",
+  "tierBar": {
+    "tierA": { "value": 4, "label": "Tier A - 4" },
+    "tierB": { "value": 4, "label": "Tier B - 4" },
+    "tierC": { "value": 2, "label": "Tier C - 2" }
+  },
+  "accounts": [
+    { "tier": { "value": "A", "badgeVariant": "success" }, "account": "Cedarline Financial", "icpFit": 4, "engagement": "60%", "arr": "$75K", "whitespace": "$640K", "motion": "Active pursuit" }
+  ],
+  "nextStep": {
+    "lead": "Put this week's energy into the 4 Tier A accounts.",
+    "text": "Cedarline, Brightwave, Northpeak, and Summit Health score highest on fit and carry the most open whitespace — they're where active pursuit pays off now. Keep Tier B warm with light nurture, and leave Tier C on monitor until engagement or fit improves. Want me to build a pursuit plan for the 4 Tier A accounts?"
+  },
+  "sources": [
+    { "label": "Account: Cedarline Financial", "url": "https://org.lightning.force.com/..." }
+  ]
+}
+```
+
+**Summary — "How many Tier A accounts do I have?"** (omits accounts datagrid):
+
+```json
+{
+  "title": "You have 4 Tier A accounts out of 10 total — the ones worth active pursuit now.",
+  "answer": "- Your book breaks down: **4 Tier A** (active pursuit), **4 Tier B** (nurture), and **2 Tier C** (monitor).\n- Tier A accounts are high-fit, high-engagement, and carry the most whitespace — each is worth pursuing this quarter.",
+  "tierBar": {
+    "tierA": { "value": 4, "label": "Tier A - 4" },
+    "tierB": { "value": 4, "label": "Tier B - 4" },
+    "tierC": { "value": 2, "label": "Tier C - 2" }
+  },
+  "sources": [
+    { "label": "Accounts tiered from your book of 10" }
+  ]
+}
+```
+
+**Specific account — "Which tier is Cedarline Financial in?"** (omits tierBar and accounts):
+
+```json
+{
+  "title": "Cedarline Financial is Tier A — high fit and engagement, worth active pursuit.",
+  "answer": "- **Cedarline Financial** is **Tier A** (active pursuit): ICP fit 4/5, 60% engagement, $75K ARR, $640K whitespace.\n- The high ICP fit and significant whitespace make this account worth pursuing actively this quarter.",
+  "sources": [
+    { "label": "Account: Cedarline Financial", "url": "https://org.lightning.force.com/..." }
+  ]
 }
 ```
 

@@ -2770,6 +2770,12 @@
           "type": "boolean",
           "description": "Render column headers as small uppercase labels. Defaults to false."
         },
+        "headerColor": {
+          "type": "string",
+          "enum": ["muted", "ink"],
+          "default": "muted",
+          "description": "Column and status header text color, including phone card labels. muted preserves the existing appearance (default); ink opts into the design-system ink token. Does not change cell values."
+        },
         "statusHeader": {
           "type": "string",
           "description": "Header of the status column shown when rows carry _tone and _status. Defaults to \"Status\"."

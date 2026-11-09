@@ -1,6 +1,6 @@
 ---
 name: customer-health
-description: "Assess customer health from Salesforce account, renewal, case, task, and health data plus email, calendar, documents, and Slack. Use to judge risk, explain engagement or value trends, or prepare a business review; prospect meeting prep: call-prep."
+description: "Assess customer health from Salesforce account, renewal, case, task, and health data plus email, calendar, documents, and Slack, scoped to what was asked: the verdict, what is driving it, or a business-review kit. Use to judge risk, explain engagement or value trends, or prepare a business review; prospect meeting prep: call-prep."
 ---
 <!-- global-rules-bootstrap -->
 
@@ -17,10 +17,11 @@ description: "Assess customer health from Salesforce account, renewal, case, tas
 - **Use plain language.** Choose terms any reader understands on first read, with no domain knowledge or cultural context required. Avoid jargon and colloquialisms, and make labels signal what follows. Test: would a reader unfamiliar with the idiom understand the term and know what content to expect? Use "No engagement", not "went dark" or "ghosted".
 - **Reproduce Salesforce terminology exactly.** Use the field labels, object names, and stage values the data returns; do not paraphrase them. Spell out acronyms on first use unless the term is an industry framework (for example, MEDDIC).
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
-- **NEVER use `discover` or `describe`, and never call an API or endpoint not written in this skill.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
+- **ONLY use the local instructions in this skill file, ONLY call MCP tools mentioned in the skill file and NEVER call an API or endpoint not written in this skill file.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
 <!-- /global-rules-bootstrap -->
 # Rules:
 
+- **Scope reading and output to the prompt, never a default full health report.** A broad ask ("run a health check", "what's driving the score") shows the overall read and every category signal; "why did engagement drop?" shows only the matching signal rows; "is X healthy?" gets the verdict and the reason. Think in lego blocks: a broad ask shows every block that carries real signal; a specific ask shows only the block(s) it names; a direct question gets no blocks. Don't show something just because you fetched it.
 - Resolve to ONE account before the deep read. When the name is ambiguous, ask the user to pick — don't probe candidates or guess.
 
 # Customer Health
@@ -89,517 +90,259 @@ When the data is assembled, call `display_widget`; a single one-line "Displaying
 
 - [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 
-The widget template is embedded below — resolve its tokens and call `display_widget({ resourceType: "dynamic", widgetDefinition: <hydrated> })` once (see the `widgetDefinition` param for token-resolution rules).
+The layout is built into the renderer and registered by name — you send **only the widget name and its data**. Call `display_widget` once:
 
-Two blocks below: first the **variable contract** (`renderer.props.schema.json`) — every `{{token}}`'s type + a worked example, use it to compute each value; then the **widget template** to hydrate. Substitute your computed values into the template's `{{token}}`s (see the token-typing rules above), leaving no `{{…}}`/`{!…}`.
+```
+display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "customer-health", data: <object matching the schema below>, renderer: { body: [] } } })
+```
+
+- `renderer: { body: [] }` is a required placeholder — send it exactly as written; the renderer fills it in.
+- **CRITICAL — `widgetDefinition` and `data` must be nested JSON objects, NOT strings.** ❌ WRONG: `widgetDefinition: "{\"widget\":...}"`. ✅ RIGHT: `widgetDefinition: {"widget": "customer-health", "data": {...}, "renderer": {"body": []}}`. If you hold a JSON string, `JSON.parse` it first.
+- When `display_widget` is available the widget is the output; produce the section 5 text only as the fallback when the tool is unavailable (e.g. a terminal).
+
+### What to send
+
+Follow the block order and the per-block inclusion rules in the `data` schema below (the root description and each property's `description`).
+
+Rules:
+- **Language:** when the user writes in English, omit `labels`. When they write in another language, send `labels` with EVERY key translated (headings and column headers in upper case) and write every free-text field (`overall`, `signals`, `nextStep`, ...) in that language. Never join translated text with English fragments: each phrase is written whole, because word order differs.
+- **Send data only; never author presentation** (colours, pills, icons, HTML, emoji, layout keys, `{!…}`/`{{…}}`): the renderer owns the look and shows or hides each block from the keys you send. `overall.status` picks the status word and its colour, and a signal's `trend` picks its rail, arrow and colour — never put colour words in the text. Keys outside the schema are rejected, and every optional key you include must be justified by the prompt.
+- **Rate the account on one scale: `overall.status` is `healthy`, `moderate` or `unhealthy`.** It says how the account is doing, nothing else: not what to do (that is `nextStep`) and not how urgent it is. Judge it from the step 3 dimensions you could support, weighing the ones that matter most for this account:
+  - `unhealthy` when they are mostly poor, e.g. no active champion, a high-priority case sitting open, deals past their close dates, a renewal close with no recent activity.
+  - `healthy` when they are mostly good and none is clearly poor.
+  - `moderate` when they are mixed, or when too little is visible from CRM to call it either way.
+  Base the rating only on what you read: do not make up a number to justify it. Use the same word in the `title` (e.g. "Cedarline is unhealthy – …"), never "at risk", "critical" or "watch".
+- **Signals come from the step 3 scoring,** one row per dimension you could actually support, falling first. A dimension that is not visible from CRM is stated as such in its `text`, never guessed. Never invent a score, a cohort median or a point change: use only numbers present in a synced CRM field or a cited document, otherwise describe the trend in words.
+
+### Scope the blocks to the prompt
+
+The schema marks only `title`, `answer` and `sources` as required. **Every other key is a choice, and the choice follows the question — not what you happened to retrieve.** Data you fetched but did not use stays out of the widget.
+
+| The prompt is… | Send |
+|---|---|
+| **Broad** ("run a health check on X", "how healthy is X, and why?", "what's driving the score?", QBR prep) | `title` (the verdict with the score or status) + `answer` + `overall` + `signals` + `nextStep` if there is a clear move + `sources`; for a QBR, offer the meeting kit (section 5) as a follow-up |
+| **Specific: the overall read** ("what's the overall health?", "give me the verdict") | `title` + `answer` + **only** `overall` + `sources` |
+| **Specific: the drivers** ("why did engagement drop?", "who is our champion at X?", "any open cases?", "what's hurting renewal?") | `title` + `answer` + **only** the `signals` rows that bear on it (no `overall`) + `sources` |
+| **Specific: what to do** ("what should I do about X's health?") | `title` + `answer` + `nextStep` + `sources`; add the one or two `signals` rows that justify it |
+| **Direct question** ("is X healthy?", "is X at risk?") | `title` + `answer` + `sources`. No cards |
+
+#### Worked examples (the `data` object only)
+
+**Health check — "How healthy is Cedarline?"** (overall read, category signals, a plain next step):
+
 ```json
 {
-  "$comment": "Variable contract for the native-mosaic dynamic-mode template (renderer.json, sibling). This is NOT a separate display_widget call — it names every {{token}} in the template with its type and a worked example so you compute the right value for each. Workflow: build a props object with these keys, substitute each into the matching {{token}} in renderer.json (a slot that is only a {{token}} becomes the typed value — arrays stay arrays, numbers stay numbers; a {{token}} inside a larger string interpolates as text; a key you have no data for is omitted so that leaf drops), then call display_widget({ resourceType: 'dynamic', widgetDefinition: <the hydrated template> }) once with no {{…}}/{!…} left. Realistic values: sample-data.json (sibling). Authoring guidance (from the skill): `headerTitle headerStatus` (header — account name; `headerStatus` is a plain string badge label e.g. \"AT RISK\" / \"HEALTHY\" / \"NEEDS ATTENTION\" — not a variant, the renderer maps the label to a variant automatically) `headerSubtitle` (subtitle with ARR · renewal days · health score+trend) · `chartCaption chartCategories chartSeries` (line chart — weekly engagement/usage trend over 6 weeks from evidence; omit the chart entirely if no cadence signal was gathered) · `meterValue meterTarget meterValueLabel meterTargetLabel meterStatus meterBands` (composite health meter 0–100, bands array with from/to/variant/label covering the full range) · `gridCaption gridRows` (health signals datagrid — `gridRows` is an array, one per Step 3 dimension: `{signal, now (plain string — always a formatted string, never a raw number; use context-appropriate formatting e.g. \"322\", \"18 open\", \"0 / 90d\", \"5 of 12\"), trend(number[6]), note, status:{value,badgeVariant} (value plain string e.g. \"Declining\", \"Rising\", \"Cold\", \"Stalled\", \"Softening\", badgeVariant error/warning on 🔴/🟡)}`; the leading Status column reads each row's `status`) · `calloutTitle calloutDescription ctaPrimaryLabel ctaPrimaryMsg accountUrl` (synthesis callout with two buttons — primary is action/sendMessage with first-person prompt, secondary is action/openLink to the account Lightning URL). Omit any block whose data you lack rather than passing empty arrays.",
-  "props": {
-    "headerTitle": {
-      "description": "Header title — the account name.",
-      "type": "string",
-      "example": "Account health — Meridian Health"
-    },
-    "headerStatus": {
-      "description": "Header status badge label, a plain string (e.g. \"AT RISK\" / \"HEALTHY\" / \"NEEDS ATTENTION\") — the renderer maps the label to a color; do not pass a variant.",
-      "type": "string",
-      "example": "AT RISK"
-    },
-    "headerSubtitle": {
-      "description": "Subtitle: ARR · days to renewal · health score + trend.",
-      "type": "string",
-      "example": "$1.2M ARR · renews in 78 days · health 62, down 11 pts this quarter"
-    },
-    "chartCaption": {
-      "description": "Caption for the weekly engagement/usage trend line chart.",
-      "type": "string",
-      "example": "Weekly active users — 6-week slide from 410 to 322"
-    },
-    "chartCategories": {
-      "description": "Week labels for the trend chart's x-axis (6 weeks), as strings.",
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "example": [
-        "Wk 1",
-        "Wk 2",
-        "Wk 3",
-        "Wk 4",
-        "Wk 5",
-        "Wk 6"
-      ]
-    },
-    "chartSeries": {
-      "description": "Trend series — one object {name, data}. Omit the whole chart if no cadence signal was gathered.",
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "description": "Series name.",
-            "type": "string"
-          },
-          "data": {
-            "description": "Weekly values — a number array matching chartCategories order.",
-            "type": "array",
-            "items": {
-              "type": "number"
-            }
-          }
-        }
-      },
-      "example": [
-        {
-          "name": "Weekly active users",
-          "data": [
-            410,
-            398,
-            375,
-            360,
-            341,
-            322
-          ]
-        }
-      ]
-    },
-    "meterValue": {
-      "description": "Composite health score, 0–100 — the meter's current value.",
-      "type": "number",
-      "example": 62
-    },
-    "meterTarget": {
-      "description": "Health target on the meter.",
-      "type": "number",
-      "example": 75
-    },
-    "meterValueLabel": {
-      "description": "Display string for the health score.",
-      "type": "string",
-      "example": "62 / 100"
-    },
-    "meterTargetLabel": {
-      "description": "Display string for the target.",
-      "type": "string",
-      "example": "75 healthy"
-    },
-    "meterStatus": {
-      "description": "Short health read shown on the meter.",
-      "type": "string",
-      "example": "at risk"
-    },
-    "meterBands": {
-      "description": "Color bands for the health meter, in order covering 0→100.",
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "from": {
-            "description": "Band start value.",
-            "type": "number"
-          },
-          "to": {
-            "description": "Band end value.",
-            "type": "number"
-          },
-          "variant": {
-            "description": "Band color.",
-            "type": "string",
-            "enum": [
-              "error",
-              "warning",
-              "success"
-            ]
-          },
-          "label": {
-            "description": "Short band label.",
-            "type": "string"
-          }
-        }
-      },
-      "example": [
-        {
-          "from": 0,
-          "to": 50,
-          "variant": "error",
-          "label": "Critical"
-        },
-        {
-          "from": 50,
-          "to": 75,
-          "variant": "warning",
-          "label": "At risk"
-        },
-        {
-          "from": 75,
-          "to": 100,
-          "variant": "success",
-          "label": "Healthy"
-        }
-      ]
-    },
-    "gridCaption": {
-      "description": "Caption for the health-signals datagrid.",
-      "type": "string",
-      "example": "Health signals, worst first — trend is last 6 weeks"
-    },
-    "gridRows": {
-      "description": "Health signals — one row per Step 3 dimension. Empty array → the datagrid is omitted.",
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "description": "Leading Status badge cell; omit on normal rows.",
-            "type": "object",
-            "properties": {
-              "value": {
-                "description": "Status label.",
-                "type": "string"
-              },
-              "badgeVariant": {
-                "description": "Badge color.",
-                "type": "string",
-                "enum": [
-                  "neutral",
-                  "primary",
-                  "secondary",
-                  "outline",
-                  "success",
-                  "info",
-                  "warning",
-                  "error"
-                ]
-              }
-            }
-          },
-          "signal": {
-            "description": "Signal / dimension name.",
-            "type": "string"
-          },
-          "now": {
-            "description": "Current value as a formatted string, never a raw number (e.g. \"322\", \"18 open\", \"0 / 90d\", \"5 of 12\").",
-            "type": "string"
-          },
-          "trend": {
-            "description": "Sparkline values — a 6-number array.",
-            "type": "array",
-            "items": {
-              "type": "number"
-            }
-          },
-          "note": {
-            "description": "Short evidence note for the signal.",
-            "type": "string"
-          }
-        }
-      },
-      "example": [
-        {
-          "status": {
-            "value": "Declining",
-            "badgeVariant": "error"
-          },
-          "signal": "Weekly active users",
-          "now": "322",
-          "trend": [
-            410,
-            398,
-            375,
-            360,
-            341,
-            322
-          ],
-          "note": "Down 21% — champion left in wk 3"
-        },
-        {
-          "status": {
-            "value": "Rising",
-            "badgeVariant": "error"
-          },
-          "signal": "Support tickets",
-          "now": "18 open",
-          "trend": [
-            4,
-            6,
-            9,
-            12,
-            15,
-            18
-          ],
-          "note": "3 escalated, 2 past SLA"
-        },
-        {
-          "status": {
-            "value": "Cold",
-            "badgeVariant": "warning"
-          },
-          "signal": "Exec sponsor touches",
-          "now": "0 / 90d",
-          "trend": [
-            2,
-            1,
-            1,
-            0,
-            0,
-            0
-          ],
-          "note": "No exec contact since March"
-        },
-        {
-          "status": {
-            "value": "Stalled",
-            "badgeVariant": "warning"
-          },
-          "signal": "Feature adoption",
-          "now": "5 of 12",
-          "trend": [
-            5,
-            5,
-            5,
-            5,
-            5,
-            5
-          ],
-          "note": "Flat — never onboarded to analytics"
-        },
-        {
-          "status": {
-            "value": "Softening",
-            "badgeVariant": "warning"
-          },
-          "signal": "NPS (last survey)",
-          "now": "42",
-          "trend": [
-            58,
-            58,
-            51,
-            51,
-            42,
-            42
-          ],
-          "note": "Slipped from promoter to passive"
-        }
-      ]
-    },
-    "calloutTitle": {
-      "description": "Synthesis callout heading — the single most important health read.",
-      "type": "string",
-      "example": "Renewal is at risk — act this month"
-    },
-    "calloutDescription": {
-      "description": "Synthesis callout body — the read and the recommended move.",
-      "type": "string",
-      "example": "Usage is down 21%, the champion left in week 3, and there's been no exec touch in 90 days with the renewal 78 days out. Book an exec business review and a re-onboarding on analytics before the quota clock runs down."
-    },
-    "ctaPrimaryLabel": {
-      "description": "Primary button label (action/sendMessage).",
-      "type": "string",
-      "example": "Draft exec business review"
-    },
-    "ctaPrimaryMsg": {
-      "description": "First-person prompt the primary button sends (action/sendMessage).",
-      "type": "string",
-      "example": "Draft an exec business review agenda for Meridian Health focused on resetting the relationship and addressing the 21% usage decline before renewal."
-    },
-    "accountUrl": {
-      "description": "Account Lightning URL for the secondary \"View in Salesforce\" button (action/openLink).",
-      "type": "string",
-      "example": "https://org.lightning.force.com/lightning/r/Account/001AX000004pQ2rYAE/view"
-    }
-  }
+  "title": "Cedarline is unhealthy – health fell to 26/100 the week we lost the champion.",
+  "answer": "- Overall health is **26 out of 100** against a cohort median of **68**.\n- Engagement held until **Jul 12**, then dropped the week **Robert Nkemelu** reorged out.\n- Support is steady, so this is a **sponsor loss, not a satisfaction problem**.",
+  "overall": { "intro": "Cedarline's overall health is", "status": "unhealthy", "text": "**Well below the cohort** – the drop lines up with the week the champion reorged out. **2 signal categories are falling**; support is steady." },
+  "signals": [
+    { "trend": "falling", "category": "Relationship", "text": "**No champion:** Robert Nkemelu reorged out in July; new CFO Priya Anand not yet engaged.", "buttonLabel": "Draft a re-sponsor plan", "actionMsg": "Draft a re-sponsor plan for Cedarline that names a new champion in Priya Anand's org." },
+    { "trend": "falling", "category": "Engagement", "text": "**0 tasks in 90 days:** 40+ days inactive before the Aug 17 call.", "buttonLabel": "Log a re-engagement task", "actionMsg": "Log a re-engagement task on the Cedarline account." },
+    { "trend": "steady", "category": "Support", "text": "**0 open cases:** clean, but no natural touchpoints to re-engage on." }
+  ],
+  "nextStep": { "lead": "This is a sponsor loss, not a satisfaction issue.", "text": "The fix is re-sponsoring at the CFO level. Want me to build a re-sponsor plan?" },
+  "sources": [{ "label": "Account – Cedarline Financial" }, { "label": "Call – Aug 17" }]
 }
 ```
+
+**Specific — "Any open cases at Joja?"** (no cards):
+
 ```json
 {
-  "renderer": {
-    "componentOverrides": {
-      "$": {
-        "type": "mosaic",
-        "definition": "tile/widget",
-        "children": [
-          {
-            "definition": "tile/row",
-            "attributes": {
-              "gap": "sm",
-              "align": "center",
-              "justify": "between",
-              "isWrapped": true
-            },
-            "children": [
-              {
-                "definition": "tile/row",
-                "attributes": {
-                  "gap": "sm",
-                  "align": "center"
-                },
-                "children": [
-                  {
-                    "definition": "tile/icon",
-                    "attributes": {
-                      "name": "activity",
-                      "size": "xl",
-                      "alt": ""
-                    }
-                  },
-                  {
-                    "definition": "tile/text",
-                    "attributes": {
-                      "text": "{{headerTitle}}",
-                      "variant": "h1"
-                    }
-                  }
-                ]
-              },
-              {
-                "definition": "tile/badge",
-                "attributes": {
-                  "label": "{{headerStatus}}",
-                  "variant": "error"
-                }
-              }
-            ]
+  "title": "Joja has no open cases – support is clean.",
+  "answer": "- **0 open cases** in the last 90 days; the last one closed **Jun 3**.",
+  "sources": [{ "label": "Account – Joja Industries" }]
+}
+```
+
+`data` schema (JSON Schema). Only `title`, `answer` and `sources` are required; follow the root description and each property's `description`:
+
+```json
+{
+  "type": "object",
+  "description": "Block order: title, answer, then the optional cards (overall, signals), then at most one tail (nextStep), then sources. Only title, answer and sources are required. Which optional cards to include: see the scope table in the skill instructions. Omit a key and its block is not shown: never send empty arrays, empty strings, placeholders or 'N/A', and never a card the prompt did not ask for. A single-fact question (\"is Cedarline healthy?\") usually gets just title + answer + sources. Format every value as a ready-to-display string (dates as 'Jul 12'); names are plain strings, never objects (use `Contact.Name.value` / `Owner.Name.value`).",
+  "required": [
+    "title",
+    "answer",
+    "sources"
+  ],
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "REQUIRED. One bold line: the verdict on the account's health in the user's context, with the score and the one thing driving it (e.g. 'Cedarline is unhealthy – health fell to 26/100 the week we lost the champion.'). Plain text, no markdown. Never the skill name or 'Customer Health: X'."
+    },
+    "answer": {
+      "type": "string",
+      "description": "REQUIRED. Answer-first markdown bullets, rendered under the title: 2-4 short '- ' bullets, each ONE sentence, that answer ONLY what the user asked (the score vs. the cohort, when and why it moved, which categories are falling, what is steady). Put **bold** inline on the key values inside each sentence (scores, point changes, dates, names), never on a whole bullet. Do not restate every row of the signals card. No headings, tables or paragraphs."
+    },
+    "labels": {
+      "type": "object",
+      "description": "OPTIONAL. Every fixed label of the widget (card headings, column headers, status and trend words, the sources toggle); each key's `default` is its English text, and a missing or blank key falls back to it. Omit when the user writes in English; for another language follow the Language rule in SKILL.md.",
+      "properties": {
+        "overallHealth": {
+          "type": "string",
+          "default": "OVERALL HEALTH",
+          "description": "Heading of the overall-health card. English: 'OVERALL HEALTH'."
+        },
+        "accountSignals": {
+          "type": "string",
+          "default": "ACCOUNT SIGNALS",
+          "description": "Heading of the signals card. English: 'ACCOUNT SIGNALS'."
+        },
+        "trend": {
+          "type": "string",
+          "default": "TREND",
+          "description": "Signals column header. English: 'TREND'."
+        },
+        "category": {
+          "type": "string",
+          "default": "CATEGORY",
+          "description": "Signals column header. English: 'CATEGORY'."
+        },
+        "signals": {
+          "type": "string",
+          "default": "SIGNALS",
+          "description": "Signals column header. English: 'SIGNALS'."
+        },
+        "falling": {
+          "type": "string",
+          "default": "Falling",
+          "description": "Trend word for a signal with trend 'falling'. English: 'Falling'."
+        },
+        "steady": {
+          "type": "string",
+          "default": "Steady",
+          "description": "Trend word for a signal with trend 'steady'. English: 'Steady'."
+        },
+        "rising": {
+          "type": "string",
+          "default": "Rising",
+          "description": "Trend word for a signal with trend 'rising'. English: 'Rising'."
+        },
+        "unhealthy": {
+          "type": "string",
+          "default": "Unhealthy",
+          "description": "Status word for overall.status 'unhealthy'. English: 'Unhealthy'."
+        },
+        "moderate": {
+          "type": "string",
+          "default": "Moderate",
+          "description": "Status word for overall.status 'moderate'. English: 'Moderate'."
+        },
+        "healthy": {
+          "type": "string",
+          "default": "Healthy",
+          "description": "Status word for overall.status 'healthy'. English: 'Healthy'."
+        },
+        "sources": {
+          "type": "string",
+          "default": "Sources",
+          "description": "Word shown on the sources toggle; the renderer appends the count, e.g. 'Sources (3)'. Send the word only, no number. English: 'Sources'."
+        }
+      }
+    },
+    "overall": {
+      "type": "object",
+      "description": "OPTIONAL card 'OVERALL HEALTH': a lead-in line ending in the health status word (coloured by `status`) followed by one markdown paragraph. Include for a broad ask (a health check, what is driving the score, a QBR) and when the prompt asks for the overall read. Omit when the prompt asks about one specific driver or a single fact.",
+      "required": [
+        "status",
+        "text"
+      ],
+      "properties": {
+        "intro": {
+          "type": "string",
+          "description": "Plain text before the status word on the first line, written whole in the user's language (e.g. \"Cedarline's overall health is\"). Omit to show the status word alone."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "unhealthy",
+            "moderate",
+            "healthy"
+          ],
+          "description": "How the account is doing overall, on one scale: unhealthy (red), moderate (orange), healthy (green). It rates the account's state only: not what to do about it (that is `nextStep`) and not how urgent it is. unhealthy = the dimensions that matter most for this account are mostly poor; healthy = mostly good and none clearly poor; moderate = mixed, or too little is visible from CRM to call it either way. Picks the status word (from labels) and its colour. Never put the status word or a colour word in `intro` or `text`."
+        },
+        "text": {
+          "type": "string",
+          "description": "Markdown that continues the same paragraph after the status word (shown as '<intro> <status>. <text>'), so start it with a capital letter and do not repeat the status (e.g. '**Well below the cohort** – the sharp drop lines up with the week the champion reorged out in July. **4 signal categories are falling** across ...'). **Bold** on the key phrases; one short paragraph."
+        }
+      }
+    },
+    "signals": {
+      "type": "array",
+      "description": "OPTIONAL card 'ACCOUNT SIGNALS': one row per health category (Relationship, Engagement, Commercial, Value delivery, Support), falling first. Include every category the data supports for a broad ask (health check, what is driving the score, QBR); for a specific driver question send only the matching rows. Omit when the prompt asks only for the overall read. Never an empty array, never invent a category.",
+      "items": {
+        "type": "object",
+        "required": [
+          "trend",
+          "category",
+          "text"
+        ],
+        "properties": {
+          "trend": {
+            "type": "string",
+            "enum": [
+              "falling",
+              "steady",
+              "rising"
+            ],
+            "description": "Direction of the category over the period. Drives the left rail, the arrow and the trend word with its colour: falling = red, steady = grey, rising = green."
           },
-          {
-            "definition": "tile/text",
-            "attributes": {
-              "text": "{{headerSubtitle}}",
-              "variant": "caption",
-              "color": "muted"
-            }
+          "category": {
+            "type": "string",
+            "description": "Bold category name in the user's language (e.g. 'Relationship', 'Engagement', 'Commercial', 'Value delivery', 'Support')."
           },
-          {
-            "definition": "tile/separator"
+          "text": {
+            "type": "string",
+            "description": "Markdown evidence, 1-2 sentences: a **bold lead** with the key fact, then the supporting detail (e.g. '**No champion:** Robert Nkemelu reorged out in July; new CFO Priya Anand not yet engaged – no response for 3 weeks.'). If a signal is not visible from CRM say so instead of guessing."
           },
-          {
-            "definition": "tile/column",
-            "attributes": {
-              "gap": "md"
-            },
-            "children": [
-              {
-                "definition": "tile/chart",
-                "attributes": {
-                  "chartType": "line",
-                  "caption": "{{chartCaption}}",
-                  "categories": "{{chartCategories}}",
-                  "series": "{{chartSeries}}",
-                  "valueFormat": "number",
-                  "showValues": false,
-                  "showLegend": false
-                }
-              },
-              {
-                "definition": "tile/meter",
-                "attributes": {
-                  "label": "Composite health",
-                  "value": "{{meterValue}}",
-                  "min": 0,
-                  "max": 100,
-                  "target": "{{meterTarget}}",
-                  "valueFormat": "number",
-                  "valueLabel": "{{meterValueLabel}}",
-                  "targetLabel": "{{meterTargetLabel}}",
-                  "status": "{{meterStatus}}",
-                  "size": "lg",
-                  "bands": "{{meterBands}}"
-                }
-              }
-            ]
+          "buttonLabel": {
+            "type": "string",
+            "description": "Label of the optional outline button under the text, an action that addresses this signal (e.g. 'Draft a re-sponsor plan'). Send only together with `actionMsg`, and only for signals worth acting on; usually not for steady ones."
           },
-          {
-            "definition": "tile/datagrid",
-            "attributes": {
-              "caption": "{{gridCaption}}",
-              "appearance": "striped",
-              "columns": [
-                {
-                  "key": "status",
-                  "header": "Status",
-                  "type": "badge"
-                },
-                {
-                  "key": "signal",
-                  "header": "Signal",
-                  "type": "text"
-                },
-                {
-                  "key": "now",
-                  "header": "Current",
-                  "type": "text",
-                  "align": "right"
-                },
-                {
-                  "key": "trend",
-                  "header": "6-wk trend",
-                  "type": "sparkline"
-                },
-                {
-                  "key": "note",
-                  "header": "Read",
-                  "type": "text"
-                }
-              ],
-              "rows": "{{gridRows}}"
-            }
-          },
-          {
-            "definition": "tile/callout",
-            "attributes": {
-              "variant": "error",
-              "title": "{{calloutTitle}}",
-              "description": "{{calloutDescription}}"
-            },
-            "children": [
-              {
-                "definition": "tile/row",
-                "attributes": {
-                  "gap": "sm",
-                  "align": "center",
-                  "isWrapped": true
-                },
-                "children": [
-                  {
-                    "definition": "tile/button",
-                    "attributes": {
-                      "label": "{{ctaPrimaryLabel}}",
-                      "variant": "primary",
-                      "actions": {
-                        "click": [
-                          {
-                            "definition": "action/sendMessage",
-                            "attributes": {
-                              "content": "{{ctaPrimaryMsg}}"
-                            }
-                          }
-                        ]
-                      }
-                    }
-                  },
-                  {
-                    "definition": "tile/button",
-                    "attributes": {
-                      "label": "View in Salesforce",
-                      "iconName": "open-in-new",
-                      "variant": "secondary",
-                      "actions": {
-                        "click": [
-                          {
-                            "definition": "action/openLink",
-                            "attributes": {
-                              "url": "{{accountUrl}}"
-                            }
-                          }
-                        ]
-                      }
-                    }
-                  }
-                ]
-              }
-            ]
+          "actionMsg": {
+            "type": "string",
+            "description": "First-person request sent to chat when the button is clicked (e.g. 'Draft a re-sponsor plan for Cedarline that names a new champion in Priya Anand's org.')."
           }
-        ]
+        }
+      }
+    },
+    "nextStep": {
+      "type": "object",
+      "description": "OPTIONAL tail: a plain suggestion paragraph with NO button, only when there is a genuinely useful next move (e.g. what the pattern means and an offer to build the plan).",
+      "required": [
+        "lead",
+        "text"
+      ],
+      "properties": {
+        "lead": {
+          "type": "string",
+          "description": "Bold lead: the diagnosis or suggested move, ending with a period (e.g. 'This is a sponsor loss, not a satisfaction issue.')."
+        },
+        "text": {
+          "type": "string",
+          "description": "One or two sentences of reasoning, ending with an offer to help if natural."
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "description": "REQUIRED. Where the health read came from: the Salesforce records you actually read, linked (this is where the Account record link goes), plus any email/call/doc you cited. Shown as a compact 'Salesforce · Sources (N)' toggle (the word comes from labels.sources).",
+      "items": {
+        "type": "object",
+        "required": [
+          "label"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "Source name (e.g. 'Account – Cedarline Financial', 'Opportunity – Cedarline Renewal', 'Call – Aug 17')."
+          },
+          "url": {
+            "type": "string",
+            "description": "Record or document URL. Omit if none."
+          }
+        }
       }
     }
   }

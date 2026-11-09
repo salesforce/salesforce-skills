@@ -1,6 +1,6 @@
 ---
 name: expansion-whitespace
-description: "Identify ranked expansion plays for one customer from Salesforce contacts, owned products and opportunities plus recent email, documents and Slack. Use to find evidence-backed whitespace, upsell paths or adjacent teams and products ready for outreach."
+description: "Answer questions about expansion whitespace, scoped to what was asked: coverage of products by account, open white space to pitch, ranked expansion plays, from Salesforce contacts, owned products and opportunities plus recent email, documents and Slack. Use to find evidence-backed whitespace, upsell paths or adjacent teams and products ready for outreach."
 ---
 <!-- global-rules-bootstrap -->
 
@@ -17,11 +17,14 @@ description: "Identify ranked expansion plays for one customer from Salesforce c
 - **Use plain language.** Choose terms any reader understands on first read, with no domain knowledge or cultural context required. Avoid jargon and colloquialisms, and make labels signal what follows. Test: would a reader unfamiliar with the idiom understand the term and know what content to expect? Use "No engagement", not "went dark" or "ghosted".
 - **Reproduce Salesforce terminology exactly.** Use the field labels, object names, and stage values the data returns; do not paraphrase them. Spell out acronyms on first use unless the term is an industry framework (for example, MEDDIC).
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
-- **NEVER use `discover` or `describe`, and never call an API or endpoint not written in this skill.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
+- **ONLY use the local instructions in this skill file, ONLY call MCP tools mentioned in the skill file and NEVER call an API or endpoint not written in this skill file.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
 <!-- /global-rules-bootstrap -->
+# Goal:
+Answer what the user asked about expansion whitespace (product coverage across their accounts, open white space to pitch, or ranked plays) in one pass. **Read only what the question needs** and present only that: a broad sweep ("where's my expansion whitespace this quarter?") reads and shows the whole book; a specific ask ("what white space does Orion Manufacturing have?", "which of my accounts own Marketing Cloud?") reads and shows only that.
 
 # Rules:
 
+- **Scope reading and output to the prompt, never a default full whitespace report.** A broad sweep reads and shows the whole book; a specific ask reads and shows only that. Skip reads the question doesn't need (each read step says which), and don't show something just because you fetched it.
 - **Expansion Whitespace text contract.** Aside from the exact required pre-widget notice, the text fallback is the only permitted prose, and it must start with `# Expansion Whitespace`.
 
 # Expansion Whitespace
@@ -53,6 +56,8 @@ dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
 
 ## 2. Ground (hardcoded — Account + Contact)
 
+A direct ownership or coverage ask ("does Summit own Data Cloud?", "which of my accounts own Marketing Cloud?") skips this step and Dispatch A: it needs only the product reads below.
+
 Ground **Account + Contact** (both always exist). Lean projection discovers this org's custom fields without the full schema payload. **Fire as two separate calls** (combined ObjectInfo often overflows):
 
 ```
@@ -69,7 +74,7 @@ From the results: note scalar `__c` fields (Success_Segment, License_Utilization
 
 Insert `<ACCOUNT_CUSTOM>` = confirmed scalar `__c { value }` fields on Account; `<CONTACT_CUSTOM>` = confirmed scalar `__c { value }` fields on Contact (role, department, etc.).
 
-**Fire TWO separate dispatches in ONE turn** (parallel, no dependency). Triple-nesting (Account > Opportunities > OpportunityLineItems) commonly fails; split avoids errors.
+**Fire the separate dispatches (A, B and C) in ONE turn** (parallel, no dependency), skipping those the ask doesn't need. Triple-nesting (Account > Opportunities > OpportunityLineItems) commonly fails; split avoids errors.
 
 **Dispatch A — Account + Contacts + ChildAccounts:**
 ```
@@ -85,6 +90,16 @@ dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
 
 The `OpportunityLineItems` child (span `Product2` for the SKU name, with `Quantity`/`TotalPrice`) is the real "Owned today" input for the Step 4 grid — one read, no extra round-trip (this is a single child level, not the triple-nesting that overflows). Fall back to `Opportunity.Name` only if the org doesn't use line items (empty `edges`).
 
+**Dispatch C — Open and Closed Lost Opportunities + line items (the coverage matrix's `inPlay` and `lost` cells):**
+```
+dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Opportunity(where: { Account: { Id: { eq: \\\"<ACCOUNT_ID>\\\" } }, IsWon: { eq: false } }, first: 30, orderBy: { CloseDate: { order: DESC } }) { edges { node { Name { value } Amount { value displayValue } CloseDate { value } StageName { value } IsClosed { value } Account { Name { value } } OpportunityLineItems(first: 50) { edges { node { TotalPrice { value displayValue } Product2 { Name { value } } } } } } } } } } }\"}" })
+```
+
+Cell state per account and product: `purchased` = line item on a won Opportunity (Dispatch B); `inPlay` = line item on an open Opportunity (`IsClosed` false); `lost` = Closed Lost Opportunity with no purchased or open line item for that product; `whitespace` = only if step 4's evidence rule is met; `empty` otherwise.
+
+Scoping: an own-a-product ask for named accounts needs B alone; a "which accounts own, are pursuing or lack X" ask needs B and C; Dispatch A only when contacts or child accounts feed the answer (white space, plays). For a book sweep, fire B and C with the book scope instead of the account filter.
+
 For book-level sweep: replace Dispatch A `where: { Id: { eq: ... } }` with `scope: MINE` or team filter, limit 20.
 
 ## 3b. Evidence (run IN PARALLEL with step 3 — same turn)
@@ -94,9 +109,13 @@ For book-level sweep: replace Dispatch A `where: { Id: { eq: ... } }` with `scop
 - **docs**: recent transcripts/notes → teams/departments mentioned, **job changes, new projects**
 - **slack**: internal mentions → expansion plays discussed
 
+Run this only when the ask needs white space or plays; a coverage or direct ownership ask skips it.
+
 Use whatever email/doc/Slack search tools are available. If none present, skip silently (SF-only is fine). Cite source + date for anything you use. **Prioritize evidence from last 90 days for recency/relevance.**
 
 ## 4. Map whitespace
+
+Map and rank only what the prompt needs: a coverage ask needs the cell states above, not the dimension grid, ranking or plays.
 
 **Product catalog (external):** ask user for the product/SKU list once — never invent. Build owned-vs-possible grid:
 
@@ -133,577 +152,363 @@ When the data is assembled, call `display_widget`; a single one-line "Displaying
 
 - [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 
-The widget template is embedded below — resolve its tokens and call `display_widget({ resourceType: "dynamic", widgetDefinition: <hydrated> })` once (see the `widgetDefinition` param for token-resolution rules).
+The layout is built into the renderer and registered by name — you send **only the widget name and its data**. Call `display_widget` once:
 
-Two blocks below: first the **variable contract** (`renderer.props.schema.json`) — every `{{token}}`'s type + a worked example, use it to compute each value; then the **widget template** to hydrate. Substitute your computed values into the template's `{{token}}`s (see the token-typing rules above), leaving no `{{…}}`/`{!…}`.
+```
+display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "expansion-whitespace", data: <object matching the schema below>, renderer: { body: [] } } })
+```
+
+- `renderer: { body: [] }` is a required placeholder — send it exactly as written; the renderer fills it in.
+- **Send data only; never author presentation** (colours, pills, icons, HTML, emoji, layout keys, `{!…}`/`{{…}}`): the renderer owns the look and shows or hides each block from the keys you send. Keys outside the schema are rejected.
+- **CRITICAL — `widgetDefinition` and `data` must be nested JSON objects, NOT strings.** ❌ WRONG: `widgetDefinition: "{\"widget\":...}"`. ✅ RIGHT: `widgetDefinition: {"widget": "expansion-whitespace", "data": {...}, "renderer": {"body": []}}`. If you hold a JSON string, `JSON.parse` it first.
+- When `display_widget` is available the widget is the output; produce the section 7 text only as the fallback when the tool is unavailable (e.g. a terminal).
+
+### What to send
+
+Follow the block order and the per-block inclusion rules in the `data` schema below (the root description and each property's `description`).
+
+Rules:
+- **Language:** when the user writes in English, omit `labels`. When they write in another language, send `labels` with EVERY key translated (headings in upper case) and write every free-text field (`title`, `answer`, `whyNow`, `actionMsg`, `note`, ...) in that language. Never join translated text with English fragments: each phrase is written whole, because word order differs.
+
+### Scope the blocks to the prompt
+
+The schema marks only `title`, `answer` and `sources` as required. **Every other key is a choice, and the choice follows the question — not what you happened to retrieve.** Data you fetched but did not use stays out of the widget.
+
+| The prompt is… | Send |
+|---|---|
+| Broad ("Where's my expansion whitespace this quarter?", "expansion whitespace", "where can I expand?") | `title` + `answer` (bullets) + `coverage` + `whitespace` + one tail (`callout` or `nextStep`) + `sources` |
+| Specific, one account ("What white space does Orion Manufacturing have?") | `title` + `answer` (paragraph) + `whitespace` only + `sources` |
+| Specific, coverage ("Which of my accounts own Marketing Cloud?") | `title` + `answer` (paragraph) + `coverage` only (just the products asked about) + `sources` |
+| Direct ("Does Summit Health Partners own Data Cloud?") | `title` + `answer` (paragraph) + `sources` — no card, no tail |
+
+Rules:
+- **Omit a key and its block is not shown.** Never send empty arrays, empty strings, placeholder text, or "N/A" to fill a block, and never send a card the prompt did not ask for or that does not speed up the answer.
+- **Scope the `answer` too:** answer only what was asked; do not restate the cards below it.
+- **`coverage`:** `products` are the columns, `accounts` the rows, and `cells` lists only the non-empty pairs: `x` is exactly one entry of `products`, `y` exactly one entry of `accounts`, and a pair you leave out renders as empty. Cell `state` follows the Dispatch C rules in step 3: `purchased` (closed-won product), `inPlay` (open opportunity), `lost` (Closed Lost), `whitespace` (gap worth pitching). `label` is the display-ready amount ("$220K") on `purchased` and `inPlay` cells only; omit it for `whitespace` (dashes) and `lost` (the Closed Lost legend text).
+- **`whitespace`:** a row only for a gap that meets step 4's evidence rule (a stakeholder, transcript or org-structure signal); warmest first; `actionMsg` is a first-person request. Never a product the account already owns or is pursuing.
+- **Tail fork:** `callout` when one move is time-sensitive and the user can act on it (one button, a first-person `actionMsg`); otherwise a `nextStep` line, which is the normal choice for white space; if nothing applies, neither. Never both (if both are sent only the callout renders). A direct or coverage-only ask usually gets no tail.
+- **Sources:** a record is `https://<myDomain>/lightning/r/<SObjectType>/<Id>/view`; the book is `https://<myDomain>/lightning/o/Account/list`. Omit `url` if you have no Id.
+- Format every value as a ready-to-display string (currency such as "$220K", dates). Names are plain strings, never objects.
+- Before calling: `data` has no `{!…}`/`{{…}}`, no keys outside the schema, and every optional key you included (`labels`, `coverage`, `whitespace`, `callout`, `nextStep`) is justified by the prompt.
+
+#### Worked examples (the `data` object only)
+
+**Specific — "What white space does Orion Manufacturing have?"** (a paragraph answer, only the white space card, a `nextStep` tail):
+
 ```json
 {
-  "$comment": "Variable contract for the native-mosaic dynamic-mode template (renderer.json, sibling). This is NOT a separate display_widget call — it names every {{token}} in the template with its type and a worked example so you compute the right value for each. Workflow: build a props object with these keys, substitute each into the matching {{token}} in renderer.json (a slot that is only a {{token}} becomes the typed value — arrays stay arrays, numbers stay numbers; a {{token}} inside a larger string interpolates as text; a key you have no data for is omitted so that leaf drops), then call display_widget({ resourceType: 'dynamic', widgetDefinition: <the hydrated template> }) once with no {{…}}/{!…} left. Realistic values: sample-data.json (sibling). Authoring guidance (from the skill): `title` (account name in heading) · `subtitle` (one-line ARR summary) · `heatmapCaption heatmapXLabels heatmapYLabels` (product adoption matrix: X=products from won Opps, Y=business units from ChildAccounts or Contact departments) · `heatmapDomain` (array `[0, maxValue]`) · `heatmapCells` (array, one per owned product×BU combo: `{x, y, value, valueLabel}` — omit whitespace combos so they render dashed/empty) · `piechartCaption piechartCenterLabel piechartCenterValue piechartSlices` (live ARR breakdown: array of `{label, value, role?}`, with `role:\"highlight\"` on largest slice) · `datagridCaption datagridRows` (expansion plays: array of `{play, unit, fit, arr, motion:{value,badgeVariant}, status?:{value,badgeVariant}}`) · `calloutTitle calloutDescription` (top play synthesis) · `primaryButtonLabel primaryButtonContent` (draft-plan button + sendMessage prompt) · `accountUrl` (Lightning URL `https://<myDomain>/lightning/r/Account/<Id>/view`).",
-  "props": {
+  "title": "Orion Manufacturing has open white space in Data Cloud and Tableau.",
+  "answer": "Orion owns **Sales Cloud ($160K)** and nothing else. The one gap I'd pitch is **Data Cloud + Tableau**: a CIO discussion is open but there is no formal opportunity yet.",
+  "whitespace": {"rows": [{"account": "Orion Manufacturing", "product": "Data Cloud + Tableau", "whyNow": "Discussion open with the CIO; no formal opportunity yet. Q4 target.", "actionMsg": "Create an opportunity for Data Cloud + Tableau on Orion Manufacturing."}]},
+  "nextStep": {"lead": "Open the Data Cloud conversation with the CIO.", "text": "Orion is your warmest white space with a Q4 target. Want me to draft the pitch?"},
+  "sources": [{"label": "Account: Orion Manufacturing"}, {"label": "Product catalog · 6 clouds"}]
+}
+```
+
+**Specific — "Which of my accounts own Marketing Cloud?"** (a paragraph answer, only the `coverage` card for the one product, no tail; accounts trimmed here):
+
+```json
+{
+  "title": "None of your 6 accounts own Marketing Cloud yet – two are pursuing it.",
+  "answer": "No account has **purchased Marketing Cloud**. **Vantage Retail Group ($520K)** and **Brightwave Media ($410K)** have open opportunities, and Northpeak's pitch came back Closed Lost.",
+  "coverage": {
+    "products": ["Marketing"],
+    "accounts": ["Vantage Retail Group", "Brightwave Media", "Northpeak Logistics", "Orion Manufacturing"],
+    "cells": [
+      {"x": "Marketing", "y": "Vantage Retail Group", "state": "inPlay", "label": "$520K"},
+      {"x": "Marketing", "y": "Brightwave Media", "state": "inPlay", "label": "$410K"},
+      {"x": "Marketing", "y": "Northpeak Logistics", "state": "lost"}
+    ]
+  },
+  "sources": [{"label": "Accounts · 6 in book of business"}]
+}
+```
+
+**Direct — "Does Summit Health Partners own Data Cloud?"** (a paragraph answer, no card, no tail):
+
+```json
+{
+  "title": "No – Summit Health Partners doesn't own Data Cloud yet.",
+  "answer": "Summit owns **Sales Cloud ($140K)** and **Service ($110K)**. Data Cloud is open white space with no opportunity created.",
+  "sources": [{"label": "Account: Summit Health Partners"}]
+}
+```
+
+
+`data` schema (JSON Schema). Only `title`, `answer` and `sources` are required; include any other key only when the prompt asks for it or it clearly speeds up the answer (see "Scope the blocks to the prompt"):
+
+```json
+{
+  "type": "object",
+  "description": "Block order: title, answer, then the optional cards (coverage, whitespace), then at most one tail (callout OR nextStep), then sources. Only title, answer and sources are required. Which optional cards to include: see the scope table in the skill instructions. Omit a key and its block is not shown: never send empty arrays, empty strings, placeholders or 'N/A', and never a card the prompt did not ask for. A direct question ('does Summit Health own Data Cloud?') usually gets no tail. Format every value as a ready-to-display string (currency, dates); names are plain strings, never objects.",
+  "required": [
+    "title",
+    "answer",
+    "sources"
+  ],
+  "properties": {
+    "labels": {
+      "type": "object",
+      "description": "OPTIONAL. Every fixed label of the widget (card headings, scale captions, table headers, the sources toggle); each key's `default` is its English text, and a missing or blank key falls back to it. Omit when the user writes in English; for another language follow the Language rule in SKILL.md.",
+      "properties": {
+        "coverage": {
+          "type": "string",
+          "default": "Product Whitespace by Account",
+          "description": "Heading of the coverage matrix card. English: 'Product Whitespace by Account'."
+        },
+        "colAccount": {
+          "type": "string",
+          "default": "Account",
+          "description": "White space table header. English: 'Account'."
+        },
+        "whitespace": {
+          "type": "string",
+          "default": "Open White Space",
+          "description": "Heading of the white space card. English: 'Open White Space'."
+        },
+        "colProduct": {
+          "type": "string",
+          "default": "Product",
+          "description": "White space table header. English: 'Product'."
+        },
+        "colWhyNow": {
+          "type": "string",
+          "default": "Why now",
+          "description": "White space table header. English: 'Why now'."
+        },
+        "colNextSteps": {
+          "type": "string",
+          "default": "Next Steps",
+          "description": "White space table header. English: 'Next Steps'."
+        },
+        "createOpportunity": {
+          "type": "string",
+          "default": "Create Opportunity",
+          "description": "Label of each white space row button. English: 'Create Opportunity'."
+        },
+        "legendPurchased": {
+          "type": "string",
+          "default": "Purchased",
+          "description": "Legend entry for purchased cells. English: 'Purchased'."
+        },
+        "legendInPlay": {
+          "type": "string",
+          "default": "Opportunities",
+          "description": "Legend entry for cells with an open opportunity. English: 'Opportunities'."
+        },
+        "legendWhitespace": {
+          "type": "string",
+          "default": "White Space",
+          "description": "Legend entry, also the text of a white space cell. English: 'White Space'."
+        },
+        "legendLost": {
+          "type": "string",
+          "default": "Closed Lost",
+          "description": "Legend entry, also the text of a Closed Lost cell. English: 'Closed Lost'."
+        },
+        "legendEmpty": {
+          "type": "string",
+          "default": "Empty",
+          "description": "Legend entry for empty cells. English: 'Empty'."
+        },
+        "sources": {
+          "type": "string",
+          "default": "Sources",
+          "description": "Word shown on the sources toggle; the renderer appends the count, e.g. 'Sources (4)'. Send the word only, no number. English: 'Sources'."
+        }
+      }
+    },
     "title": {
-      "description": "Page title — the account name.",
       "type": "string",
-      "example": "Expansion whitespace — Meridian Health"
+      "description": "REQUIRED. The takeaway in the user's context, one bold sentence that already answers the question (e.g. 'You have 3 expansion opportunities in flight worth $1.38M – plus open white space across 3 more accounts.'). Never the skill name or 'Expansion Whitespace'."
     },
-    "subtitle": {
-      "description": "One-line ARR summary.",
+    "answer": {
       "type": "string",
-      "example": "$1.2M live · $2.4M whitespace across 6 products and 4 business units"
+      "description": "REQUIRED. Answer-first markdown with **bold** on the key facts (counts, amounts, account names). A broad sweep gets 2-4 short '- ' bullets; a direct or specific question ('does Summit own Data Cloud?') gets a 1-3 sentence paragraph. Answer ONLY what the user asked; do not restate the cards below it."
     },
-    "heatmapCaption": {
-      "description": "Caption for the product-adoption heatmap (products × business units).",
-      "type": "string",
-      "example": "Product adoption by business unit — darker is more spend, empty is open whitespace"
-    },
-    "heatmapXLabels": {
-      "description": "Heatmap X-axis labels — products (from won Opps). Keep each ≤12 chars, one or two short words — column headers sit in narrow equal-width columns and do NOT truncate, so long single tokens (e.g. 'Tableau/Analytics') overrun into the neighboring header. Abbreviate: 'Data Cloud', 'Analytics', 'Sales Cloud', 'MuleSoft'.",
-      "type": "array",
-      "items": {
-        "type": "string",
-        "maxLength": 12
-      },
-      "example": [
-        "Platform",
-        "Analytics",
-        "Automation",
-        "Security",
-        "Data",
-        "Support"
-      ]
-    },
-    "heatmapYLabels": {
-      "description": "Heatmap Y-axis labels — business units (from child accounts or contact departments). Keep each ≤16 chars; long labels widen the row-label gutter and squeeze the grid. Abbreviate business-unit names.",
-      "type": "array",
-      "items": {
-        "type": "string",
-        "maxLength": 16
-      },
-      "example": [
-        "Clinical",
-        "Finance",
-        "Operations",
-        "IT"
-      ]
-    },
-    "heatmapDomain": {
-      "description": "Color-scale domain as [0, maxValue].",
-      "type": "array",
-      "items": {
-        "type": "number"
-      },
-      "example": [
-        0,
-        400000
-      ]
-    },
-    "heatmapCells": {
-      "description": "One entry per owned product×BU combo; drives the heatmap. Omit whitespace combos so they render empty.",
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "x": {
-            "description": "Product label (matches an entry in heatmapXLabels).",
-            "type": "string"
-          },
-          "y": {
-            "description": "Business-unit label (matches an entry in heatmapYLabels).",
-            "type": "string"
-          },
-          "value": {
-            "description": "Cell value (adoption/ARR) — drives the color.",
-            "type": "number"
-          },
-          "valueLabel": {
-            "description": "Display label for the cell.",
+    "coverage": {
+      "type": "object",
+      "description": "OPTIONAL card 'Product Whitespace by Account': a matrix of accounts (rows) by clouds (columns), each cell one state. Include ONLY for a broad sweep or when the prompt asks which accounts own, are pursuing or lack a product. Omit the key otherwise; never empty arrays.",
+      "required": [
+        "products",
+        "accounts",
+        "cells"
+      ],
+      "properties": {
+        "products": {
+          "type": "array",
+          "description": "Column headers, one short name per cloud, in display order (e.g. ['Sales Cloud','Service','Marketing','Data Cloud','Agentforce','Revenue']). Shown uppercase. Each cell's x must be one of these, spelled identically.",
+          "items": {
             "type": "string"
           }
+        },
+        "accounts": {
+          "type": "array",
+          "description": "Row headers, one account name per row, in the order the answer discusses them (e.g. 'Cedarline Financial'). Each cell's y must be one of these, spelled identically.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cells": {
+          "type": "array",
+          "description": "One entry per non-empty cell. Any account/product pair you leave out renders as an empty cell, so send only purchased, inPlay, whitespace and lost pairs.",
+          "items": {
+            "type": "object",
+            "required": [
+              "x",
+              "y",
+              "state"
+            ],
+            "properties": {
+              "x": {
+                "type": "string",
+                "description": "Product column: exactly one entry of products."
+              },
+              "y": {
+                "type": "string",
+                "description": "Account row: exactly one entry of accounts."
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "purchased",
+                  "inPlay",
+                  "whitespace",
+                  "lost",
+                  "empty"
+                ],
+                "description": "'purchased' = closed-won product, 'inPlay' = open opportunity, 'whitespace' = recommended gap with no opportunity yet, 'lost' = Closed Lost opportunity, 'empty' = nothing to show."
+              },
+              "label": {
+                "type": "string",
+                "description": "OPTIONAL. Display-ready amount for 'purchased' and 'inPlay' cells (e.g. '$220K'). Omit for the other states: whitespace shows dashes and lost shows the Closed Lost legend text."
+              }
+            }
+          }
         }
-      },
-      "example": [
-        {
-          "x": "Platform",
-          "y": "Clinical",
-          "value": 400000,
-          "valueLabel": "$400K"
+      }
+    },
+    "whitespace": {
+      "type": "object",
+      "description": "OPTIONAL card 'Open White Space': accounts and products worth pitching, each with a Create Opportunity button. Include ONLY for a broad sweep or when the prompt asks where to expand or what to pitch. Omit the key otherwise; never an empty rows array.",
+      "required": [
+        "rows"
+      ],
+      "properties": {
+        "note": {
+          "type": "string",
+          "description": "OPTIONAL. One or two sentences under the heading: why there is no dollar amount and any common thread (e.g. 'These are open gaps I'd recommend pitching – there's no dollar amount because nothing is in motion. Data Cloud is the common thread across all three.')."
         },
-        {
-          "x": "Analytics",
-          "y": "Clinical",
-          "value": 120000,
-          "valueLabel": "$120K"
-        },
-        {
-          "x": "Platform",
-          "y": "Finance",
-          "value": 260000,
-          "valueLabel": "$260K"
-        },
-        {
-          "x": "Data",
-          "y": "Finance",
-          "value": 90000,
-          "valueLabel": "$90K"
-        },
-        {
-          "x": "Platform",
-          "y": "Operations",
-          "value": 180000,
-          "valueLabel": "$180K"
-        },
-        {
-          "x": "Automation",
-          "y": "Operations",
-          "value": 150000,
-          "valueLabel": "$150K"
-        },
-        {
-          "x": "Security",
-          "y": "IT",
-          "value": 200000,
-          "valueLabel": "$200K"
-        },
-        {
-          "x": "Platform",
-          "y": "IT",
-          "value": 100000,
-          "valueLabel": "$100K"
+        "rows": {
+          "type": "array",
+          "description": "One row per gap, warmest first (never an empty array - omit whitespace instead).",
+          "items": {
+            "type": "object",
+            "required": [
+              "account",
+              "product",
+              "whyNow",
+              "actionMsg"
+            ],
+            "properties": {
+              "account": {
+                "type": "string",
+                "description": "Account name (e.g. 'Orion Manufacturing')."
+              },
+              "product": {
+                "type": "string",
+                "description": "Product to pitch (e.g. 'Data Cloud + Tableau')."
+              },
+              "whyNow": {
+                "type": "string",
+                "description": "One sentence on why this account and why now (e.g. 'Discussion open with the CIO; no formal opportunity yet. Q4 target.')."
+              },
+              "actionMsg": {
+                "type": "string",
+                "description": "First-person request sent to chat when Create Opportunity is clicked (e.g. 'Create an opportunity for Data Cloud + Tableau on Orion Manufacturing.')."
+              }
+            }
+          }
         }
-      ]
+      }
     },
-    "piechartCaption": {
-      "description": "Caption for the live-ARR breakdown pie.",
-      "type": "string",
-      "example": "Live ARR by product"
+    "callout": {
+      "type": "object",
+      "description": "OPTIONAL tail, time-sensitive. A bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if one move is time-sensitive (a close date is days away) AND the user can act on it now. White space is rarely time-sensitive: prefer nextStep.",
+      "required": [
+        "lead",
+        "text",
+        "buttonLabel",
+        "actionMsg"
+      ],
+      "properties": {
+        "lead": {
+          "type": "string",
+          "description": "The bold first sentence of the callout (the stake in one sentence, ending with a period, e.g. '$930K of Marketing Cloud closes within two weeks.')."
+        },
+        "text": {
+          "type": "string",
+          "description": "One to three sentences: what, why now, and the move."
+        },
+        "buttonLabel": {
+          "type": "string",
+          "description": "Label of the single primary button (e.g. 'Build the Vantage Marketing play')."
+        },
+        "actionMsg": {
+          "type": "string",
+          "description": "First-person request sent to chat when the button is clicked."
+        }
+      }
     },
-    "piechartCenterLabel": {
-      "description": "Pie center label.",
-      "type": "string",
-      "example": "Live ARR"
+    "nextStep": {
+      "type": "object",
+      "description": "OPTIONAL tail, not time-sensitive: a plain suggestion line with NO button. Use INSTEAD of callout, never both.",
+      "required": [
+        "lead",
+        "text"
+      ],
+      "properties": {
+        "lead": {
+          "type": "string",
+          "description": "Bold lead (the suggested move, e.g. 'Protect the two Marketing Cloud opportunities already in flight.')."
+        },
+        "text": {
+          "type": "string",
+          "description": "One or two sentences of reasoning, ending with an offer to help if natural."
+        }
+      }
     },
-    "piechartCenterValue": {
-      "description": "Pie center value — total live ARR.",
-      "type": "string",
-      "example": "$1.2M"
-    },
-    "piechartSlices": {
-      "description": "Live ARR breakdown — one slice per segment. Empty array → the pie is omitted.",
+    "sources": {
       "type": "array",
+      "description": "REQUIRED. Where the answer came from: the Salesforce records/lists you actually read, linked. Shown as a compact 'Salesforce · Sources (N)' toggle (the word comes from labels.sources).",
       "items": {
         "type": "object",
+        "required": [
+          "label"
+        ],
         "properties": {
           "label": {
-            "description": "Slice label.",
-            "type": "string"
-          },
-          "value": {
-            "description": "Slice value (ARR).",
-            "type": "number"
-          },
-          "role": {
-            "description": "Optional emphasis; set \"highlight\" on the largest slice.",
             "type": "string",
-            "enum": [
-              "normal",
-              "highlight"
-            ]
+            "description": "Source name: object · record (e.g. 'Accounts · 6 in book of business', 'Account: Vantage Retail Group')."
+          },
+          "url": {
+            "type": "string",
+            "description": "Record URL https://<myDomain>/lightning/r/<SObjectType>/<Id>/view, or for a list https://<myDomain>/lightning/o/Account/list. Omit if none."
           }
         }
-      },
-      "example": [
-        {
-          "label": "Platform",
-          "value": 800000,
-          "role": "highlight"
-        },
-        {
-          "label": "Analytics",
-          "value": 120000
-        },
-        {
-          "label": "Automation",
-          "value": 130000
-        },
-        {
-          "label": "Security",
-          "value": 150000
-        }
-      ]
-    },
-    "datagridCaption": {
-      "description": "Caption for the expansion-plays datagrid.",
-      "type": "string",
-      "example": "Top expansion plays, ranked by fit and reachable ARR"
-    },
-    "datagridRows": {
-      "description": "Expansion plays — one row per play. Empty array → the datagrid is omitted.",
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "description": "Leading Status badge cell; omit on normal rows.",
-            "type": "object",
-            "properties": {
-              "value": {
-                "description": "Status label.",
-                "type": "string"
-              },
-              "badgeVariant": {
-                "description": "Badge color.",
-                "type": "string",
-                "enum": [
-                  "neutral",
-                  "primary",
-                  "secondary",
-                  "outline",
-                  "success",
-                  "info",
-                  "warning",
-                  "error"
-                ]
-              }
-            }
-          },
-          "play": {
-            "description": "The expansion play.",
-            "type": "string"
-          },
-          "unit": {
-            "description": "Target business unit.",
-            "type": "string"
-          },
-          "fit": {
-            "description": "Fit score (number).",
-            "type": "number"
-          },
-          "arr": {
-            "description": "Expansion ARR opportunity, in dollars (number).",
-            "type": "number"
-          },
-          "motion": {
-            "description": "Recommended motion badge cell.",
-            "type": "object",
-            "properties": {
-              "value": {
-                "description": "Motion label.",
-                "type": "string"
-              },
-              "badgeVariant": {
-                "description": "Badge color.",
-                "type": "string",
-                "enum": [
-                  "neutral",
-                  "primary",
-                  "secondary",
-                  "outline",
-                  "success",
-                  "info",
-                  "warning",
-                  "error"
-                ]
-              }
-            }
-          }
-        }
-      },
-      "example": [
-        {
-          "status": {
-            "value": "Ready",
-            "badgeVariant": "success"
-          },
-          "play": "Analytics for Clinical",
-          "unit": "Clinical",
-          "fit": 5,
-          "arr": 480000,
-          "motion": {
-            "value": "Warm intro",
-            "badgeVariant": "success"
-          }
-        },
-        {
-          "status": {
-            "value": "Qualify",
-            "badgeVariant": "info"
-          },
-          "play": "Data platform for Finance",
-          "unit": "Finance",
-          "fit": 4,
-          "arr": 620000,
-          "motion": {
-            "value": "Discovery",
-            "badgeVariant": "info"
-          }
-        },
-        {
-          "status": {
-            "value": "Qualify",
-            "badgeVariant": "info"
-          },
-          "play": "Automation for Operations",
-          "unit": "Operations",
-          "fit": 4,
-          "arr": 330000,
-          "motion": {
-            "value": "Champion build",
-            "badgeVariant": "info"
-          }
-        },
-        {
-          "play": "Support tier upgrade",
-          "unit": "IT",
-          "fit": 3,
-          "arr": 320000,
-          "motion": {
-            "value": "Nurture",
-            "badgeVariant": "neutral"
-          }
-        }
-      ]
-    },
-    "calloutTitle": {
-      "description": "Synthesis callout heading — the top expansion play.",
-      "type": "string",
-      "example": "Start with Clinical analytics"
-    },
-    "calloutDescription": {
-      "description": "Synthesis callout body — the play and the move.",
-      "type": "string",
-      "example": "Clinical already runs Platform at full spend and has a warm champion — Analytics is a natural next buy at ~$480K. Pair it with the Finance data play for a combined $1.1M expansion path this half."
-    },
-    "primaryButtonLabel": {
-      "description": "Primary button label (action/sendMessage).",
-      "type": "string",
-      "example": "Draft expansion plan"
-    },
-    "primaryButtonContent": {
-      "description": "First-person prompt the primary button sends (action/sendMessage).",
-      "type": "string",
-      "example": "Draft an expansion plan pairing Clinical analytics (~$480K, warm intro ready) with Finance data platform (~$620K, discovery next) for a $1.1M combined play at Meridian Health."
-    },
-    "accountUrl": {
-      "description": "Account Lightning URL for the \"View in Salesforce\" button.",
-      "type": "string",
-      "example": "https://org.lightning.force.com/lightning/r/Account/001AX000004pQ2rYAE/view"
-    }
-  }
-}
-```
-```json
-{
-  "renderer": {
-    "componentOverrides": {
-      "$": {
-        "type": "mosaic",
-        "definition": "tile/widget",
-        "children": [
-          {
-            "definition": "tile/row",
-            "attributes": {
-              "gap": "sm",
-              "align": "center",
-              "isWrapped": false
-            },
-            "children": [
-              {
-                "definition": "tile/icon",
-                "attributes": {
-                  "name": "users",
-                  "size": "xl",
-                  "alt": ""
-                }
-              },
-              {
-                "definition": "tile/text",
-                "attributes": {
-                  "text": "{{title}}",
-                  "variant": "h1"
-                }
-              }
-            ]
-          },
-          {
-            "definition": "tile/text",
-            "attributes": {
-              "text": "{{subtitle}}",
-              "variant": "caption",
-              "color": "muted"
-            }
-          },
-          {
-            "definition": "tile/separator"
-          },
-          {
-            "definition": "tile/row",
-            "attributes": {
-              "gap": "lg",
-              "align": "stretch",
-              "isWrapped": false
-            },
-            "children": [
-              {
-                "definition": "tile/column",
-                "attributes": {
-                  "width": "lg"
-                },
-                "children": [
-                  {
-                    "definition": "tile/heatmap",
-                    "attributes": {
-                      "layout": "matrix",
-                      "caption": "{{heatmapCaption}}",
-                      "xLabels": "{{heatmapXLabels}}",
-                      "yLabels": "{{heatmapYLabels}}",
-                      "encode": "color",
-                      "scale": "sequential",
-                      "valueFormat": "currency",
-                      "domain": "{{heatmapDomain}}",
-                      "cells": "{{heatmapCells}}"
-                    }
-                  }
-                ]
-              },
-              {
-                "definition": "tile/column",
-                "attributes": {
-                  "width": "stretch"
-                },
-                "children": [
-                  {
-                    "definition": "tile/piechart",
-                    "attributes": {
-                      "caption": "{{piechartCaption}}",
-                      "variant": "donut",
-                      "valueFormat": "currency",
-                      "centerLabel": "{{piechartCenterLabel}}",
-                      "centerValue": "{{piechartCenterValue}}",
-                      "slices": "{{piechartSlices}}"
-                    }
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "definition": "tile/datagrid",
-            "attributes": {
-              "caption": "{{datagridCaption}}",
-              "appearance": "striped",
-              "defaultSort": {
-                "key": "arr",
-                "direction": "desc"
-              },
-              "columns": [
-                {
-                  "key": "status",
-                  "header": "Status",
-                  "type": "badge"
-                },
-                {
-                  "key": "play",
-                  "header": "Play",
-                  "type": "text"
-                },
-                {
-                  "key": "unit",
-                  "header": "Business unit",
-                  "type": "text"
-                },
-                {
-                  "key": "fit",
-                  "header": "Fit",
-                  "type": "number",
-                  "align": "right"
-                },
-                {
-                  "key": "arr",
-                  "header": "ARR",
-                  "type": "currency",
-                  "align": "right",
-                  "sortable": true
-                },
-                {
-                  "key": "motion",
-                  "header": "Next step",
-                  "type": "badge"
-                }
-              ],
-              "rows": "{{datagridRows}}",
-              "size": "sm"
-            }
-          },
-          {
-            "definition": "tile/callout",
-            "attributes": {
-              "variant": "info",
-              "title": "{{calloutTitle}}",
-              "description": "{{calloutDescription}}"
-            },
-            "children": [
-              {
-                "definition": "tile/row",
-                "attributes": {
-                  "gap": "sm",
-                  "align": "center",
-                  "isWrapped": true
-                },
-                "children": [
-                  {
-                    "definition": "tile/button",
-                    "attributes": {
-                      "label": "{{primaryButtonLabel}}",
-                      "variant": "primary",
-                      "actions": {
-                        "click": [
-                          {
-                            "definition": "action/sendMessage",
-                            "attributes": {
-                              "content": "{{primaryButtonContent}}"
-                            }
-                          }
-                        ]
-                      }
-                    }
-                  },
-                  {
-                    "definition": "tile/button",
-                    "attributes": {
-                      "label": "View in Salesforce",
-                      "iconName": "open-in-new",
-                      "variant": "secondary",
-                      "actions": {
-                        "click": [
-                          {
-                            "definition": "action/openLink",
-                            "attributes": {
-                              "url": "{{accountUrl}}"
-                            }
-                          }
-                        ]
-                      }
-                    }
-                  }
-                ]
-              }
-            ]
-          }
-        ]
       }
     }
-  }
+  },
+  "additionalProperties": false
 }
 ```
 
-Self-verification before calling:
-- [ ] Numeric attributes (heatmap cell `value`/`domain`, `datagrid` `arr`/`fit`, piechart slice `value`) are numbers, not strings.
-- [ ] Heatmap has a cell only for owned combos (whitespace omitted → dashed/empty); axis labels short; `heatmapDomain` = `[0, largestCellValue]`.
-- [ ] `datagrid` plays with warm access or ready motion carry a leading `status` object; speculative plays carry neither.
-- [ ] Donut slices sum to the `centerValue` live ARR; zero-ARR products dropped; largest slice `highlight`ed.
 
 
 
 ## 7. Text — FALLBACK ONLY — DO NOT USE IF `display_widget` SUCCEEDED
+
+Scope this to the prompt too: a specific ask ("what white space does Orion Manufacturing have?", "which of my accounts own Marketing Cloud?") gets only the sections that answer it, not the whole report below.
 
 ```
 # Expansion Whitespace: [Account / scope]
