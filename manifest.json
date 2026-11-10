@@ -1,0 +1,82 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.29/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.29",
+  "version": "1.0.0",
+  "id": "8a4c6a81-9431-421a-942e-5eddc2dbb327",
+  "developer": {
+    "name": "Salesforce, Inc.",
+    "websiteUrl": "https://www.salesforce.com/",
+    "privacyUrl": "https://www.salesforce.com/company/privacy/",
+    "termsOfUseUrl": "https://www.salesforce.com/company/legal/agreements/"
+  },
+  "name": {
+    "short": "Salesforce",
+    "full": "Salesforce for Sales"
+  },
+  "description": {
+    "short": "Connect to Salesforce through its MCP tools.",
+    "full": "Use Salesforce in Microsoft 365 Copilot to work with its connected MCP tools and services. An active Salesforce account may be required to sign in. Learn more about Salesforce at https://www.salesforce.com. Responses may include AI-generated content; verify important information."
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#00A1E0",
+  "agentConnectors": [
+    {
+      "id": "be79ec91-614e-4e8f-a1c5-b8a7b42b3adb",
+      "displayName": "Salesforce",
+      "description": "Use this tool to retrieve and work with Salesforce data through its connected MCP tools.",
+      "toolSource": {
+        "remoteMcpServer": {
+          "mcpServerUrl": "https://api.salesforce.com/platform/mcp/v1/platform/headless-360",
+          "authorization": {
+            "type": "OAuthPluginVault",
+            "referenceId": "<add_reference_id_here>"
+          }
+        }
+      }
+    }
+  ],
+  "agentSkills": [
+    { "folder": "./skills/account-context" },
+    { "folder": "./skills/account-plan" },
+    { "folder": "./skills/account-tiering" },
+    { "folder": "./skills/assign-target-to-sdr" },
+    { "folder": "./skills/calendar-events" },
+    { "folder": "./skills/call-follow-up" },
+    { "folder": "./skills/call-prep" },
+    { "folder": "./skills/close-plan" },
+    { "folder": "./skills/customer-health" },
+    { "folder": "./skills/customer-voice" },
+    { "folder": "./skills/daily-briefing" },
+    { "folder": "./skills/deal-advance-gap" },
+    { "folder": "./skills/deal-review" },
+    { "folder": "./skills/deal-signals" },
+    { "folder": "./skills/deal-slip-scenario" },
+    { "folder": "./skills/draft-outreach" },
+    { "folder": "./skills/event-invite-list" },
+    { "folder": "./skills/executive-movement" },
+    { "folder": "./skills/expansion-whitespace" },
+    { "folder": "./skills/find-internal-answer" },
+    { "folder": "./skills/forecast-narrative" },
+    { "folder": "./skills/handle-objection" },
+    { "folder": "./skills/inbox-sweep" },
+    { "folder": "./skills/lead-triage" },
+    { "folder": "./skills/log-activity" },
+    { "folder": "./skills/pipeline-review" },
+    { "folder": "./skills/query-activity-history" },
+    { "folder": "./skills/renewal-radar" },
+    { "folder": "./skills/rep-context" },
+    { "folder": "./skills/research-prospect" },
+    { "folder": "./skills/salesforce-hygiene-check" },
+    { "folder": "./skills/schedule-meeting" },
+    { "folder": "./skills/stakeholder-map" },
+    { "folder": "./skills/summarize-conversation-transcript" },
+    { "folder": "./skills/team-pipeline" },
+    { "folder": "./skills/using-display-widget" },
+    { "folder": "./skills/voice-profile" },
+    { "folder": "./skills/weekly-wrap" },
+    { "folder": "./skills/win-loss-review" }
+  ]
+}
