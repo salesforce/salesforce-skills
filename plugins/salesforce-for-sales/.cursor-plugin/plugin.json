@@ -1,0 +1,35 @@
+{
+  "name": "salesforce-for-sales",
+  "displayName": "Salesforce for Sales",
+  "version": "1.0.0-beta.3.1",
+  "description": "The full Salesforce sales suite for Grok Bot and Cursor — pipeline, deals, accounts, prospecting, and daily productivity — grounded live on your org's schema through the Headless 360 MCP server.",
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Salesforce, Inc."
+  },
+  "keywords": ["salesforce", "sales", "crm", "headless-360"],
+  "variables": {
+    "type": "object",
+    "properties": {
+      "SALESFORCE_MCP_URL": {
+        "type": "string",
+        "title": "Salesforce MCP server URL (set by your Salesforce admin)",
+        "description": "Headless 360 server URL. Production and Developer orgs: https://api.salesforce.com/platform/mcp/v1/platform/headless-360. Sandbox and scratch orgs: https://api.salesforce.com/platform/mcp/v1/sandbox/platform/headless-360.",
+        "default": "https://api.salesforce.com/platform/mcp/v1/platform/headless-360"
+      },
+      "CLIENT_ID": {
+        "type": "string",
+        "title": "Salesforce Consumer Key (set by your Salesforce admin)",
+        "description": "Consumer Key of the External Client App your Salesforce admin created (Setup → External Client App Manager → your app → Settings → Consumer Key and Secret)."
+      },
+      "CLIENT_SECRET": {
+        "type": "string",
+        "title": "Salesforce Consumer Secret (set by your Salesforce admin)",
+        "description": "Consumer Secret from the same External Client App.",
+        "writeOnly": true
+      }
+    },
+    "required": ["SALESFORCE_MCP_URL", "CLIENT_ID", "CLIENT_SECRET"]
+  },
+  "mcpServers": "./mcp.json"
+}
