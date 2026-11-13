@@ -1,0 +1,19 @@
+{
+  "name": "salesforce",
+  "displayName": "Salesforce",
+  "owner": {
+    "name": "Salesforce, Inc."
+  },
+  "metadata": {
+    "description": "Salesforce plugins for Grok Bot and Cursor, grounded on your org through the Headless 360 MCP server.",
+    "version": "1.0.0-beta.3.1",
+    "pluginRoot": "plugins"
+  },
+  "plugins": [
+    {
+      "name": "salesforce-for-sales",
+      "source": "salesforce-for-sales",
+      "description": "The full Salesforce sales suite for Grok Bot and Cursor — pipeline, deals, accounts, prospecting, and daily productivity — grounded live on your org's schema through the Headless 360 MCP server."
+    }
+  ]
+}
