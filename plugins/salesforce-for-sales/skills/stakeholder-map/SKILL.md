@@ -1,6 +1,6 @@
 ---
 name: stakeholder-map
-description: "Build a stakeholder map from Salesforce contacts and roles plus email, calendar, calls and Slack, showing influence, stance, gaps and access paths. Use to identify decision makers, assess single-threading or plan introductions. Account brief: account-context."
+description: "Identify who's making the decision, who the players are, who to win over, or map stakeholders and lay out the buying committee on a specific deal or at a specific account. Requires deal name or account name. Pulls from Salesforce contacts and roles plus email, calendar, calls and Slack, showing influence, stance, gaps and access paths. Use to identify decision makers, assess single-threading or plan introductions. Account brief: account-context."
 ---
 <!-- global-rules-bootstrap -->
 
@@ -147,17 +147,16 @@ When the data is assembled, call `display_widget`; a single one-line "Displaying
 
 ### Self-verification (before calling display_widget)
 
-- [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
+- [ ] `props` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 
 The layout is built into the renderer and registered by name — send **only the widget name and its data**:
 
 ```
-display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "stakeholder-map", data: <object matching the schema below>, renderer: { body: [] } } })
+display_widget({ resourceType: "salesforce_widget", widget_resource_uri: "ui://widget/standard/stakeholder-map", props: <object matching the schema below> })
 ```
 
-- `renderer: { body: [] }` is a required placeholder; send it exactly as written.
 - **Send data only; never author presentation** (layout, HTML, colors, badges, icons, or `{!…}` expressions).
-- **`widgetDefinition` and `data` are nested JSON objects, NOT strings.** Parse a JSON string before the call; do not stringify the envelope.
+- **`props` is a nested JSON object, NOT a string.** Parse a JSON string before the call; do not stringify the envelope.
 - The widget is the output. Section 6 is only a fallback when `display_widget` is unavailable or fails.
 - For the relationship-map badge, use a grounded buyer-relationship attribute only when all three hold: (a) a Contact field labelled Buyer Relationship is present in the grounded Contact ObjectInfo, (b) the host or user context states that the Buyer Relationship Map feature is enabled, and (c) the contact's value is non-null and maps to exactly one of `Supportive`, `Neutral`, `Unsupportive`, or `Stance Unknown`. If any condition fails, including a null value, fall through to the step 3 stance rubric and run the step 2b evidence reads; do not default straight to `Stance Unknown`. Never infer feature enablement from field presence alone. Use exactly `Supportive`, `Neutral`, `Unsupportive`, or `Stance Unknown`. `Supportive` is not proof of Champion.
 
@@ -190,7 +189,7 @@ Rules:
 - The tail is exclusive: use `callout` only for a time-sensitive action, otherwise use `nextStep`; do not send both. Use the lowest fitting callout level (`tip`, `note`, or `blocker`), and no more than one primary button.
 - Visible names and roles are plain strings extracted from GraphQL `.value` fields. Dates and other display values are preformatted. Never send response objects, serialized JSON, markdown links, or raw Lightning URLs in visible text. Put a record URL only in a source `url` field.
 - Build each `relationshipMap` row from one contact: put grounded title, buying role and `ReportsTo` manager in `role` (no date; the last-touch date belongs only in the Stakeholders table's `lastTouch` field). Set the pill per the Buyer Relationship rule above, otherwise from the step 3 stance rubric, with the exact labels `Supportive`, `Neutral`, `Unsupportive`, or `Stance Unknown`. Stance Unknown uses the `secondary` tone. A champion requires demonstrated advocacy (an introduction, internal information, or a meeting push), not a supportive stance alone. Set `isReorged` only when the source confirms the person left the role or was affected by a reorganization.
-- Before calling, verify that there are no `{!…}` or `{{…}}` expressions in `data`, no keys outside the schema, and every optional key is justified by the prompt.
+- Before calling, verify that there are no `{!…}` or `{{…}}` expressions in `props`, no keys outside the schema, and every optional key is justified by the prompt.
 
 #### Worked examples (the data object only)
 
@@ -240,7 +239,7 @@ Rules:
 }
 ```
 
-`data` schema (JSON Schema). Only `title`, `answer`, and `sources` are required; include optional keys only when the prompt and evidence call for them (see the scope table):
+`props` schema (JSON Schema). Only `title`, `answer`, and `sources` are required; include optional keys only when the prompt and evidence call for them (see the scope table):
 
 ```json
 {
@@ -387,7 +386,7 @@ Rules:
     },
     "sources": {
       "type": "array",
-      "description": "REQUIRED. Salesforce records or connected evidence sources actually read. Rendered in a collapsed Salesforce Sources (N) footer. Use scalar labels and put record URLs only in url fields.",
+      "description": "REQUIRED. Salesforce records or connected evidence sources actually read. Rendered in a collapsed Salesforce Sources (N) footer. Use scalar labels and put record URLs only in url fields. Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
       "items": {
         "type": "object",
         "additionalProperties": false,

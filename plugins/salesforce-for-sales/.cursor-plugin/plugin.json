@@ -1,7 +1,7 @@
 {
   "name": "salesforce-for-sales",
   "displayName": "Salesforce for Sales",
-  "version": "1.0.0-beta.3.1",
+  "version": "1.0.0-beta.3.5",
   "description": "The full Salesforce sales suite for Grok Bot and Cursor — pipeline, deals, accounts, prospecting, and daily productivity — grounded live on your org's schema through the Headless 360 MCP server.",
   "license": "Apache-2.0",
   "author": {

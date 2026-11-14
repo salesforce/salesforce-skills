@@ -77,22 +77,21 @@ dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
 - **Related to:** WhatId = the resolved Opportunity (or Account if no deal), WhoId = the resolved Contact. For a Lead: WhoId = the Lead, no WhatId
 - **Status:** `Completed` for something that already happened. An open follow-up task the user asks for ("remind me to send the deck Friday") → the Status default from `<PICKLIST_DEFAULTS>`, Date = the due date, Type = `Task`
 
-## 4. Output — widget
+## 4. Output — HXL widget
 
 The layout is built into the renderer and registered by name — you send **only the widget name and its data**. Call `display_widget` once:
 
 ```
-display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "log-activity", data: <object matching the schema below>, renderer: { body: [] } } })
+display_widget({ resourceType: "salesforce_widget", widget_resource_uri: "ui://widget/standard/log-activity", props: <object matching the schema below> })
 ```
 
-- `renderer: { body: [] }` is a required placeholder — send it exactly as written; the renderer fills it in.
 - **Send data only; never author presentation** (colors, badges, layout keys, `{!…}`): the renderer owns the look and shows or hides each block from the keys you send. Keys outside the schema are rejected.
-- **CRITICAL — `widgetDefinition` and `data` must be nested JSON objects, NOT strings.** ❌ WRONG: `widgetDefinition: "{\"widget\":...}"`. ✅ RIGHT: `widgetDefinition: {"widget": "log-activity", "data": {...}, "renderer": {"body": []}}`. If you hold a JSON string, `JSON.parse` it first.
+- **CRITICAL — `props` must be a nested JSON object, NOT a string.** ❌ WRONG: `props: "{\"title\":...}"`. ✅ RIGHT: `props: {"title": ...}`. If you hold a JSON string, `JSON.parse` it first.
 - When `display_widget` is available the widget is the output; produce a text fallback only when the tool is unavailable (e.g. a terminal).
 
 ### What to send
 
-Follow the block order and the per-block inclusion rules in the `data` schema below (the root description and each property's `description`).
+Follow the block order and the per-block inclusion rules in the `props` schema below (the root description and each property's `description`).
 
 Rules:
 - **Language:** when the user writes in English, omit `labels`. When they write in another language, send `labels` with EVERY key translated (field labels in upper case) and write every free-text field (`title`, `answer`, the call log fields, suggestions, next step, ...) in that language. Never join translated text with English fragments: each phrase is written whole, because word order differs.
@@ -113,9 +112,9 @@ Rules:
 - **`suggestedActions`:** only when the call clearly supports opportunity updates (stage move, amount change, etc.). At most 4 updates.
 - **`nextStep`:** guidance on what to fix before saving (e.g. confirm the name, flesh out comments). Omit if the draft is ready as-is.
 - **Sources:** Salesforce records read; the widget footer shows them collapsed as "Sources (N)".
-- Before calling: `data` has no `{!…}`/`{{…}}`, no keys outside the schema, and every optional key you included is justified by the prompt.
+- Before calling: `props` has no `{!…}`/`{{…}}`, no keys outside the schema, and every optional key you included is justified by the prompt.
 
-#### Worked examples (the `data` object only; e.g. values only, never reuse their names, amounts or dates)
+#### Worked examples (the `props` object only; e.g. values only, never reuse their names, amounts or dates)
 
 **Log a call** ("log my call with <Contact> at <Account>"):
 
@@ -169,7 +168,7 @@ Rules:
 }
 ```
 
-`data` schema (JSON Schema):
+`props` schema (JSON Schema):
 
 {
   "type": "object",
@@ -408,7 +407,7 @@ Rules:
     },
     "sources": {
       "type": "array",
-      "description": "REQUIRED. The Salesforce records read, linked. Shown as 'Salesforce · Sources (N)'.",
+      "description": "REQUIRED. The Salesforce records read, linked. Shown as 'Salesforce · Sources (N)'. Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
       "items": {
         "type": "object",
         "additionalProperties": false,

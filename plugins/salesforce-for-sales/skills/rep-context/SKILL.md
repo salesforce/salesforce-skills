@@ -80,16 +80,16 @@ dispatch_readonly(method: "GET", url: "/services/data/v63.0/query",
 
 ### Extra reads for the widget blocks (fire each only when its block is requested, in the same turn as the reads above)
 
-**Monthly activity (`activity` block)** — last 6 months, one grouped count per type. `LAST_N_MONTHS:6` covers the six full months before this one; label `categories` from the returned year and month, oldest first, and use 0 for a month with no row.
+**Monthly activity (`activity` block)** — six calendar months, oldest first, the last being the current month to date (today inclusive). One grouped query per type, grouped by day (SOQL rejects `CALENDAR_YEAR`/`CALENDAR_MONTH`/`FISCAL_*` on Task and Event `ActivityDate`). `ActivityDate >= LAST_N_MONTHS:5` starts on the 1st of the month five months back, so the window is six calendar months; `AND ActivityDate <= TODAY` excludes future-dated activity. Each returned row is one day (`ActivityDate`, `cnt`), so a query returns at most one row per distinct day with activity (roughly up to ~185). Bucket rows by the `YYYY-MM` of the `ActivityDate` string as returned (no timezone conversion), sum `cnt` per month, and fill any month with no rows with 0. Build `categories` oldest first and label the last (current) month as partial, e.g. `Nov (partial)`; say in the `note` that the current month is month-to-date. The 14-day and 28-day counts come from their own queries, not from these.
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v63.0/query",
-  queryParams: { "q": "SELECT CALENDAR_YEAR(ActivityDate) y, CALENDAR_MONTH(ActivityDate) m, COUNT(Id) cnt FROM Task WHERE OwnerId = '<REP_ID>' AND TaskSubtype = 'Call' AND ActivityDate >= LAST_N_MONTHS:6 GROUP BY CALENDAR_YEAR(ActivityDate), CALENDAR_MONTH(ActivityDate)" })
+  queryParams: { "q": "SELECT ActivityDate, COUNT(Id) cnt FROM Task WHERE OwnerId = '<REP_ID>' AND TaskSubtype = 'Call' AND ActivityDate >= LAST_N_MONTHS:5 AND ActivityDate <= TODAY GROUP BY ActivityDate" })
 
 dispatch_readonly(method: "GET", url: "/services/data/v63.0/query",
-  queryParams: { "q": "SELECT CALENDAR_YEAR(ActivityDate) y, CALENDAR_MONTH(ActivityDate) m, COUNT(Id) cnt FROM Task WHERE OwnerId = '<REP_ID>' AND TaskSubtype = 'Email' AND ActivityDate >= LAST_N_MONTHS:6 GROUP BY CALENDAR_YEAR(ActivityDate), CALENDAR_MONTH(ActivityDate)" })
+  queryParams: { "q": "SELECT ActivityDate, COUNT(Id) cnt FROM Task WHERE OwnerId = '<REP_ID>' AND TaskSubtype = 'Email' AND ActivityDate >= LAST_N_MONTHS:5 AND ActivityDate <= TODAY GROUP BY ActivityDate" })
 
 dispatch_readonly(method: "GET", url: "/services/data/v63.0/query",
-  queryParams: { "q": "SELECT CALENDAR_YEAR(ActivityDate) y, CALENDAR_MONTH(ActivityDate) m, COUNT(Id) cnt FROM Event WHERE OwnerId = '<REP_ID>' AND ActivityDate >= LAST_N_MONTHS:6 GROUP BY CALENDAR_YEAR(ActivityDate), CALENDAR_MONTH(ActivityDate)" })
+  queryParams: { "q": "SELECT ActivityDate, COUNT(Id) cnt FROM Event WHERE OwnerId = '<REP_ID>' AND ActivityDate >= LAST_N_MONTHS:5 AND ActivityDate <= TODAY GROUP BY ActivityDate" })
 ```
 Calls and Emails are the Task subtypes; Meetings booked are the Events.
 
@@ -107,7 +107,7 @@ dispatch_readonly(method: "GET", url: "/services/data/v63.0/query",
 The Event count for the last 14 days is the Event `cnt` from the COUNT aggregate above.
 
 **Last 4 quarters (`attainment` block)**
-There is no quota source without the Tableau reads: omit `attainment` and say in `answer` that quota attainment is not available.
+There is no quota source without the Tableau reads, and no quarterly closed-won history either: omit `attainment` and say in `answer` that quota attainment is not available. Do not build `attainment` from the quarter-to-date closed-won number alone.
 
 ## 2b. Evidence (same turn — skip silently if absent)
 
@@ -134,22 +134,21 @@ When the data is assembled, call `display_widget`; a single one-line "Displaying
 
 ### Self-verification (before calling display_widget)
 
-- [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
+- [ ] `props` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 
 The layout is built into the renderer and registered by name — you send **only the widget name and its data**. Call `display_widget` once:
 
 ```
-display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "rep-context", data: <object matching the schema below>, renderer: { body: [] } } })
+display_widget({ resourceType: "salesforce_widget", widget_resource_uri: "ui://widget/standard/rep-context", props: <object matching the schema below> })
 ```
 
-- `renderer: { body: [] }` is a required placeholder — send it exactly as written; the renderer fills it in.
 - **Send data only; never author presentation** (colours, pills, icons, HTML, emoji, layout keys, `{!…}`/`{{…}}`): the renderer owns the look and shows or hides each block from the keys you send. Keys outside the schema are rejected.
-- **CRITICAL — `widgetDefinition` and `data` must be nested JSON objects, NOT strings.** ❌ WRONG: `widgetDefinition: "{\"widget\":...}"`. ✅ RIGHT: `widgetDefinition: {"widget": "rep-context", "data": {...}, "renderer": {"body": []}}`. If you hold a JSON string, `JSON.parse` it first.
+- **CRITICAL — `props` must be a nested JSON object, NOT a string.** ❌ WRONG: `props: "{\"title\":...}"`. ✅ RIGHT: `props: {"title": ...}`. If you hold a JSON string, `JSON.parse` it first.
 - When `display_widget` is available the widget is the output; produce the section 6 text only as the fallback when the tool is unavailable (e.g. a terminal).
 
 ### What to send
 
-Follow the block order and the per-block inclusion rules in the `data` schema below (the root description and each property's `description`).
+Follow the block order and the per-block inclusion rules in the `props` schema below (the root description and each property's `description`).
 
 Rules:
 - **Language:** when the user writes in English, omit `labels`. When they write in another language, send `labels` with EVERY key translated (headings in upper case) and write every free-text field (`title`, `answer`, `activity.note`, the `trend` card details, `nextStep`, ...) in that language. Never join translated text with English fragments: each phrase is written whole, because word order differs.
@@ -168,36 +167,31 @@ The schema marks only `title`, `answer` and `sources` as required. **Every other
 Rules:
 - **Omit a key and its block is not shown.** Never send empty arrays, empty strings, placeholder text, or "N/A" to fill a block, and never send a card the prompt did not ask for or that does not speed up the answer.
 - **Scope the `answer` too:** for the activity trend, the answer is the headline movement across the three types, not the pipeline you did not read.
-- **`activity`:** only when the prompt asks about activity over time. `categories` are the month labels, oldest first; `series` are Calls, Emails and Meetings booked, each with one number per month; `note` is a one-or-two sentence markdown caption naming the peak month and any flat line.
-- **`attainment`:** `categories` are the last 4 quarters, oldest first, the current one last; `quota` and `attained` are raw numbers, one per quarter. Without a quota source, omit it and say so in `answer`.
+- **`activity`:** only when the prompt asks about activity over time. `categories` are the month labels, oldest first; `series` are Calls, Emails and Meetings booked, each with one number per month; the last category is the current month, labelled partial (e.g. `Nov (partial)`); `note` is a one-or-two sentence markdown caption naming the peak month and any flat line, and says the current month is month-to-date.
+- **`attainment`:** `categories` are the last 4 quarters, oldest first, the current one last; `quota` and `attained` are raw numbers, one per quarter. When the prompt calls for the attainment card (a broad ask, per the table above; a direct quota question gets no card) and closed-won quarter history was read, `categories` + `attained` are required. Omit only `quota` when no trusted quota source was read (the card then shows closed-won bars alone), and omit the whole `attainment` when there is no closed-won history. When quota is present, give attainment normally. Only when quota is unavailable, say so plainly in `answer` alongside the closed-won history that is available, and never compute a quota percentage, gap or coverage ratio from it.
 - **`trend`:** three cards, Calls, Emails and Meetings booked. `value` is the last-14-day count, `delta` the percent change against the prior 14 days ("+10%", "−31%"; "–" when the prior count is 0), `tone` is `success` when up or flat and `error` when down, and `detail` reads "up from 71 the prior 14 days" or "down from 16 the prior 14 days".
 - **`openOpportunities`:** `rows` are the largest open deals first, from the Top 20 sample, up to 15. `amount` is a raw number, `closeDate` a short date ("Aug 31") or "–" when blank, and `stage` and `nextStep` plain text.
-- **Tail fork:** `callout` when one move is time-sensitive and the user can act on it (one button, a first-person `actionMsg`, `level` of `tip`, `note` or `blocker`); otherwise a `nextStep` line; if nothing applies, neither. A broad ask usually gets the `nextStep`; a specific ask or a direct question usually gets no tail. Never both (if both are sent only the callout renders).
-- **Sources:** a record is `https://<myDomain>/lightning/r/Opportunity/<Id>/view`; the open book is `https://<myDomain>/lightning/o/Opportunity/list`. Omit `url` if you have no Id.
+- **Tail fork:** `callout` when one move is time-sensitive and the user can act on it (one button, a first-person `actionMsg`, `level` of `tip`, `note` or `blocker`); otherwise a `nextStep` line; if nothing applies, neither. A broad ask usually gets the `nextStep`; a specific ask or a direct question usually gets no tail. Never both (if both are sent, only a valid callout renders: a callout missing a visible lead or text is hidden and the `nextStep` shows instead). A callout needs a visible one-sentence `lead` AND visible `text` (non-whitespace); if either is unavailable, omit the whole `callout` object (never send blank or whitespace-only `lead`/`text`, and never a button without them). Treat whitespace-only values as absent before calling `display_widget`. `buttonLabel`/`actionMsg` are only included once both are present.
+- **Sources:** each label names an actual read (a record, an object/list query, or a semantic dataset), never a metric or conclusion: not `Closed won · current Salesforce quarter` or `Quota attainment · last 4 quarters`, but `Opportunity · closed-won this quarter`, `Opportunity · open pipeline`, `Task and Event · activity last 6 months`. When quota or quarterly history come from the semantic dataset, name that dataset (`Sales dataset · quota and closed-won by quarter`); a quarter-to-date Opportunity read does not source a multi-quarter chart. Omit `url` for aggregate queries; do not invent one. A record is `https://<myDomain>/lightning/r/Opportunity/<Id>/view`; the open book is `https://<myDomain>/lightning/o/Opportunity/list`. Omit `url` if you have no Id.
 - Format every value as a ready-to-display string (dates, stage labels, the percent in `delta`) except the raw numbers in `attainment` and `openOpportunities.amount`. Names are plain strings, never objects.
-- Before calling: `data` has no `{!…}`/`{{…}}`, no keys outside the schema, and every optional key you included is justified by the prompt.
+- Before calling: `props` has no `{!…}`/`{{…}}`, no keys outside the schema, and every optional key you included is justified by the prompt.
 
-#### Worked examples (the `data` object only)
+#### Worked examples (the `props` object only)
 
 **Broad — "Give me my context — where do I stand this quarter?"** (bulleted answer, the activity, attainment and open-deals blocks, a next step; the opportunity rows are trimmed here):
 
 ```json
 {
-  "title": "You're at 26% of quota with 11 deals open – the gap is late-stage execution, not coverage.",
-  "answer": "- You've closed **$205K of your $800K Q3 2026 quota (26%)** on 2 won opportunities.\n- You have **$3.65M open across 11 opportunities** – a healthy 4.6x coverage.\n- Over your last four quarters the pattern is consistent: strong pipeline, but conversion slips at the end.\n- Activity is healthy: **187 touches in the last 14 days** (78 calls, 98 emails, 11 meetings).",
+  "title": "You've closed $205K this quarter with 11 deals open – the gap is late-stage execution.",
+  "answer": "- You've closed **$205K this quarter** on 2 won opportunities; quota isn't available, so I can't give a percent of quota.\n- You have **$3.65M open across 11 opportunities**.\n- Activity is healthy: **187 touches in the last 14 days** (78 calls, 98 emails, 11 meetings).",
   "activity": {
-    "categories": ["Apr", "May", "Jun", "Jul", "Aug", "Sep"],
+    "categories": ["Apr", "May", "Jun", "Jul", "Aug", "Sep (partial)"],
     "series": [
       {"name": "Calls", "data": [120, 131, 142, 167, 149, 138]},
       {"name": "Emails", "data": [150, 158, 172, 210, 184, 176]},
       {"name": "Meetings booked", "data": [20, 18, 24, 28, 22, 19]}
     ],
-    "note": "Email and call volume have held steady and climbed slightly across the half – July was your peak (210 emails, 167 calls). Meetings booked stay flat and low (18–28/mo), the same conversion gap the 14-day view shows."
-  },
-  "attainment": {
-    "categories": ["Q4 2025", "Q1 2026", "Q2 2026", "Q3 2026"],
-    "quota": [900000, 500000, 700000, 800000],
-    "attained": [950000, 520000, 610000, 205000]
+    "note": "Email and call volume have held steady and climbed slightly across the half – July was your peak (210 emails, 167 calls). Meetings booked stay flat and low (18–28/mo), the same conversion gap the 14-day view shows. September is month-to-date."
   },
   "openOpportunities": {
     "rows": [
@@ -211,12 +205,13 @@ Rules:
     "text": "Six of your eleven opportunities sit in Proposal / Price Quote or Negotiation / Review with no close date. This week, set a realistic close date and a dated next step on each, starting with Cedarline and Brightwave."
   },
   "sources": [
-    {"label": "Opportunities · 11 open", "url": "https://<myDomain>/lightning/o/Opportunity/list"},
-    {"label": "Quota attainment · last 4 quarters"},
-    {"label": "Activities · last 6 months"}
+    {"label": "Opportunity · open pipeline", "url": "https://<myDomain>/lightning/o/Opportunity/list"},
+    {"label": "Opportunity · closed-won this quarter"},
+    {"label": "Task and Event · activity last 6 months"}
   ]
 }
 ```
+
 
 **Activity trend — "Show my recent activity trend as a quick summary."** (a paragraph answer and the trend cards only):
 
@@ -232,7 +227,7 @@ Rules:
     ]
   },
   "sources": [
-    {"label": "Activities · last 28 days"}
+    {"label": "Task and Event · activity last 28 days"}
   ]
 }
 ```
@@ -251,13 +246,13 @@ Rules:
     ]
   },
   "sources": [
-    {"label": "Opportunities · 11 open", "url": "https://<myDomain>/lightning/o/Opportunity/list"}
+    {"label": "Opportunity · open pipeline", "url": "https://<myDomain>/lightning/o/Opportunity/list"}
   ]
 }
 ```
 
 
-`data` schema (JSON Schema). Only `title`, `answer` and `sources` are required; include any other key only when the prompt asks for it or it clearly speeds up the answer (see "Scope the blocks to the prompt"):
+`props` schema (JSON Schema). Only `title`, `answer` and `sources` are required; include any other key only when the prompt asks for it or it clearly speeds up the answer (see "Scope the blocks to the prompt"):
 
 ```json
 {
@@ -400,10 +395,9 @@ Rules:
     "attainment": {
       "type": "object",
       "additionalProperties": false,
-      "description": "OPTIONAL card 'Quota Attainment': quota and attained amount per quarter as columns. Include ONLY for a broad sweep. Omit the key otherwise.",
+      "description": "OPTIONAL card 'Quota Attainment': closed-won amount per quarter as columns, with quota columns when an attributable quota source was read. Include ONLY for a broad sweep. Omit the key otherwise. Closed-won quarterly history renders without quota; never compute a quota percentage or invent a target when quota is absent.",
       "required": [
         "categories",
-        "quota",
         "attained"
       ],
       "properties": {
@@ -419,7 +413,7 @@ Rules:
           "items": {
             "type": "number"
           },
-          "description": "Quota per quarter as raw numbers (e.g. 900000), aligned with categories."
+          "description": "OPTIONAL. Quota per quarter as raw numbers (e.g. 900000), aligned with categories. Include ONLY when an attributable quota source was actually read (e.g. the Tableau quota read). Omit the key entirely when no quota source exists; never send zeros, placeholders or an invented target."
         },
         "attained": {
           "type": "array",
@@ -535,7 +529,7 @@ Rules:
     },
     "callout": {
       "type": "object",
-      "description": "OPTIONAL tail, time-sensitive. A bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if one move is time-sensitive (a close date is days away, a signal will stall the deal) AND the user can act on it now.",
+      "description": "OPTIONAL tail, time-sensitive. A bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if one move is time-sensitive (a close date is days away, a signal will stall the deal) AND the user can act on it now. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text). buttonLabel and actionMsg are only meaningful after visible lead and text exist.",
       "required": [
         "lead",
         "text",
@@ -545,11 +539,11 @@ Rules:
       "properties": {
         "lead": {
           "type": "string",
-          "description": "The bold first sentence of the callout (the stake in one sentence, ending with a period, e.g. '$735K is time-sensitive across 6 days.')."
+          "description": "REQUIRED, visible (non-whitespace). The bold first sentence of the callout (the stake in one sentence, ending with a period, e.g. '$735K is time-sensitive across 6 days.')."
         },
         "text": {
           "type": "string",
-          "description": "One to three sentences: what, why now, and the move."
+          "description": "REQUIRED, visible (non-whitespace). One to three sentences: what, why now, and the move."
         },
         "buttonLabel": {
           "type": "string",
@@ -591,7 +585,7 @@ Rules:
     },
     "sources": {
       "type": "array",
-      "description": "REQUIRED. Where the answer came from: the Salesforce records/lists you actually read, linked (this is where Opportunity record links go). Shown as a compact 'Salesforce · Sources (N)' toggle (the word comes from labels.sources).",
+      "description": "REQUIRED. Where the answer came from: the Salesforce records/lists you actually read, linked (this is where Opportunity record links go). Shown as a compact 'Salesforce · Sources (N)' toggle (the word comes from labels.sources). Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
       "items": {
         "type": "object",
         "required": [
@@ -600,11 +594,11 @@ Rules:
         "properties": {
           "label": {
             "type": "string",
-            "description": "Source name: object · record (e.g. 'Opportunities · 11 open', 'Opportunity · Cedarline Financial')."
+            "description": "Name of an actual read: a Salesforce record ('Opportunity · Cedarline Financial'), a Salesforce object/list query ('Opportunity · open pipeline', 'Task and Event · activity last 6 months'), or a semantic dataset/query when that is the real source. Never a computed metric or conclusion: do NOT use labels such as 'Closed won · current Salesforce quarter' or 'Quota attainment · last 4 quarters'; label the underlying read instead (e.g. 'Opportunity · closed-won this quarter')."
           },
           "url": {
             "type": "string",
-            "description": "Record URL https://<myDomain>/lightning/r/<SObjectType>/<Id>/view, or for a list https://<myDomain>/lightning/o/Opportunity/list. Omit if none."
+            "description": "Record URL https://<myDomain>/lightning/r/<SObjectType>/<Id>/view, or for a list https://<myDomain>/lightning/o/Opportunity/list. Omit if none (e.g. aggregate queries have no record or list URL; never invent one)."
           }
         }
       }

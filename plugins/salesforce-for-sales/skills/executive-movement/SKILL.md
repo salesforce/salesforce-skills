@@ -112,12 +112,11 @@ Prepare record updates as proposals only, with a "needs confirmation" marker on 
 Call `display_widget` immediately after assembling the changes. Do not write markdown first — only fall back to Step 7 when the tool is unavailable. A single one-line "Displaying the visualization now (this may take a minute)." notice may precede it.
 
 ```
-display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "executive-movement", data: <object matching the schema below>, renderer: { body: [] } } })
+display_widget({ resourceType: "salesforce_widget", widget_resource_uri: "ui://widget/standard/executive-movement", props: <object matching the schema below> })
 ```
 
-- `renderer: { body: [] }` is a required placeholder; send it exactly as written.
 - **Send data only; never author presentation** (layout, HTML, colors, badges, icons, or `{!…}` / `{{…}}` expressions).
-- **`widgetDefinition` and `data` are nested JSON objects, NOT strings.** Parse a JSON string before the call.
+- **`props` is a nested JSON object, NOT a string.** Parse a JSON string before the call.
 - The widget is the output. Step 7 is only a fallback when `display_widget` is unavailable or fails.
 
 ### What to send
@@ -149,7 +148,7 @@ Rules:
 - Visible names and values are plain strings extracted from `.value` fields. Never send response objects, markdown links or raw Lightning URLs in visible text; put a record URL only in a source `url`.
 - `relationshipMap` stance is `Unknown` unless a grounded stance or buyer-relationship value exists. A champion needs demonstrated advocacy, not a supportive tone.
 - The tail is exclusive: `callout` only for a time-sensitive action (level `note`, never `blocker`), with at most one primary button whose `actionMsg` is first-person; otherwise `nextStep`, usually an offer to draft outreach.
-- Before calling, verify no `{!…}` or `{{…}}` in `data`, no keys outside the schema, and every optional key is justified by the prompt.
+- Before calling, verify no `{!…}` or `{{…}}` in `props`, no keys outside the schema, and every optional key is justified by the prompt.
 
 #### Worked examples (the data object only)
 
@@ -190,7 +189,7 @@ The names, amounts and dates below are illustrative; every value comes from the 
 }
 ```
 
-`data` schema (JSON Schema). Only `title`, `answer` and `sources` are required; include optional keys only when the prompt and evidence call for them (see the scope table):
+`props` schema (JSON Schema). Only `title`, `answer` and `sources` are required; include optional keys only when the prompt and evidence call for them (see the scope table):
 
 ```json
 {
@@ -317,7 +316,7 @@ The names, amounts and dates below are illustrative; every value comes from the 
     },
     "sources": {
       "type": "array",
-      "description": "REQUIRED. Salesforce records and external sources actually read. Rendered in a collapsed 'Salesforce + web sources · Sources (N)' footer. Use scalar labels and put URLs only in url fields.",
+      "description": "REQUIRED. Salesforce records and external sources actually read. Rendered in a collapsed 'Salesforce + web sources · Sources (N)' footer. Use scalar labels and put URLs only in url fields. Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
       "items": {
         "type": "object",
         "additionalProperties": false,
