@@ -1681,7 +1681,7 @@
                   "#e8a765",
                   "#64748b"
                 ],
-                "description": "Optional categorical color for this part: an index into the data palette (the same palette tile/chart and tile/piechart assign by position). 0 primary blue (#0176d3) · 1 warm terracotta (#d97757) · 2 teal-green (#0d9488) · 3 magenta (#db2777) · 4 forest green (#2e844a) · 5 violet (#7e57c2) · 6 warm amber (#e8a765) · 7 slate (#64748b). Ignored when tone is set."
+                "description": "Optional categorical color for this part: an index into the Aiforce data palette (the same palette tile/chart and tile/piechart assign by position). 0 primary blue (#0176d3) · 1 warm terracotta (#d97757) · 2 teal-green (#0d9488) · 3 magenta (#db2777) · 4 forest green (#2e844a) · 5 violet (#7e57c2) · 6 warm amber (#e8a765) · 7 slate (#64748b). Ignored when tone is set."
               },
               "detail": {
                 "type": "string",
@@ -1950,7 +1950,7 @@
                   "#e8a765",
                   "#64748b"
                 ],
-                "description": "Optional categorical color for this step: an index into the data palette, the same palette tile/chart, tile/piechart and tile/scatter assign by position. 0 primary blue (#0176d3) · 1 warm terracotta (#d97757) · 2 teal-green (#0d9488) · 3 magenta (#db2777) · 4 forest green (#2e844a) · 5 violet (#7e57c2) · 6 warm amber (#e8a765) · 7 slate (#64748b). Themes may restyle each slot through --chart-1 … --chart-8. Replaces the increase/decrease green/red for this step; its value label and sublabel take the same color, and the signed value still carries direction. Omit for the default direction colors."
+                "description": "Optional categorical color for this step: an index into the Aiforce data palette, the same palette tile/chart, tile/piechart and tile/scatter assign by position. 0 primary blue (#0176d3) · 1 warm terracotta (#d97757) · 2 teal-green (#0d9488) · 3 magenta (#db2777) · 4 forest green (#2e844a) · 5 violet (#7e57c2) · 6 warm amber (#e8a765) · 7 slate (#64748b). Themes may restyle each slot through --chart-1 … --chart-8. Replaces the increase/decrease green/red for this step; its value label and sublabel take the same color, and the signed value still carries direction. Omit for the default direction colors."
               },
               "sublabel": {
                 "type": "string",
@@ -2072,7 +2072,7 @@
                 "#e8a765",
                 "#64748b"
               ],
-              "description": "Optional categorical color for this step: an index into the data palette (the same palette tile/chart and tile/piechart assign by position). 0 primary blue (#0176d3) · 1 warm terracotta (#d97757) · 2 teal-green (#0d9488) · 3 magenta (#db2777) · 4 forest green (#2e844a) · 5 violet (#7e57c2) · 6 warm amber (#e8a765) · 7 slate (#64748b). Ignored when tone is set."
+              "description": "Optional categorical color for this step: an index into the Aiforce data palette (the same palette tile/chart and tile/piechart assign by position). 0 primary blue (#0176d3) · 1 warm terracotta (#d97757) · 2 teal-green (#0d9488) · 3 magenta (#db2777) · 4 forest green (#2e844a) · 5 violet (#7e57c2) · 6 warm amber (#e8a765) · 7 slate (#64748b). Ignored when tone is set."
             },
             "sublabel": {
               "type": "string",

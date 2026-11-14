@@ -91,16 +91,15 @@ When the data is assembled, call `display_widget`; a single one-line "Displaying
 ### Self-verification (before calling display_widget)
 
 
-Call `display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "win-loss-review", data: <object matching the schema below>, renderer: { body: [] } } })` once.
+Call `display_widget({ resourceType: "salesforce_widget", widget_resource_uri: "ui://widget/standard/win-loss-review", props: <object matching the schema below> })` once.
 
-- `renderer: { body: [] }` is a required placeholder.
 - **Send data only; never author presentation** (colours, pills, icons, HTML, emoji, layout keys, `{!…}`/`{{…}}`).
-- **`widgetDefinition` and `data` are nested JSON objects, NOT strings.**
+- **`props` is a nested JSON object, NOT a string.**
 - The widget is the output. Section 5 is fallback only.
 
 ### What to send
 
-Follow the block order and the per-block inclusion rules in the `data` schema below: title → answer → metrics → quarterlyWinRate → sizeWinRate → lossReasons → losses → callout OR nextStep → sources. Only `title`, `answer`, `sources` are required.
+Follow the block order and the per-block inclusion rules in the `props` schema below: title → answer → metrics → quarterlyWinRate → sizeWinRate → lossReasons → losses → callout OR nextStep → sources. Only `title`, `answer`, `sources` are required.
 
 **Language:** omit `labels` for English; otherwise translate every fixed label key: `winRate`, `revenueWon`, `revenueLost`, `opportunityMetrics`, `quarterlyWinRate`, `sizeWinRate`, `lossReasons`, `lossDetail`, `status`, `opportunity`, `amount`, `stageLost`, `reason`, `lostTo`, `lost`, `noDecision`, `sources`. The five card eyebrows are fixed labels (`opportunityMetrics` → OPPORTUNITY METRICS, `quarterlyWinRate` → WIN RATE BY QUARTER, `sizeWinRate` → WIN RATE BY OPPORTUNITY SIZE, `lossReasons` → CLOSED LOST OPPORTUNITIES BY REASON, `lossDetail` → OPPORTUNITIES); they no longer carry period/scope suffixes, so disclose period and population in the answer bullets, per-row detail and sources instead. Translate free text too; its dates, counts and currency must remain grounded. `losses.caption` is a screen-reader-only datagrid caption (not a visible heading), a truthful localized scope string, never a fixed FY2026/7-of-11 default.
 
@@ -144,7 +143,7 @@ Follow the block order and the per-block inclusion rules in the `data` schema be
 
 
 
-`data` schema (JSON Schema). Only `title`, `answer` and `sources` are required; include any other key only when the prompt asks for it or it clearly speeds up the answer (see "Scope the blocks to the prompt"):
+`props` schema (JSON Schema). Only `title`, `answer` and `sources` are required; include any other key only when the prompt asks for it or it clearly speeds up the answer (see "Scope the blocks to the prompt"):
 ```json
 {
   "type": "object",
@@ -264,7 +263,7 @@ Follow the block order and the per-block inclusion rules in the `data` schema be
     },
     "sources": {
       "type": "array", "minItems": 1,
-      "description": "REQUIRED. Where the win-loss answer came from: closed Opportunity reads for the actual scope and period, grounded loss-reason fields, stage history and qualitative evidence actually used. Cite aggregate/detail coverage truthfully; link only where an actual record URL exists. Never force a source count, invent a field or query timestamp. Shown as a compact 'Salesforce · Sources (N)' toggle.",
+      "description": "REQUIRED. Where the win-loss answer came from: closed Opportunity reads for the actual scope and period, grounded loss-reason fields, stage history and qualitative evidence actually used. Cite aggregate/detail coverage truthfully; link only where an actual record URL exists. Never force a source count, invent a field or query timestamp. Shown as a compact 'Salesforce · Sources (N)' toggle. Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
       "items": {
         "type": "object", "additionalProperties": false, "required": ["label"],
         "properties": {

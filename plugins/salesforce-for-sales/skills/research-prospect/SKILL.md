@@ -1,6 +1,6 @@
 ---
 name: research-prospect
-description: "Build a prospect brief from web research and Salesforce, covering company facts, recent signals, likely priorities, contacts and ICP fit. Use to research a net-new company or person before outreach. Existing accounts: account-context."
+description: "Research a specific company or prospect before outreach, tell me about them, who they are, what I should know, or build a prospect brief with ICP fit analysis. Requires company name or domain. Combines web research and Salesforce data, covering company facts, recent signals, likely priorities, contacts and ICP fit. Use for net-new companies or people before first outreach. Existing accounts: account-context."
 ---
 <!-- global-rules-bootstrap -->
 
@@ -94,29 +94,29 @@ When the data is assembled, call `display_widget`; a single one-line "Displaying
 
 ### Self-verification (before calling display_widget)
 
-- [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
+- [ ] `props` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 - [ ] `data` is a nested JSON object, NOT a string.
 - [ ] All values in data are literals — no template syntax.
 - [ ] Only `title`, `answer`, and `sources` are required; every other optional key is justified by the prompt (see "Scope the blocks to the prompt").
 - [ ] The `answer` is scoped to the prompt: if the user asked only about ICP fit, give only the fit facts, not the full firmographics.
 - [ ] Tail fork: sent `callout` XOR `nextStep`, never both.
+- [ ] Every `contacts` row has `draftLabel`, `draftText` and `draftMsg`.
 - [ ] Omitted keys have no data or weren't asked for — never send empty placeholders.
 - [ ] The section 6 markdown is produced only when `display_widget` is unavailable (the terminal fallback) — not alongside a rendered widget.
 
 Send only the widget name and its data — no layout, no `{!…}`:
 
 ```
-display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "research-prospect", data: <object matching the schema below>, renderer: { body: [] } } })
+display_widget({ resourceType: "salesforce_widget", widget_resource_uri: "ui://widget/standard/research-prospect", props: <object matching the schema below> })
 ```
 
-- `renderer: { body: [] }` is a required placeholder.
 - Send data only; no layout and no `{!…}`.
-- **`widgetDefinition` and `data` are nested JSON objects, NOT strings.**
-- The widget is the output. §6 is the fallback only.
+- **`props` is a nested JSON object, NOT a string.**
+- The widget is the output, even for a narrow ask: a one-fact question sends just `title`, `answer` and `sources`, never prose. Once the call succeeds, add no text after it. Reply in text (§6) only when `display_widget` is unavailable or errors.
 
 ### What to send
 
-Follow the block order and the per-block inclusion rules in the `data` schema below (the root description and each property's `description`).
+Follow the block order and the per-block inclusion rules in the `props` schema below (the root description and each property's `description`).
 
 Rules:
 - **Scope reading and output to the prompt.** Broad asks ("Research [Company]", "Brief me on [Company]") get the full card set (ICP score, signals, contacts); specific asks ("Is [Company] a good fit?", "Who should I reach out to?") get only the matching card. Don't show something just because you fetched it.
@@ -133,7 +133,8 @@ Rules:
    - `threshold` (number, required): Threshold score for "strong" rating. Example: 80
    - `flags` (array, required): Fit dimension rows, ranked by impact (blockers first)
 4. **`signals`** (optional): External signals table (M&A, funding, earnings). Include ONLY when the prompt is broad or asks about signals/timing.
-5. **`contacts`** (optional): Stakeholder rows ranked by fit, with draft-outreach hooks and buttons. Include ONLY when the prompt is broad or asks about who to contact.
+5. **`contacts`** (optional): Stakeholder rows ranked by fit, with draft-outreach hooks and buttons. Include ONLY when the prompt is broad or asks about who to contact. **Every contact row carries a draft card:** `draftLabel` (`"DRAFT"`), `draftText` (a short first-touch message to that person, 2–3 sentences, built only from facts you gathered) and `draftMsg` (a first-person request to draft the full email, e.g. "Draft an intro email to Edward Stamos at Acme United, leading with the efficiency angle."). Without `draftText` the card does not render.
+   Add `Phone { value }` to the Contacts selection of the account query, and send `email` and `phone` on every row whose record has them; the widget renders them as links.
 6. **Tail (XOR)**: Either `callout` (time-sensitive/blocked) OR `nextStep` (non-urgent), never both.
 7. **`sources`** (required): Provenance footer: CRM records and web sources.
 
@@ -157,7 +158,7 @@ Rules:
 - Rank `icpScore.flags` most-severe first (blockers → cautions → context).
 - Rank `signals.rows` by relevance to the value prop.
 - Rank `contacts` by fit (best entry point first).
-- Optionally include `queriedAt` timestamp for when the data was retrieved (e.g., "Sep 24, 2026 · scope: sample").
+- Every `contacts` row includes `draftLabel`, `draftText` and `draftMsg`. Ground `draftText` in the pipeline, signals and role you found; never invent events or relationships. When the account is owned by someone else, keep the draft neutral and let `hook` carry the coordinate-first caveat.
 - Before calling: no template expressions, no keys outside the schema.
 
 #### Worked examples (the data object only)
@@ -167,7 +168,7 @@ Rules:
 ```json
 {
   "title": "Acme United is a moderate fit (72/100) — the hook is efficiency, and this account is already owned.",
-  "answer": "- **Manufacturing, 680 employees, mid-market, public on NYSE as ACU** — a reasonable Ideal Customer Profile match, but not a clean one.\n- **Already in Salesforce, owned by Jordan Lee with 3 open opportunities ($230K)** on a stale 2024 close date — so this is a coordinate-first motion, not a cold reach.\n- **Whitespace is Sales Cloud and Service Cloud**; the strongest angle is efficiency and cost reduction, not growth.",
+  "answer": "- **Manufacturing, 680 employees, mid-market, public on NYSE as ACU** — a reasonable Ideal Customer Profile match, but not a clean one.\n- **Already in Salesforce, owned by OrgFarm EPIC with 3 open opportunities ($230K)** on a stale 2024 close date — so this is a coordinate-first motion, not a cold reach.\n- **Whitespace is Sales Cloud and Service Cloud**; the strongest angle is efficiency and cost reduction, not growth.",
   "icpScore": {
     "score": 72,
     "rating": "moderate",
@@ -180,7 +181,7 @@ Rules:
       },
       {
         "title": "Ownership conflict — already in Salesforce under a different representative.",
-        "detail": "Owned by Jordan Lee with $230K of open pipeline on a stale 2024 close date. Coordinate before any outreach.",
+        "detail": "Owned by OrgFarm EPIC with $230K of open pipeline on a stale 2024 close date. Coordinate before any outreach.",
         "tone": "warning"
       }
     ]
@@ -200,24 +201,23 @@ Rules:
       "title": "President & CEO",
       "email": "estamos@acmeunited.com",
       "phone": "+1 (203) 555-0142",
-      "hook": "Why reach out: lead with the efficiency and cost-reduction story.",
+      "hook": "Lead with the efficiency and cost-reduction story.",
       "draftLabel": "DRAFT",
       "draftText": "Edward — congratulations on the SLED Distribution close...",
       "draftMsg": "Draft an intro email to Edward Stamos at Acme United, leading with the efficiency angle and the SLED acquisition."
     }
   ],
   "nextStep": {
-    "text": "This is a coordinate-first account — align with Jordan Lee on the efficiency angle before any outreach.",
+    "text": "This is a coordinate-first account — align with OrgFarm EPIC on the efficiency angle before any outreach.",
     "buttonLabel": "Save to Salesforce",
     "actionMsg": "Save this research to the Acme United account record in Salesforce."
   },
   "sources": [
     {
       "label": "Account: Acme United Corp",
-      "url": "https://example.lightning.force.com/lightning/r/Account/001xx000003DGb2AAG/view"
+      "url": "https://orgfarm.lightning.force.com/lightning/r/Account/001AX000005mNq8YAE/view"
     }
-  ],
-  "queriedAt": "Sep 24, 2026 · scope: sample"
+  ]
 }
 ```
 
@@ -226,7 +226,7 @@ Rules:
 ```json
 {
   "title": "Acme United is a moderate fit (72/100) — Manufacturing profile matches, but ownership conflict requires coordination.",
-  "answer": "- **Fits on industry, size, and public-company profile** — Manufacturing, 680 employees, NYSE-listed.\n- **Ownership conflict blocks direct outreach** — already owned by Jordan Lee with $230K stale pipeline.\n- **Mixed financials** — tariff pressure makes efficiency story stronger than growth.",
+  "answer": "- **Fits on industry, size, and public-company profile** — Manufacturing, 680 employees, NYSE-listed.\n- **Ownership conflict blocks direct outreach** — already owned by OrgFarm EPIC with $230K stale pipeline.\n- **Mixed financials** — tariff pressure makes efficiency story stronger than growth.",
   "icpScore": {
     "score": 72,
     "rating": "moderate",
@@ -239,7 +239,7 @@ Rules:
       },
       {
         "title": "Ownership conflict — already in Salesforce under a different representative.",
-        "detail": "Owned by Jordan Lee with $230K of open pipeline on a stale 2024 close date. Coordinate before any outreach.",
+        "detail": "Owned by OrgFarm EPIC with $230K of open pipeline on a stale 2024 close date. Coordinate before any outreach.",
         "tone": "warning"
       }
     ]
@@ -247,15 +247,14 @@ Rules:
   "sources": [
     {
       "label": "Account: Acme United Corp",
-      "url": "https://example.lightning.force.com/lightning/r/Account/001xx000003DGb2AAG/view"
+      "url": "https://orgfarm.lightning.force.com/lightning/r/Account/001AX000005mNq8YAE/view"
     }
-  ],
-  "queriedAt": "Sep 24, 2026 · scope: sample"
+  ]
 }
 ```
 
 
-`data` schema (JSON Schema). Only `title`, `answer` and `sources` are required; include any other key only when the prompt asks for it or it clearly speeds up the answer (see "Scope the blocks to the prompt").
+`props` schema (JSON Schema). Only `title`, `answer` and `sources` are required; include any other key only when the prompt asks for it or it clearly speeds up the answer (see "Scope the blocks to the prompt").
 
 The optional `labels` object lets you override fixed eyebrow text for non-English prompts. For English prompts, omit `labels` entirely — the renderer uses defaults. Only include it when the user's prompt is clearly non-English.
 
@@ -269,7 +268,7 @@ The optional `labels` object lets you override fixed eyebrow text for non-Englis
     "answer",
     "sources"
   ],
-  "description": "Data contract for research-prospect lego widget. The model sends {widget: 'research-prospect', data: <this shape>, renderer: {body: []}}. Only title/answer/sources are required; include any other key only when the prompt asks for it or when it speeds understanding.",
+  "description": "Data contract for research-prospect lego widget. The model sends this shape as props to ui://widget/standard/research-prospect. Only title/answer/sources are required; include any other key only when the prompt asks for it or when it speeds understanding.",
   "properties": {
     "title": {
       "type": "string",
@@ -400,7 +399,7 @@ The optional `labels` object lets you override fixed eyebrow text for non-Englis
           },
           "hook": {
             "type": "string",
-            "description": "Why reach out statement. Example: 'Why reach out: lead with the efficiency and cost-reduction story.'"
+            "description": "The reason to reach out, without a \"Why reach out\" prefix (the widget adds the label). Example: 'Lead with the efficiency and cost-reduction story.'"
           },
           "draftLabel": {
             "type": "string",
@@ -471,7 +470,7 @@ The optional `labels` object lets you override fixed eyebrow text for non-Englis
         },
         "text": {
           "type": "string",
-          "description": "Suggested next step. Example: 'This is a coordinate-first account \u2014 align with Jordan Lee on the efficiency angle before any outreach. Save this research to the account record so the owner has the signals and draft messages in context.'"
+          "description": "Suggested next step. Example: 'This is a coordinate-first account \u2014 align with OrgFarm EPIC on the efficiency angle before any outreach. Save this research to the account record so the owner has the signals and draft messages in context.'"
         },
         "buttonLabel": {
           "type": "string",
@@ -485,7 +484,7 @@ The optional `labels` object lets you override fixed eyebrow text for non-Englis
     },
     "sources": {
       "type": "array",
-      "description": "Always required. Provenance footer: CRM records and web sources.",
+      "description": "Always required. Provenance footer: CRM records and web sources. Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -503,10 +502,6 @@ The optional `labels` object lets you override fixed eyebrow text for non-Englis
           }
         }
       }
-    },
-    "queriedAt": {
-      "type": "string",
-      "description": "Optional timestamp when the data was queried. Format: readable date/time string like 'Oct 20, 2026 at 10:45 PM'."
     },
     "labels": {
       "type": "object",

@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Salesforce plugins for Grok Bot and Cursor, grounded on your org through the Headless 360 MCP server.",
-    "version": "1.0.0-beta.3.1",
+    "version": "1.0.0-beta.3.6",
     "pluginRoot": "plugins"
   },
   "plugins": [

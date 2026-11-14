@@ -190,15 +190,15 @@ When the data is assembled, call `display_widget`; a single one-line "Displaying
 
 ### Self-verification (before calling display_widget)
 
-- [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
+- [ ] `props` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 
 The layout is registered by name. **Send data only**, using this call once:
 
 ```
-display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "team-pipeline", data: <object matching the schema below>, renderer: { body: [] } } })
+display_widget({ resourceType: "salesforce_widget", widget_resource_uri: "ui://widget/standard/team-pipeline", props: <object matching the schema below> })
 ```
 
-`widgetDefinition` and `data` must be nested JSON objects, NOT strings. Send `renderer: { body: [] }` exactly as written. Never send layout, HTML, icons, colors or expressions in data. When the widget succeeds, do not repeat its contents as text.
+`props` must be a nested JSON object, NOT a string. Never send layout, HTML, icons, colors or expressions in data. When the widget succeeds, do not repeat its contents as text.
 
 ### What to send
 
@@ -535,7 +535,7 @@ display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "team-pipe
 }
 ```
 
-`data` schema (JSON Schema). Only title, answer and sources are required; include other keys only when the prompt asks for them:
+`props` schema (JSON Schema). Only title, answer and sources are required; include other keys only when the prompt asks for them:
 
 ```json
 {
@@ -604,7 +604,7 @@ display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "team-pipe
     },
     "sources": {
       "type": "array",
-      "description": "REQUIRED. Where the answer came from: the Salesforce records/lists you actually read, linked (this is where Opportunity/Account record links go). Shown as a compact 'Salesforce · Sources (N)' toggle (the word comes from labels.sources).",
+      "description": "REQUIRED. Where the answer came from: the Salesforce records/lists you actually read, linked (this is where Opportunity/Account record links go). Shown as a compact 'Salesforce · Sources (N)' toggle (the word comes from labels.sources). Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
       "items": {
         "type": "object",
         "required": [
