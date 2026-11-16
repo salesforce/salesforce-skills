@@ -34,7 +34,7 @@ Get transcript → extract structure deeply → (draft email + draft Slack/Teams
 
 ## 1. Get transcript
 
-**If link or "find it":** Use doc search tools (Google Workspace, etc.) to read the doc. Search by account name if needed.
+**If link or "find it":** Use doc search tools (SharePoint/OneDrive, etc.) to read the doc. Search by account name if needed.
 **If pasted:** Use as-is.
 **Provider mapping:** For this existing document lookup, accessible Teams meeting notes or transcript files in SharePoint/OneDrive may supply the transcript. Retain the account search scope and pasted-input path; do not add a meeting search or separate transcript route. Outlook and Teams may supply the existing email and internal work-chat drafts only when those operations are available; nothing is sent without the existing confirmation.
 

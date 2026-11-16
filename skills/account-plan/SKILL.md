@@ -747,7 +747,7 @@ The following is a compact **shape example**, not a substitute for the live V2 r
      },
      "callout": {
       "type": "object",
-      "description": "OPTIONAL tail for a time-sensitive or blocked move. Use INSTEAD of nextStep, never both. Send only when an urgent action is grounded.",
+      "description": "OPTIONAL tail for a time-sensitive or blocked move. Use INSTEAD of nextStep, never both. Send only when an urgent action is grounded. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "required": [
         "lead",
         "text",
@@ -757,10 +757,12 @@ The following is a compact **shape example**, not a substitute for the live V2 r
       ],
       "properties": {
         "lead": {
-          "type": "string"
+          "type": "string",
+          "description": "REQUIRED, visible (non-whitespace)."
         },
         "text": {
-          "type": "string"
+          "type": "string",
+          "description": "REQUIRED, visible (non-whitespace)."
         },
         "buttonLabel": {
           "type": "string"

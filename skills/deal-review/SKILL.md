@@ -383,7 +383,7 @@ The names, amounts and dates below (e.g. Cedarline, Priya Anand, $640K, Aug 31) 
     },
     "callout": {
       "type": "object",
-      "description": "OPTIONAL tail, time-sensitive. Warning icon, a bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if one move is time-sensitive (a close date is days away, a buyer gone quiet will stall the deal) AND the user can act on it now.",
+      "description": "OPTIONAL tail, time-sensitive. Warning icon, a bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if one move is time-sensitive (a close date is days away, a buyer gone quiet will stall the deal) AND the user can act on it now. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "required": [
         "lead",
         "text",
@@ -393,11 +393,11 @@ The names, amounts and dates below (e.g. Cedarline, Priya Anand, $640K, Aug 31) 
       "properties": {
         "lead": {
           "type": "string",
-          "description": "The bold first sentence of the callout (the stake in one sentence, ending with a period, e.g. '8 days to close, 3 criteria at Low confidence.')."
+          "description": "REQUIRED, visible (non-whitespace). The bold first sentence of the callout (the stake in one sentence, ending with a period, e.g. '8 days to close, 3 criteria at Low confidence.')."
         },
         "text": {
           "type": "string",
-          "description": "One to three sentences: what, why now, and the move."
+          "description": "REQUIRED, visible (non-whitespace). One to three sentences: what, why now, and the move."
         },
         "buttonLabel": {
           "type": "string",

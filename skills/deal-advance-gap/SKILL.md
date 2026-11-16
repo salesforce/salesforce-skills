@@ -282,11 +282,11 @@ Rules:
     "callout": {
       "type": "object",
       "additionalProperties": false,
-      "description": "The one recommended move, shown with an icon and one primary button. Include for a broad 'what is blocking this deal' ask, whether or not a date exists (never invent one). Omit for a specific or direct question.",
+      "description": "The one recommended move, shown with an icon and one primary button. Include for a broad 'what is blocking this deal' ask, whether or not a date exists (never invent one). Omit for a specific or direct question. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "required": ["lead", "text", "buttonLabel", "actionMsg"],
       "properties": {
-        "lead": { "type": "string", "description": "The single most important blocker or move, in one evidence-backed sentence. Needs no date." },
-        "text": { "type": "string", "description": "Recommended move and its grounded rationale." },
+        "lead": { "type": "string", "description": "REQUIRED, visible (non-whitespace). The single most important blocker or move, in one evidence-backed sentence. Needs no date." },
+        "text": { "type": "string", "description": "REQUIRED, visible (non-whitespace). Recommended move and its grounded rationale." },
         "buttonLabel": { "type": "string", "description": "One concise primary action label." },
         "actionMsg": { "type": "string", "description": "First-person request sent by action/sendMessage." }
       }

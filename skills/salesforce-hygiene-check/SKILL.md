@@ -326,7 +326,7 @@ The names, amounts and dates below (e.g. Cedarline, $640K, 6 weeks ago) are illu
     "callout": {
       "type": "object",
       "additionalProperties": false,
-      "description": "OPTIONAL tail, time-sensitive. Warning icon, a bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if overdue opportunities are still counted in the open pipeline AND the user can fix them now.",
+      "description": "OPTIONAL tail, time-sensitive. Warning icon, a bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if overdue opportunities are still counted in the open pipeline AND the user can fix them now. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "required": [
         "lead",
         "text",
@@ -336,11 +336,11 @@ The names, amounts and dates below (e.g. Cedarline, $640K, 6 weeks ago) are illu
       "properties": {
         "lead": {
           "type": "string",
-          "description": "The bold first sentence of the callout (the caution in one sentence, ending with a period, e.g. '$1.03M across 3 opportunities has a Close Date in the past but is still counted in your open pipeline.')."
+          "description": "REQUIRED, visible (non-whitespace). The bold first sentence of the callout (the caution in one sentence, ending with a period, e.g. '$1.03M across 3 opportunities has a Close Date in the past but is still counted in your open pipeline.')."
         },
         "text": {
           "type": "string",
-          "description": "One to three sentences: what, why now, and the fix you can apply (e.g. 'Until each Close Date is corrected and a current Next Step is set, these distort the forecast your manager pulls – fix them before the next review. I can set each Close Date to its next realistic date and draft a fresh Next Step for you to approve.')."
+          "description": "REQUIRED, visible (non-whitespace). One to three sentences: what, why now, and the fix you can apply (e.g. 'Until each Close Date is corrected and a current Next Step is set, these distort the forecast your manager pulls – fix them before the next review. I can set each Close Date to its next realistic date and draft a fresh Next Step for you to approve.')."
         },
         "buttonLabel": {
           "type": "string",
