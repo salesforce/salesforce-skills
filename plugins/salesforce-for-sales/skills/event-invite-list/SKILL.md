@@ -113,24 +113,21 @@ When the data is assembled, call:
 
 ```
 display_widget({
-  resourceType: "dynamic",
-  widgetDefinition: {
-    widget: "event-invite-list",
-    data: {
-      title: "...",
-      answer: "...",
-      inviteList: [...],
-      callout: {...},
-      sources: [...]
-    },
-    renderer: { body: [] }
+  resourceType: "salesforce_widget",
+  widget_resource_uri: "ui://widget/standard/event-invite-list",
+  props: {
+    title: "...",
+    answer: "...",
+    inviteList: [...],
+    callout: {...},
+    sources: [...]
   }
 })
 ```
 
 ### What to send
 
-Follow the block order and the per-block inclusion rules in the `data` schema below (the root description and each property's `description`).
+Follow the block order and the per-block inclusion rules in the `props` schema below (the root description and each property's `description`).
 
 Rules:
 - **Language:** when the user writes in English, omit `labels`. When they write in another language, send `labels` with EVERY key translated (headings in upper case) and write every free-text field (`title`, `answer`, `whyInvite`, ...) in that language. Never join translated text with English fragments: each phrase is written whole, because word order differs.
@@ -155,20 +152,19 @@ The schema marks only `title`, `answer` and `sources` as required. **Every other
 
 ### Self-verification (before calling display_widget)
 
-- [ ] `widgetDefinition` is passed as a native JSON object containing `widget`, `data`, and `renderer` — not a string.
-- [ ] `widget` is exactly `"event-invite-list"`.
-- [ ] `data` contains exactly the fields matching `renderer.props.schema.json` below — `title`, `answer` (required); `labels`, `inviteList`, `callout`, `nextStep` (optional); `sources` (required).
+- [ ] `props` is passed as a native JSON object — not a string.
+- [ ] `props` contains exactly the fields matching `renderer.props.schema.json` below — `title`, `answer` (required); `labels`, `inviteList`, `callout`, `nextStep` (optional); `sources` (required).
 - [ ] `emailLink` shows at most 12 characters of the address then `…`, with the full address as the link title; `opportunityLink` is one opportunity, name only, on one line.
 - [ ] `inviteList` (when included) is an array of contact objects ranked by ICP fit descending (highest priority first); each contact has markdown-formatted link fields: `contactNameLink`, `emailLink`, `accountLink`, `opportunityLink`, plus `contactTitle` and `whyInvite`.
 - [ ] All links are markdown-formatted: `[Display Text](url)`. Lightning URLs built from `instanceUrl`: `https://[instanceUrl]/lightning/r/Contact/[Id]/view`.
 - [ ] `callout` or `nextStep` (at most one): the highest-priority recommendation with a button or plain suggestion.
 - [ ] `sources` lists the Salesforce records/queries actually read (Campaign, Contacts, Accounts, Opportunities).
 - [ ] No fabricated content — blank fields quoted as plain text `"—"` (no link), not invented.
-- [ ] `renderer` is exactly `{ body: [] }`.
+- [ ] `widget_resource_uri` is exactly `"ui://widget/standard/event-invite-list"`.
 
-### `data` schema (JSON Schema)
+### `props` schema (JSON Schema)
 
-Send data only — the widget's template (in `renderer.json`, compiled client-side) renders it. Every value you send must be a ready-to-display string (currency formatted, dates formatted, amounts formatted); names are plain strings. Links are markdown-formatted: `[text](url)`.
+Send data only — the widget's HXL template (in `renderer.json`, compiled client-side) renders it. Every value you send must be a ready-to-display string (currency formatted, dates formatted, amounts formatted); names are plain strings. Links are markdown-formatted: `[text](url)`.
 
 {
   "type": "object",
@@ -330,7 +326,7 @@ Send data only — the widget's template (in `renderer.json`, compiled client-si
     },
     "sources": {
       "type": "array",
-      "description": "REQUIRED. Where the answer came from: the Salesforce records/queries you actually read (Campaign, Contacts, Accounts, Opportunities), linked. Shown as a compact 'Salesforce · Sources (N)' toggle (the word comes from labels.sources).",
+      "description": "REQUIRED. Where the answer came from: the Salesforce records/queries you actually read (Campaign, Contacts, Accounts, Opportunities), linked. Shown as a compact 'Salesforce · Sources (N)' toggle (the word comes from labels.sources). Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -353,7 +349,7 @@ Send data only — the widget's template (in `renderer.json`, compiled client-si
   }
 }
 
-#### Worked examples (the `data` object only)
+#### Worked examples (the `props` object only)
 
 **Event invite list — "Who should I invite to our SF exec dinner next month?"**
 

@@ -29,16 +29,24 @@ Inputs: **topic** (theme/objection/feature/competitor, or open-ended "what's com
 
 ## 1. Context — 3 independent SF reads + the searches, all in ONE turn
 
-These don't depend on each other, so fire them together (with the doc/email/Slack searches below). No schema grounding — fields are fixed.
+Resolve the API version first (once per session; reuse it if already resolved) and substitute it for `<apiVersion>` in every REST URL below:
+
+```
+dispatch_readonly(method: "GET", url: "/services/data/")
+```
+
+The response lists the org's supported versions - pick the highest. UI-API GraphQL stays pinned at `/services/data/v65.0/graphql`.
+
+The three reads don't depend on each other, so fire them together (with the doc/email/Slack searches below). No schema grounding — fields are fixed.
 
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
   queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Account(scope: MINE, first: 200) { edges { node { Name { value } Website { value } Owner { Name { value } } } } } } } }\"}" })
 
-dispatch_readonly(method: "GET", url: "/services/data/v66.0/graphql",
+dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
   queryParams: { "queryInput": "{\"query\":\"query { uiapi { currentUser { Email { value } } } }\"}" })
 
-dispatch_readonly(method: "GET", url: "/services/data/v63.0/query",
+dispatch_readonly(method: "GET", url: "/services/data/<apiVersion>/query",
   queryParams: { "q": "SELECT Name FROM Organization LIMIT 1" })
 ```
 
@@ -47,11 +55,35 @@ dispatch_readonly(method: "GET", url: "/services/data/v63.0/query",
 
 ## 2. Search sources (same turn — skip a source whose connector is absent, and note it)
 
+- **calls**: Salesforce voice and video call transcripts (Einstein Conversation Insights) tied to the scoped accounts, see "Call transcripts" below.
 - **docs**: transcripts / notes / meeting docs in the period, in account-named folders (team scope → team-shared too).
 - **email**: threads in the period to/from the scoped account domains.
 - **Slack**: Slack Connect / external shared channels with the scoped accounts, messages in the period.
 
 Narrow each search to the period and the scoped account names/domains (e.g. title contains "transcript" or an account name) instead of paging through every result. Skip shortcuts (`application/vnd.google-apps.shortcut`) and notes where every attendee is internal, and keep only files you can tie to a scoped account by title or folder. A search snippet can be cut off — read the full file before quoting from it.
+
+### Call transcripts
+
+Query `VoiceCall` and `VideoCall` as two separate reads in the same turn (`VideoCall` has no `CallStartDateTime`), limited to the period:
+
+```
+dispatch_readonly(method: "GET", url: "/services/data/<apiVersion>/query",
+  queryParams: { "q": "SELECT Id, CallStartDateTime, RelatedRecordId, RelatedRecord.Name FROM VoiceCall WHERE CallStartDateTime = LAST_N_DAYS:<period> ORDER BY CallStartDateTime DESC LIMIT 50" })
+
+dispatch_readonly(method: "GET", url: "/services/data/<apiVersion>/query",
+  queryParams: { "q": "SELECT Id, StartDateTime, RelatedRecordId, RelatedRecord.Name FROM VideoCall WHERE StartDateTime = LAST_N_DAYS:<period> ORDER BY StartDateTime DESC LIMIT 50" })
+```
+
+If a read errors (object not available in the org), count calls under "couldn't search" and carry on. Keep only calls tied to a scoped Account (`RelatedRecordId` starting `001`). For up to the 10 most recent, fetch the transcript:
+
+```
+dispatch(method: "POST", url: "/services/data/<apiVersion>/actions/standard/getConversationTranscript",
+         body: { "inputs": [{ "recordId": "[call-id]", "transcriptType": "processed" }] })
+```
+
+Take the first array element with `isSuccess: true`: `outputValues.unformattedTextTranscript` is the transcript and `outputValues.structuredTranscript.entries` has the per-speaker turns. This action only reads; it is a POST because the action API requires it. A call whose transcript fails or is empty is skipped quietly (count it under "searched, nothing relevant"). Link quotes to the call record.
+
+**A file that won't open is not an error.** Never fetch file content with `dispatch_readonly` (`ContentVersion` / `ContentDocument` `VersionData`): it returns binary that the server can't read and fails with a server error. Read files through the docs connector. If a file still can't be opened, skip it, count it under "searched, nothing relevant", carry on with the rest, and never show the user the error, a status code or a stack trace. If no transcript could be read from any source, say plainly that no voice or video calls or other relevant transcripts were found for these accounts in this period.
 
 Keep track of three buckets per source: **contributed** (yielded at least one quote), **searched, nothing relevant**, and **couldn't search** (connector not installed, connection failed, or a search that isn't enabled). The answer says which sources the quotes came from and which were empty or excluded, so the user knows what isn't reflected.
 
@@ -69,22 +101,21 @@ When the quotes are assembled, call `display_widget`; a single one-line "Display
 
 ### Self-verification (before calling display_widget)
 
-- [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
+- [ ] `props` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 - [ ] Every quote is a **customer's** words, verbatim, with its account, source and date — no internal speakers, no paraphrase.
 
 The layout is built into the renderer and registered by name — you send **only the widget name and its data**. Call `display_widget` once:
 
 ```
-display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "customer-voice", data: <object matching the schema below>, renderer: { body: [] } } })
+display_widget({ resourceType: "salesforce_widget", widget_resource_uri: "ui://widget/standard/customer-voice", props: <object matching the schema below> })
 ```
 
-- `renderer: { body: [] }` is a required placeholder — send it exactly as written; the renderer fills it in.
-- **CRITICAL — `widgetDefinition` and `data` must be nested JSON objects, NOT strings.** ❌ WRONG: `widgetDefinition: "{\"widget\":...}"`. ✅ RIGHT: `widgetDefinition: {"widget": "customer-voice", "data": {...}, "renderer": {"body": []}}`. If you hold a JSON string, `JSON.parse` it first.
+- **CRITICAL — `props` must be a nested JSON object, NOT a string.** ❌ WRONG: `props: "{\"title\":...}"`. ✅ RIGHT: `props: {"title": ...}`. If you hold a JSON string, `JSON.parse` it first.
 - When `display_widget` is available the widget is the output; produce the section 5 text only as the fallback when the tool is unavailable (e.g. a terminal).
 
 ### What to send
 
-Follow the block order and the per-block inclusion rules in the `data` schema below (the root description and each property's `description`): **title → answer → quotes card (optional) → callout OR nextStep (optional) → sources**.
+Follow the block order and the per-block inclusion rules in the `props` schema below (the root description and each property's `description`): **title → answer → quotes card (optional) → callout OR nextStep (optional) → sources**.
 
 Rules:
 - **Language:** when the user writes in English, omit `labels`. When they write in another language, send `labels` with EVERY key translated (headings in upper case) and write `title`, `answer`, `theme` and the tail in that language. Quotes stay verbatim in the customer's own language.
@@ -103,7 +134,7 @@ The schema marks only `title`, `answer` and `sources` as required. **Every other
 | A lookup or count ("has anyone mentioned Freightly?", "how many accounts raised pricing?") | `title` + `answer` + `sources`; add `quotes` only if seeing the words makes the answer faster to grasp |
 | Nothing found | `title` + `answer` saying so and what you searched + `sources` (what you searched — the one case where empty searches are listed) |
 
-#### Worked examples (the `data` object only)
+#### Worked examples (the `props` object only)
 
 **Topic — "What are customers saying about onboarding?"** (themes on top, the quotes card, a plain next step):
 
@@ -125,7 +156,7 @@ The schema marks only `title`, `answer` and `sources` as required. **Every other
         "account": "Helios Health",
         "source": "Salesforce call",
         "date": "Aug 8",
-        "sourceUrl": "https://acme.my.salesforce.com/lightning/r/VoiceCall/0LQxx0000004CbgAAE/view",
+        "sourceUrl": "https://acme.my.salesforce.com/lightning/r/VoiceCall/0LQHs000001VxF3OAK/view",
         "quote": "Implementation stalled on data migration – the compliance review of migrated PHI added three weeks nobody scoped. The product's fine; the migration path needs work."
       }
     ]
@@ -170,7 +201,7 @@ The schema marks only `title`, `answer` and `sources` as required. **Every other
 }
 ```
 
-`data` schema (JSON Schema). Only `title`, `answer` and `sources` are required; follow the root description and each property's `description`:
+`props` schema (JSON Schema). Only `title`, `answer` and `sources` are required; follow the root description and each property's `description`:
 
 ```json
 {
@@ -323,7 +354,7 @@ The schema marks only `title`, `answer` and `sources` as required. **Every other
     },
     "sources": {
       "type": "array",
-      "description": "REQUIRED. Where the answer came from: one entry per source system or list that contributed at least one quote, labelled '<System> · <what was searched>' — e.g. 'Gmail · implementation & onboarding mentions (90 days)', 'Salesforce · Einstein Conversation Insights transcripts', 'Slack Connect · external shared channels (2)', 'Accounts · 6 with implementation feedback' — each linked (see `url`). Never list a source that returned nothing relevant, or one you could not search (connector missing, connection failed, search not enabled): name it in the last `answer` bullet instead. Exception: when nothing was found anywhere, list what you searched so the 'none found' answer is checkable. Not one entry per quote: each quote already links its own source. Shown as a compact 'Salesforce · Sources (N)' toggle that expands to a numbered list (the word comes from labels.sources).",
+      "description": "REQUIRED. Where the answer came from: one entry per source system or list that contributed at least one quote, labelled '<System> · <what was searched>' — e.g. 'Gmail · implementation & onboarding mentions (90 days)', 'Salesforce · Einstein Conversation Insights transcripts', 'Slack Connect · external shared channels (2)', 'Accounts · 6 with implementation feedback' — each linked (see `url`). Never list a source that returned nothing relevant, or one you could not search (connector missing, connection failed, search not enabled): name it in the last `answer` bullet instead. Exception: when nothing was found anywhere, list what you searched so the 'none found' answer is checkable. Not one entry per quote: each quote already links its own source. Shown as a compact 'Salesforce · Sources (N)' toggle that expands to a numbered list (the word comes from labels.sources). Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
       "items": {
         "type": "object",
         "required": [

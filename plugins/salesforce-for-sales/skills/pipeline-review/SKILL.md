@@ -108,21 +108,20 @@ When the data is assembled, call `display_widget`; a single one-line "Displaying
 
 ### Self-verification (before calling display_widget)
 
-- [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
+- [ ] `props` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 The layout is built into the renderer and registered by name — you send **only the widget name and its data**. Call `display_widget` once:
 
 ```
-display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "pipeline-review", data: <object matching the schema below>, renderer: { body: [] } } })
+display_widget({ resourceType: "salesforce_widget", widget_resource_uri: "ui://widget/standard/pipeline-review", props: <object matching the schema below> })
 ```
 
-- `renderer: { body: [] }` is a required placeholder — send it exactly as written; the renderer fills it in.
 - **Send data only; never author presentation** (colours, pills, icons, HTML, emoji, layout keys, `{!…}`/`{{…}}`): the renderer owns the look and shows or hides each block from the keys you send. Keys outside the schema are rejected.
-- **CRITICAL — `widgetDefinition` and `data` must be nested JSON objects, NOT strings.** ❌ WRONG: `widgetDefinition: "{\"widget\":...}"`. ✅ RIGHT: `widgetDefinition: {"widget": "pipeline-review", "data": {...}, "renderer": {"body": []}}`. If you hold a JSON string, `JSON.parse` it first.
+- **CRITICAL — `props` must be a nested JSON object, NOT a string.** ❌ WRONG: `props: "{\"title\":...}"`. ✅ RIGHT: `props: {"title": ...}`. If you hold a JSON string, `JSON.parse` it first.
 - When `display_widget` is available the widget is the output; produce the section 5 text only as the fallback when the tool is unavailable (e.g. a terminal).
 
 ### What to send
 
-Follow the block order and the per-block inclusion rules in the `data` schema below (the root description and each property's `description`).
+Follow the block order and the per-block inclusion rules in the `props` schema below (the root description and each property's `description`).
 
 Rules:
 - **Language:** when the user writes in English, omit `labels`. When they write in another language, send `labels` with EVERY key translated (headings in upper case) and write every free-text field (`why`, `next`, `close`, `_status`, ...) in that language. Never join translated text with English fragments: each phrase is written whole, because word order differs.
@@ -149,9 +148,9 @@ Rules:
 - **Sources:** a record is `https://<myDomain>/lightning/r/Opportunity/<Id>/view`; the book is `https://<myDomain>/lightning/o/Opportunity/list`. Omit `url` if you have no Id.
 - Format every value as a ready-to-display string except the `byStage` amounts, which are numbers. Names are plain strings, never objects. `stalledDeals.items[].next` is "None set" when `NextStep` is blank.
 - **Value formats (apply to every row; the mock values in the examples are illustrative only):** `amount` is compact — `$` + number + `K`/`M`, no thousands separators. `close` is short month + day + days left, never a year or ISO date. In a table row `account` is the bold title and `name` the subtitle under it; in `next`, wrap only the action in `**…**` and leave the stuck-reason plain.
-- Before calling: `data` has no `{!…}`/`{{…}}`, no keys outside the schema, and every optional key you included is justified by the prompt.
+- Before calling: `props` has no `{!…}`/`{{…}}`, no keys outside the schema, and every optional key you included is justified by the prompt.
 
-#### Worked examples (the `data` object only)
+#### Worked examples (the `props` object only)
 
 **Broad — "Review my pipeline for the quarter. Where's the risk?"** (bulleted answer, both cards, a next-step line, several sources):
 
@@ -284,7 +283,7 @@ Rules:
 }
 ```
 
-`data` schema (JSON Schema). Only `title`, `answer` and `sources` are required; include any other key only when the prompt asks for it or it clearly speeds up the answer (see "Scope the blocks to the prompt"):
+`props` schema (JSON Schema). Only `title`, `answer` and `sources` are required; include any other key only when the prompt asks for it or it clearly speeds up the answer (see "Scope the blocks to the prompt"):
 
 ```json
 {
@@ -529,7 +528,7 @@ Rules:
     },
     "sources": {
       "type": "array",
-      "description": "REQUIRED. Where the answer came from: the Salesforce records/lists you actually read, linked (this is where Opportunity record links go). Shown as a compact 'Salesforce · Sources (N)' toggle (the word comes from labels.sources).",
+      "description": "REQUIRED. Where the answer came from: the Salesforce records/lists you actually read, linked (this is where Opportunity record links go). Shown as a compact 'Salesforce · Sources (N)' toggle (the word comes from labels.sources). Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
       "items": {
         "type": "object",
         "required": [

@@ -113,16 +113,15 @@ When the data is assembled, call `display_widget`; a single one-line "Displaying
 
 ### Self-verification (before calling display_widget)
 
-- [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
+- [ ] `props` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 
 The layout is built into the renderer and registered by name. Send only the widget name and its data:
 
 ```
-display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "deal-advance-gap", data: <object matching the schema below>, renderer: { body: [] } } })
+display_widget({ resourceType: "salesforce_widget", widget_resource_uri: "ui://widget/standard/deal-advance-gap", props: <object matching the schema below> })
 ```
 
-- `renderer: { body: [] }` is a required placeholder.
-- **Send data only; never author presentation** (colours, badges, icons, HTML, emojis, or layout keys). `widgetDefinition` and `data` must be nested JSON objects, not strings.
+- **Send data only; never author presentation** (colours, badges, icons, HTML, emojis, or layout keys). `props` must be a nested JSON object, not a string.
 - When the widget renders, do not also produce the text fallback.
 
 ### What to send
@@ -189,7 +188,7 @@ Rules:
 {"title":"Cedarline is in Negotiation / Review.","answer":"The opportunity is currently in **Negotiation / Review**. The close date is Aug 31.","stages":{"items":[{"name":"Qualification","state":"completed"},{"name":"Needs Analysis","state":"completed"},{"name":"Proposal / Price Quote","state":"completed"},{"name":"Negotiation / Review","state":"current"},{"name":"Closed Won","state":"target"}],"summary":"Three stages cleared; **Negotiation / Review** is the last open stage before **Closed Won**."},"sources":[{"label":"Opportunity · Cedarline — Enterprise Sales Cloud Platform","url":"https://<myDomain>/lightning/r/Opportunity/<Id>/view"}]}
 ```
 
-`data` schema (JSON Schema). Only `title`, `answer` and `sources` are required; include optional blocks only when grounded and prompt-relevant:
+`props` schema (JSON Schema). Only `title`, `answer` and `sources` are required; include optional blocks only when grounded and prompt-relevant:
 ```json
 {
   "type": "object",
@@ -296,7 +295,7 @@ Rules:
     },
     "sources": {
       "type": "array",
-      "description": "Sources actually used for the answer, in display order. Include at least one source. Add a record URL only when its Id and org domain are known.",
+      "description": "Sources actually used for the answer, in display order. Include at least one source. Add a record URL only when its Id and org domain are known. Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
       "items": {
         "type": "object",
         "additionalProperties": false,

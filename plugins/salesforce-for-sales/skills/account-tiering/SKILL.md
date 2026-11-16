@@ -55,7 +55,7 @@ dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
   queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Account(%SCOPE%, first: 200, orderBy: { Id: { order: ASC } }) { edges { node { Id Name { value } Industry { value } NumberOfEmployees { value } AnnualRevenue { value displayValue } Website { value } Type { value } LastActivityDate { value } <ACCOUNT_CUSTOM> Owner { Name { value } } <REL_BLOCKS> Tasks(where: { ActivityDate: { gte: { range: { last_n_days: 30 } } } }) { totalCount } Events(where: { ActivityDate: { gte: { range: { last_n_days: 30 } } } }) { totalCount } Contacts(first: 10) { edges { node { Id Title { value } } } } } } pageInfo { hasNextPage } totalCount } } } }\"}" })
 ```
 
-**Opportunity reads: root-level Opportunity queries, joined to Accounts by `AccountId`.** The Account query above has no Opportunity span. Send these two root-level queries in the same GraphQL operation (one dispatch):
+**Opportunity reads (HXL): root-level Opportunity queries, joined to Accounts by `AccountId`.** The Account query above has no Opportunity span. Send these two root-level queries in the same GraphQL operation (one dispatch):
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
   queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { openOpportunities: Opportunity(where: { IsClosed: { eq: false } }, first: 200, orderBy: { CloseDate: { order: ASC } }) { edges { node { Id AccountId { value } Name { value } StageName { value } CloseDate { value } Amount { value } } } } closedWonOpportunities: Opportunity(where: { IsClosed: { eq: true }, IsWon: { eq: true }, CloseDate: { gte: { range: { last_n_days: 365 } } } }, first: 200, orderBy: { CloseDate: { order: DESC } }) { edges { node { Id AccountId { value } CloseDate { value } Amount { value } } } } } } }\"}" })
@@ -107,7 +107,7 @@ Worked check: nonzero counts `[1, 1, 2, 3, 8, 12, 16, 21]` give index 5 and thre
 
 The table shows the raw count. Only the tier decision uses the threshold, so an Account's tier does not change with the prompt's scope.
 
-## 4b. Calculate Closed Won Amount, Open Amount, and Recent Activity Count (widgets only)
+## 4b. Calculate Closed Won Amount, Open Amount, and Recent Activity Count (HXL widgets only)
 
 For each account, compute these display values from Step 2 data (Closed Won Amount, Open Amount, and the Recent Activity Count; none is a percentage):
 
@@ -146,25 +146,22 @@ Assign each account to **Tier A** (active pursuit), **Tier B** (nurture), or **T
 - Standard-field fallback: "custom fit fields unavailable — scored on standard fields".
 - Derived ICP: "ICP derived from your [N] accounts with open deals: [industries], [min–max] employees". Omit when the user stated the ICP.
 
-## 6. Output — widget
+## 6. Output — HXL widget
 
 **CRITICAL LAYOUT RULE: You MUST call display_widget with this EXACT format:**
 
 ```javascript
 display_widget({ 
-  resourceType: "dynamic", 
-  widgetDefinition: { 
-    widget: "account-tiering", 
-    data: <object matching the schema below>, 
-    renderer: { body: [] } 
-  } 
+  resourceType: "salesforce_widget", 
+  widget_resource_uri: "ui://widget/standard/account-tiering", 
+  props: <object matching the schema below> 
 })
 ```
 
-- **DO NOT omit `resourceType: "dynamic"` or `widgetDefinition`** — the tool requires this envelope.
-- **DO NOT construct tile layouts yourself** (tile/container, tile/row, tile/markdown, etc.) inside `widgetDefinition`.
-- **Your job is DATA ONLY**: compute the `data` object per the schema below. The `renderer: { body: [] }` part stays empty.
-- The `widget: "account-tiering"` value tells the renderer to use the pre-designed layout from renderer.json, which handles all visual structure (the segmented bar, collapsible Sources, datagrid, callouts, etc.).
+- **DO NOT omit `resourceType: "salesforce_widget"`, `widget_resource_uri` or `props`** — the tool requires them.
+- **DO NOT construct tile layouts yourself** (tile/container, tile/row, tile/markdown, etc.) inside `props`.
+- **Your job is DATA ONLY**: compute the `props` object per the schema below.
+- The `ui://widget/standard/account-tiering` URI tells the renderer to use the pre-designed layout from renderer.json, which handles all visual structure (the segmented bar, collapsible Sources, datagrid, callouts, etc.).
 - **If you send a different format or build custom tile layouts, the layout will be wrong.**
 
 The schema below names every key (all optional except `title`, `answer`, `sources`), its type, and when to include it.
@@ -174,13 +171,13 @@ The schema below names every key (all optional except `title`, `answer`, `source
 - **Always include**: `title`, `answer`, `sources`. Optional: `tierBar` (tier distribution counts), `labels`, `accounts`, `nextStep`.
 - **Prompt scoping**: Include the accounts datagrid when the prompt calls for a detailed breakdown (not just tier counts). For a summary-level prompt ("How should I tier my accounts?"), include accounts. For a tier-count-only prompt, omit accounts.
 - **tierBar — REQUIRED, SEGMENTED BAR ONLY**: Always populate as nested objects with three keys: `tierA`, `tierB`, `tierC`. Each has `value` (count as number) and `label` (display string, e.g., "Tier A - 4"). This renders a **horizontal segmented bar chart** showing tier distribution. **DO NOT use a donut/pie chart, circular chart, or any other chart type — the tierBar must always be a horizontal segmented bar.** This layout is fixed by design and must not be changed.
-- **Tier badge variants** (semantic, widget design system): Tier A = `"info"` (blue, top priority), Tier B = `"warning"` (amber, nurture), Tier C = `"neutral"` (grey, monitor). Every tier badge in the accounts datagrid must include both `value` (the letter) and `badgeVariant` (the semantic color).
+- **Tier badge variants** (semantic, HXL design system): Tier A = `"info"` (blue, top priority), Tier B = `"warning"` (amber, nurture), Tier C = `"neutral"` (grey, monitor). Every tier badge in the accounts datagrid must include both `value` (the letter) and `badgeVariant` (the semantic color).
 - **Account names**: Pass account names as plain text strings. DO NOT include Markdown link syntax like `[Name](URL)` in the account field — the datagrid renders it literally. Clickable account links belong in the `sources` array at the bottom.
 
 ```json
 {
   "type": "object",
-  "description": "Widget data contract for account-tiering. Block order: title, answer, accounts datagrid, nextStep (optional), sources. Only title, answer, and sources are required; omit accounts or nextStep and their blocks are not shown.",
+  "description": "HXL widget data contract for account-tiering. Block order: title, answer, accounts datagrid, nextStep (optional), sources. Only title, answer, and sources are required; omit accounts or nextStep and their blocks are not shown.",
   "properties": {
     "title": {
       "type": "string",
@@ -357,7 +354,7 @@ The schema below names every key (all optional except `title`, `answer`, `source
     },
     "sources": {
       "type": "array",
-      "description": "Source citations — where the answer came from (Account records, list views). Required.",
+      "description": "Source citations — where the answer came from (Account records, list views). Required. Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
       "items": {
         "type": "object",
         "properties": {
@@ -400,9 +397,9 @@ Rules:
 - **Source URLs:** Construct Salesforce record URLs as `https://{orgMyDomain}/lightning/r/{SObjectType}/{Id}/view` (e.g., `https://example.my.salesforce.com/lightning/r/Account/001xx000003DHhfAAG/view`). Omit the `url` field when the record ID is unknown.
 - **Language:** omit `labels` for English. For any other response language, translate all `labels` values (tierBar segment labels like tierA/tierB/tierC detail strings, column headers, sources toggle) and keep tier badge letters (A/B/C) and account names unchanged.
 - **Source line:** set `labels.sourceLabel` to the name of the AI client you are running in. Use the client's own name, not a placeholder. Do not guess: if you do not know your client's name, omit `sourceLabel` and no source line is shown.
-- **Before calling:** no `{!…}` or `{{…}}` anywhere in `data`, and no keys outside the schema.
+- **Before calling:** no `{!…}` or `{{…}}` anywhere in `props`, and no keys outside the schema.
 
-#### Worked examples (the `data` object only)
+#### Worked examples (the `props` object only)
 
 **Broad — "Tier my accounts."** (includes accounts datagrid; trimmed):
 

@@ -66,22 +66,21 @@ When the data is assembled, call `display_widget`; a single one-line "Displaying
 
 ### Self-verification (before calling display_widget)
 
-- [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
+- [ ] `props` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 
 The layout is built into the renderer and registered by name — you send **only the widget name and its data**. Call `display_widget` once:
 
 ```
-display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "calendar-events", data: <object matching the schema below>, renderer: { body: [] } } })
+display_widget({ resourceType: "salesforce_widget", widget_resource_uri: "ui://widget/standard/calendar-events", props: <object matching the schema below> })
 ```
 
-- `renderer: { body: [] }` is a required placeholder — send it exactly as written; the renderer fills it in.
 - **Send data only; never author presentation** (colours, icons, HTML, emoji, layout keys, `{!…}`/`{{…}}`): the renderer owns the look and shows or hides each block from the keys you send. Keys outside the schema are rejected.
-- **CRITICAL — `widgetDefinition` and `data` must be nested JSON objects, NOT strings.** ❌ WRONG: `widgetDefinition: "{\"widget\":...}"`. ✅ RIGHT: `widgetDefinition: {"widget": "calendar-events", "data": {...}, "renderer": {"body": []}}`. If you hold a JSON string, `JSON.parse` it first.
+- **CRITICAL — `props` must be a nested JSON object, NOT a string.** ❌ WRONG: `props: "{\"title\":...}"`. ✅ RIGHT: `props: {"title": ...}`. If you hold a JSON string, `JSON.parse` it first.
 - When `display_widget` is available the widget is the output; produce the Step 5 markdown only as the fallback when the tool is unavailable (e.g. a terminal). Empty `edges` → skip the widget and say "No events found for [range]". Never fabricate events.
 
 ### What to send
 
-Follow the block order and the per-block inclusion rules in the `data` schema below (the root description and each property's `description`).
+Follow the block order and the per-block inclusion rules in the `props` schema below (the root description and each property's `description`).
 
 Rules:
 - **Language:** when the user writes in English, omit `labels`. When they write in another language, send `labels` with EVERY key translated and write every free-text field (`caption`, `context`, `detail`, ...) in that language. Never join translated text with English fragments: each phrase is written whole, because word order differs.
@@ -107,9 +106,9 @@ Rules:
 - **Tail (always exactly one):** `callout` when something is time-sensitive and the user can act on it (one button, a first-person `actionMsg`); otherwise a `nextStep` line. Always send one of the two. Never both (if both are sent only the callout renders). `callout` carries `level` — `tip` (helpful context), `note` (one clear move, the default) or `blocker` (time-sensitive or blocked), the lowest that fits.
 - **Sources:** a record is `https://<myDomain>/lightning/r/<SObjectType>/<Id>/view` (Event, Opportunity). Omit `url` if you have no Id.
 - Format every value as a ready-to-display string (times, amounts). Names are plain strings, never objects.
-- Before calling: `data` has no `{!…}`/`{{…}}`, no keys outside the schema, and every optional key you included is justified by the prompt.
+- Before calling: `props` has no `{!…}`/`{{…}}`, no keys outside the schema, and every optional key you included is justified by the prompt.
 
-#### Worked examples (the `data` object only)
+#### Worked examples (the `props` object only)
 
 **Broad — "What's on my calendar today?"** (one card, the next meeting expanded, a next-step line; no `answer` because every meeting is shown):
 
@@ -225,7 +224,7 @@ Rules:
 }
 ```
 
-`data` schema (JSON Schema). Only `title` and `sources` are required; include any other key only when the rules above call for it (see "Scope the blocks to the prompt"):
+`props` schema (JSON Schema). Only `title` and `sources` are required; include any other key only when the rules above call for it (see "Scope the blocks to the prompt"):
 
 ```json
 {
@@ -403,7 +402,7 @@ Rules:
     },
     "sources": {
       "type": "array",
-      "description": "REQUIRED. Where the answer came from: the Salesforce records you actually read, linked. Shown as a compact 'Salesforce · Sources (N)' toggle (the word comes from labels.sources).",
+      "description": "REQUIRED. Where the answer came from: the Salesforce records you actually read, linked. Shown as a compact 'Salesforce · Sources (N)' toggle (the word comes from labels.sources). Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
       "items": {
         "type": "object",
         "additionalProperties": false,

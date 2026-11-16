@@ -118,21 +118,20 @@ When the data is assembled, call `display_widget`; a single one-line "Displaying
 
 ### Self-verification (before calling display_widget)
 
-- [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
+- [ ] `props` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 
 The layout is built into the renderer and registered by name — you send **only the widget name and its data**. Call `display_widget` once:
 
 ```
-display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "schedule-meeting", data: <object matching the schema below>, renderer: { body: [] } } })
+display_widget({ resourceType: "salesforce_widget", widget_resource_uri: "ui://widget/standard/schedule-meeting", props: <object matching the schema below> })
 ```
 
-- `renderer: { body: [] }` is a required placeholder — send it exactly as written; the renderer fills it in.
-- **CRITICAL — `widgetDefinition` and `data` must be nested JSON objects, NOT strings.** ❌ WRONG: `widgetDefinition: "{\"widget\":...}"`. ✅ RIGHT: `widgetDefinition: {"widget": "schedule-meeting", "data": {...}, "renderer": {"body": []}}`. If you hold a JSON string, `JSON.parse` it first.
+- **CRITICAL — `props` must be a nested JSON object, NOT a string.** ❌ WRONG: `props: "{\"title\":...}"`. ✅ RIGHT: `props: {"title": ...}`. If you hold a JSON string, `JSON.parse` it first.
 - When `display_widget` is available the widget is the output; produce the section 6 text only as the fallback when the tool is unavailable (e.g. a terminal).
 
 ### What to send
 
-Follow the block order and the per-block inclusion rules in the `data` schema below (the root description and each property's `description`).
+Follow the block order and the per-block inclusion rules in the `props` schema below (the root description and each property's `description`).
 
 Rules:
 - **Language:** when the user writes in English, omit `labels`. When they write in another language, send `labels` with EVERY key translated (headings in upper case) and write every free-text field (`body`, `subject`, `when`, ...) in that language. Never join translated text with English fragments: each phrase is written whole, because word order differs.
@@ -154,7 +153,7 @@ The schema marks only `title` and `sources` as required. **Every other key is a 
 | **After Save** (the Save button's message, once the write succeeds) | `title` ("Saved…") + `event` without `actionMsg` + `sources` (with the saved Event) |
 | **Direct question** ("when am I free Thursday?") | `title` + `answer` + `sources`. No cards |
 
-#### Worked examples (the `data` object only; values are illustrative)
+#### Worked examples (the `props` object only; values are illustrative)
 
 **Propose times — "Set up a 30-minute follow-up with Robert Nkemelu at Cedarline"** (e.g. the email only):
 
@@ -186,7 +185,7 @@ The schema marks only `title` and `sources` as required. **Every other key is a 
 }
 ```
 
-`data` schema (JSON Schema). Only `title` and `sources` are required; follow the root description and each property's `description`:
+`props` schema (JSON Schema). Only `title` and `sources` are required; follow the root description and each property's `description`:
 
 ```json
 {
@@ -337,7 +336,7 @@ The schema marks only `title` and `sources` as required. **Every other key is a 
     },
     "sources": {
       "type": "array",
-      "description": "REQUIRED. What the response came from: the Salesforce records you actually read (contact, account, opportunity, the saved event), linked, plus 'Calendar availability' when you used it. Shown as a compact 'Salesforce · Sources (N)' toggle (the word comes from labels.sources).",
+      "description": "REQUIRED. What the response came from: the Salesforce records you actually read (contact, account, opportunity, the saved event), linked, plus 'Calendar availability' when you used it. Shown as a compact 'Salesforce · Sources (N)' toggle (the word comes from labels.sources). Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
       "items": {
         "type": "object",
         "required": [
