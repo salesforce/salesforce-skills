@@ -373,11 +373,11 @@ Rules:
     "callout": {
       "type": "object",
       "additionalProperties": false,
-      "description": "OPTIONAL tail for a time-sensitive action the user can take now. Use INSTEAD of nextStep, never both. The design-system emphasis level is a recommendation, not a status color.",
+      "description": "OPTIONAL tail for a time-sensitive action the user can take now. Use INSTEAD of nextStep, never both. The design-system emphasis level is a recommendation, not a status color. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "required": ["lead", "text"],
       "properties": {
-        "lead": {"type": "string", "description": "Bold one-sentence urgent action or risk."},
-        "text": {"type": "string", "description": "Why it matters and the immediate move, in one or two sentences."},
+        "lead": {"type": "string", "description": "REQUIRED, visible (non-whitespace). Bold one-sentence urgent action or risk."},
+        "text": {"type": "string", "description": "REQUIRED, visible (non-whitespace). Why it matters and the immediate move, in one or two sentences."},
         "level": {"type": "string", "enum": ["tip", "note", "blocker"], "description": "OPTIONAL emphasis: tip for helpful context, note for one clear move, blocker only for a time-sensitive deadline or blocked deal."},
         "buttonLabel": {"type": "string", "description": "OPTIONAL primary action label. Include only when an immediate action can be safely represented as a first-person message."},
         "actionMsg": {"type": "string", "description": "OPTIONAL first-person message sent when the primary action is clicked. Include only with buttonLabel."}
