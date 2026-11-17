@@ -277,7 +277,7 @@ Send data only — the widget's HXL template (in `renderer.json`, compiled clien
     "callout": {
       "type": "object",
       "additionalProperties": false,
-      "description": "OPTIONAL tail, time-sensitive. A bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if one or more contacts are high-priority AND the user can act on it now.",
+      "description": "OPTIONAL tail, time-sensitive. A bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if one or more contacts are high-priority AND the user can act on it now. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "required": [
         "lead",
         "text",
@@ -287,11 +287,11 @@ Send data only — the widget's HXL template (in `renderer.json`, compiled clien
       "properties": {
         "lead": {
           "type": "string",
-          "description": "The bold first sentence of the callout (who to prioritize, in one sentence, ending with a period)."
+          "description": "REQUIRED, visible (non-whitespace). The bold first sentence of the callout (who to prioritize, in one sentence, ending with a period)."
         },
         "text": {
           "type": "string",
-          "description": "One to three sentences: why these contacts are highest priority and the recommended move."
+          "description": "REQUIRED, visible (non-whitespace). One to three sentences: why these contacts are highest priority and the recommended move."
         },
         "buttonLabel": {
           "type": "string",

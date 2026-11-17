@@ -37,7 +37,7 @@ Answer what the user asked about expansion whitespace (product coverage across t
 
 # Expansion Whitespace
 
-Resolve account → ground → read → map whitespace → output. Product catalog is external knowledge — ask once.
+Resolve account → ground → read → extract products → map whitespace → output. Product catalog derived from OpportunityLineItems — limited to top 5-7 by revenue.
 
 ## 1. Resolve the account
 
@@ -121,11 +121,26 @@ Run this only when the ask needs white space or plays; a coverage or direct owne
 
 Use whatever email/doc/Slack/Teams search tools are available. If none present, skip silently (SF-only is fine). Cite source + date for anything you use. **Prioritize evidence from last 90 days for recency/relevance.**
 
+## 3.5. Extract product catalog
+
+From the OpportunityLineItems fetched in steps 3 (Dispatch B and Dispatch C), extract and rank products:
+
+1. **Collect all Product2.Name values** from won opportunities (Dispatch B) and open/lost opportunities (Dispatch C if using HXL widgets)
+2. **Aggregate by product name**: For each unique product, calculate:
+   - Total revenue (sum of all TotalPrice values)
+   - Frequency (count of OpportunityLineItems)
+3. **Rank products** by: (1) total revenue DESC, (2) frequency DESC
+4. **Take top 5-7 products only** to ensure mobile compatibility
+5. **Fallback**: If fewer than 3 products with line items, parse `Opportunity.Name` fields for product keywords (Sales Cloud, Service, Marketing Cloud, Data Cloud, Agentforce, Revenue, Commerce, etc.)
+6. **Normalize names**: Strip common prefixes ("Salesforce ", "SFDC ") to get short display names
+
+Use this extracted, limited product list for the coverage matrix and whitespace analysis.
+
 ## 4. Map whitespace
 
 Map and rank only what the prompt needs: a coverage ask needs the cell states above, not the dimension grid, ranking or plays.
 
-**Product catalog (external):** ask user for the product/SKU list once — never invent. Build owned-vs-possible grid:
+**Product catalog (derived):** Use the top 5-7 products extracted in step 3.5. Build owned-vs-possible grid:
 
 | Dimension | Owned today | Whitespace | Evidence |
 |---|---|---|---|
@@ -208,7 +223,7 @@ Rules:
   "answer": "Orion owns **Sales Cloud ($160K)** and nothing else. The one gap I'd pitch is **Data Cloud + Tableau**: a CIO discussion is open but there is no formal opportunity yet.",
   "whitespace": {"rows": [{"account": "Orion Manufacturing", "product": "Data Cloud + Tableau", "whyNow": "Discussion open with the CIO; no formal opportunity yet. Q4 target.", "actionMsg": "Create an opportunity for Data Cloud + Tableau on Orion Manufacturing."}]},
   "suggestedAction": {"lead": "Open the Data Cloud conversation with the CIO.", "text": "Orion is your warmest white space with a Q4 target. Want me to draft the pitch?"},
-  "sources": [{"label": "Account: Orion Manufacturing"}, {"label": "Product catalog · 6 clouds"}]
+  "sources": [{"label": "Account: Orion Manufacturing"}, {"label": "Opportunities and products"}]
 }
 ```
 
@@ -344,7 +359,7 @@ Rules:
       "properties": {
         "products": {
           "type": "array",
-          "description": "Column headers, one short name per cloud, in display order (e.g. ['Sales Cloud','Service','Marketing','Data Cloud','Agentforce','Revenue']). Shown uppercase. Each cell's x must be one of these, spelled identically.",
+          "description": "Column headers, one short name per cloud, in display order (e.g. ['Sales Cloud','Service','Marketing','Data Cloud','Agentforce','Revenue']). **Limited to top 5-7 products by revenue to ensure mobile compatibility.** Shown uppercase. Each cell's x must be one of these, spelled identically.",
           "items": {
             "type": "string"
           }
@@ -441,7 +456,7 @@ Rules:
     },
     "callout": {
       "type": "object",
-      "description": "OPTIONAL tail, time-sensitive. A bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of suggestedAction, never both (if both are sent only the callout renders). Include only if one move is time-sensitive (a close date is days away) AND the user can act on it now. White space is rarely time-sensitive: prefer suggestedAction.",
+      "description": "OPTIONAL tail, time-sensitive. A bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of suggestedAction, never both (if both are sent only the callout renders). Include only if one move is time-sensitive (a close date is days away) AND the user can act on it now. White space is rarely time-sensitive: prefer suggestedAction. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "required": [
         "lead",
         "text",
@@ -451,11 +466,11 @@ Rules:
       "properties": {
         "lead": {
           "type": "string",
-          "description": "The bold first sentence of the callout (the stake in one sentence, ending with a period, e.g. '$930K of Marketing Cloud closes within two weeks.')."
+          "description": "REQUIRED, visible (non-whitespace). The bold first sentence of the callout (the stake in one sentence, ending with a period, e.g. '$930K of Marketing Cloud closes within two weeks.')."
         },
         "text": {
           "type": "string",
-          "description": "One to three sentences: what, why now, and the move."
+          "description": "REQUIRED, visible (non-whitespace). One to three sentences: what, why now, and the move."
         },
         "buttonLabel": {
           "type": "string",

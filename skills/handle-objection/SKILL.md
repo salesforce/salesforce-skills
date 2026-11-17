@@ -224,7 +224,7 @@ The schema marks only `title`, `answer` and `sources` as required. **Every other
     },
     "callout": {
       "type": "object",
-      "description": "OPTIONAL tail, time-sensitive: a deadline or escalation trigger. Warning icon, a bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if there is a dated trigger AND the user can act on it now.",
+      "description": "OPTIONAL tail, time-sensitive: a deadline or escalation trigger. Warning icon, a bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if there is a dated trigger AND the user can act on it now. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "required": [
         "lead",
         "text",
@@ -234,11 +234,11 @@ The schema marks only `title`, `answer` and `sources` as required. **Every other
       "properties": {
         "lead": {
           "type": "string",
-          "description": "The bold first sentence: the trigger and the move in one sentence, ending with a period (e.g. 'No response by Aug 27 → escalate to an exec-sponsor path.')."
+          "description": "REQUIRED, visible (non-whitespace). The bold first sentence: the trigger and the move in one sentence, ending with a period (e.g. 'No response by Aug 27 → escalate to an exec-sponsor path.')."
         },
         "text": {
           "type": "string",
-          "description": "One to three sentences of normal-weight text after the bold lead: why it matters and what to lead with."
+          "description": "REQUIRED, visible (non-whitespace). One to three sentences of normal-weight text after the bold lead: why it matters and what to lead with."
         },
         "buttonLabel": {
           "type": "string",

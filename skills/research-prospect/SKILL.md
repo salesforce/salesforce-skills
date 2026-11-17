@@ -430,7 +430,7 @@ The optional `labels` object lets you override fixed eyebrow text for non-Englis
     },
     "callout": {
       "type": "object",
-      "description": "Include ONLY for time-sensitive or urgent recommendations. Mutually exclusive with nextStep (tail fork).",
+      "description": "Include ONLY for time-sensitive or urgent recommendations. Mutually exclusive with nextStep (tail fork). Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "additionalProperties": false,
       "required": [
         "lead",
@@ -439,11 +439,11 @@ The optional `labels` object lets you override fixed eyebrow text for non-Englis
       "properties": {
         "lead": {
           "type": "string",
-          "description": "Bold callout heading. Example: 'Coordinate with the owner first'"
+          "description": "REQUIRED, visible (non-whitespace). Bold callout heading. Example: 'Coordinate with the owner first'"
         },
         "text": {
           "type": "string",
-          "description": "Callout body \u2014 what to do and why."
+          "description": "REQUIRED, visible (non-whitespace). Callout body \u2014 what to do and why."
         },
         "level": {
           "type": "string",

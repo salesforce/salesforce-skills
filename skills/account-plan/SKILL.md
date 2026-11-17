@@ -40,9 +40,9 @@ Sales-org workers who want results fast. Minimize thinking when it's not needed;
 - On the create path, flag anything you can't source with `[needs validation]`.
 - **`Status` is always `"Not Started"` on creation.** Never create a plan in any other status; lifecycle changes are out of scope.
 
-**Voice/tone (create path only).** The generated narrative fields should read in the org's own house voice, not a generic register. Infer that voice in priority order: (1) **explicit user direction** — if the user dictates tone or wording, follow it verbatim; (2) **this account's existing plan prose**, when V1 already returned a plan (the second-plan case) — the truest house-voice sample you'll have; (3) **`Account.Description`** from step 1, as a light register anchor — it's often short or blank, so lean on it lightly. Absent all three, **default to a clear, plainly-professional register**: direct declarative sentences, concrete and specific, no marketing adjectives ("robust", "cutting-edge"), no filler, no exclamation points. Voice governs **style only** — it never licenses inventing content: numbers, quotes, competitor names, and every other claim still obey the cite-as-queried / `[needs validation]` rule above.
+**Voice/tone (create path only).** Generated narrative fields use the org's house voice: (1) explicit user direction (follow verbatim); (2) existing plan prose from V1 (the truest sample); (3) `Account.Description` as a light anchor. Default: clear, plainly-professional register—direct declarative sentences, concrete, no marketing adjectives, no filler. Voice governs style only; never invent content: numbers, quotes, competitor names still obey cite-as-queried / `[needs validation]`.
 
-The account's real competitor list and org defaults for plan naming/start date are external knowledge — infer from the org's own data or ask the user once. Never invent them.
+Competitor lists and org defaults for plan naming/start date are external knowledge—infer from org data or ask once. Never invent.
 
 # Account Plan
 
@@ -747,7 +747,7 @@ The following is a compact **shape example**, not a substitute for the live V2 r
      },
      "callout": {
       "type": "object",
-      "description": "OPTIONAL tail for a time-sensitive or blocked move. Use INSTEAD of nextStep, never both. Send only when an urgent action is grounded.",
+      "description": "OPTIONAL tail for a time-sensitive or blocked move. Use INSTEAD of nextStep, never both. Send only when an urgent action is grounded. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "required": [
         "lead",
         "text",
@@ -757,10 +757,12 @@ The following is a compact **shape example**, not a substitute for the live V2 r
       ],
       "properties": {
         "lead": {
-          "type": "string"
+          "type": "string",
+          "description": "REQUIRED, visible (non-whitespace)."
         },
         "text": {
-          "type": "string"
+          "type": "string",
+          "description": "REQUIRED, visible (non-whitespace)."
         },
         "buttonLabel": {
           "type": "string"

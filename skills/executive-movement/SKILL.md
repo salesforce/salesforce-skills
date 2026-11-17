@@ -302,11 +302,11 @@ The names, amounts and dates below are illustrative; every value comes from the 
     "callout": {
       "type": "object",
       "additionalProperties": false,
-      "description": "OPTIONAL tail for a time-sensitive action the user can take now, such as a champion leaving before a close date. Use INSTEAD of nextStep, never both.",
+      "description": "OPTIONAL tail for a time-sensitive action the user can take now, such as a champion leaving before a close date. Use INSTEAD of nextStep, never both. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "required": ["lead", "text"],
       "properties": {
-        "lead": {"type": "string", "description": "Bold one-sentence urgent action or risk."},
-        "text": {"type": "string", "description": "Why it matters and the immediate move, in one to three sentences. State that nothing has been written to Salesforce when a record update is proposed."},
+        "lead": {"type": "string", "description": "REQUIRED, visible (non-whitespace). Bold one-sentence urgent action or risk."},
+        "text": {"type": "string", "description": "REQUIRED, visible (non-whitespace). Why it matters and the immediate move, in one to three sentences. State that nothing has been written to Salesforce when a record update is proposed."},
         "level": {"type": "string", "enum": ["tip", "note"], "description": "OPTIONAL emphasis: note for one clear move (the default), tip for helpful context."},
         "buttonLabel": {"type": "string", "description": "OPTIONAL primary action label, e.g. 'Draft outreach to find a new sponsor'. Include only with actionMsg."},
         "actionMsg": {"type": "string", "description": "OPTIONAL first-person message sent when the primary action is clicked. Include only with buttonLabel."}
