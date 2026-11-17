@@ -1,13 +1,18 @@
 {
   "name": "salesforce-for-sales",
-  "displayName": "Salesforce for Sales",
+  "displayName": "Salesforce for Sales (Deprecated, switch to Sandbox)",
   "version": "1.0.0-beta.3.5",
   "description": "The full Salesforce sales suite for Grok Bot and Cursor — pipeline, deals, accounts, prospecting, and daily productivity — grounded live on your org's schema through the Headless 360 MCP server.",
   "license": "Apache-2.0",
   "author": {
     "name": "Salesforce, Inc."
   },
-  "keywords": ["salesforce", "sales", "crm", "headless-360"],
+  "keywords": [
+    "salesforce",
+    "sales",
+    "crm",
+    "headless-360"
+  ],
   "variables": {
     "type": "object",
     "properties": {
@@ -29,7 +34,11 @@
         "writeOnly": true
       }
     },
-    "required": ["SALESFORCE_MCP_URL", "CLIENT_ID", "CLIENT_SECRET"]
+    "required": [
+      "SALESFORCE_MCP_URL",
+      "CLIENT_ID",
+      "CLIENT_SECRET"
+    ]
   },
   "mcpServers": "./mcp.json"
 }
