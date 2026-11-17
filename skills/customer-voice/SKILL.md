@@ -68,7 +68,7 @@ dispatch_readonly(method: "GET", url: "/services/data/<apiVersion>/query",
 - **email**: threads in the period to/from the scoped account domains.
 - **Slack/Teams**: Slack Connect / external shared channels or Teams conversations with the scoped accounts, messages in the period.
 
-Narrow each search to the period and the scoped account names/domains (e.g. title contains "transcript" or an account name) instead of paging through every result. Skip shortcuts (`application/vnd.google-apps.shortcut`) and notes where every attendee is internal, and keep only files you can tie to a scoped account by title or folder. A search snippet can be cut off — read the full file before quoting from it.
+Narrow each search to the period and the scoped account names/domains (e.g. title contains "transcript" or an account name) instead of paging through every result. Skip shortcuts and notes where every attendee is internal, and keep only files you can tie to a scoped account by title or folder. A search snippet can be cut off — read the full file before quoting from it.
 
 ### Call transcripts
 
@@ -101,7 +101,7 @@ Per transcript/thread, pull passages where the **customer** (not your domain/org
 
 - **Speaker side**: transcript labels read `Name (Title, Company)` — a Company equal to the org name is internal. Email: sender domain vs the internal domain.
 - **Date** = when the customer said it (email sent date, the transcript's `Date:` line or title prefix) — never a file's created/modified time.
-- **Source** = `Gmail`, `Slack Connect`, `Teams`, `Salesforce call`, or `Call transcript`, with its link (thread, permalink, call record, or the doc's `viewUrl`).
+- **Source** = `Outlook`, `Slack Connect`, `Teams`, `Salesforce call`, or `Call transcript`, with its link (thread, permalink, call record, or the doc's `webUrl`).
 
 ## 4. Widget (default output when `display_widget` is present: Microsoft 365 Copilot)
 
@@ -128,7 +128,7 @@ Follow the block order and the per-block inclusion rules in the `props` schema b
 Rules:
 - **Language:** when the user writes in English, omit `labels`. When they write in another language, send `labels` with EVERY key translated (headings in upper case) and write `title`, `answer`, `theme` and the tail in that language. Quotes stay verbatim in the customer's own language.
 - **Send data only; never author presentation** (colours, icons, HTML, emoji, layout keys, `{!…}`/`{{…}}`): the renderer owns the look and shows or hides each block from the keys you send. Keys outside the schema are rejected, and every optional key you include must be justified by the prompt.
-- **Sources:** one entry per source system or list you searched, labelled `<System> · <what was searched>` (e.g. `Gmail · implementation & onboarding mentions (90 days)`, `Accounts · 6 with implementation feedback`) and **linked** with a `url` (Salesforce list view, Gmail search, Drive folder or search, Slack/Teams channel — formats in the schema). Sources are only what the answer came from: list a source **only if it contributed at least one quote**. A source you searched that returned nothing relevant, or one you couldn't search (no connector, connection failed, search not enabled), is **not** listed — the last `answer` bullet names it instead (e.g. "Gmail searched, no relevant customer threads; Slack/Teams not connected"). Exception: when nothing was found anywhere, `sources` lists what you searched, so the "none found" answer is checkable. Not one entry per quote; each quote already links its own source.
+- **Sources:** one entry per source system or list you searched, labelled `<System> · <what was searched>` (e.g. `Outlook · implementation & onboarding mentions (90 days)`, `Accounts · 6 with implementation feedback`) and **linked** with a `url` (Salesforce list view, Outlook search, SharePoint/OneDrive folder, Slack/Teams channel — formats in the schema). Sources are only what the answer came from: list a source **only if it contributed at least one quote**. A source you searched that returned nothing relevant, or one you couldn't search (no connector, connection failed, search not enabled), is **not** listed — the last `answer` bullet names it instead (e.g. "Outlook searched, no relevant customer threads; Slack/Teams not connected"). Exception: when nothing was found anywhere, `sources` lists what you searched, so the "none found" answer is checkable. Not one entry per quote; each quote already links its own source.
 - **Tail:** a time-sensitive, actionable item (a renewal or close date at risk because of what customers said) → `callout` with ONE button; otherwise a genuinely useful move → `nextStep`, no button. Never both. A pure lookup or count question usually gets no tail.
 
 ### Scope the blocks to the prompt
@@ -149,7 +149,7 @@ The schema marks only `title`, `answer` and `sources` as required. **Every other
 ```json
 {
   "title": "Data migration is the onboarding pain point – both accounts that raised it lost a week or more.",
-  "answer": "- **2 accounts** gave onboarding feedback in the last 30 days, and sentiment is **mixed** – both found the product easy to adopt.\n- The friction is **data migration**: it cost **Northpeak Logistics** a week and **Helios Health** three weeks of compliance review.\n- Quotes came from **Slack Connect and Salesforce call transcripts**; Google Drive was searched with no relevant customer notes, and Gmail is excluded (no connector), so email feedback isn't reflected.",
+  "answer": "- **2 accounts** gave onboarding feedback in the last 30 days, and sentiment is **mixed** – both found the product easy to adopt.\n- The friction is **data migration**: it cost **Northpeak Logistics** a week and **Helios Health** three weeks of compliance review.\n- Quotes came from **Slack Connect and Salesforce call transcripts**; SharePoint/OneDrive was searched with no relevant customer notes, and Outlook is excluded (no connector), so email feedback isn't reflected.",
   "quotes": {
     "items": [
       {
@@ -202,8 +202,8 @@ The schema marks only `title`, `answer` and `sources` as required. **Every other
       "url": "https://acme.my.salesforce.com/lightning/o/VoiceCall/list?filterName=Recent"
     },
     {
-      "label": "Gmail · Freightly mentions with your account domains (22 threads, 30 days)",
-      "url": "https://mail.google.com/mail/u/0/#search/Freightly+newer_than%3A30d"
+      "label": "Outlook · Freightly mentions with your account domains (22 threads, 30 days)",
+      "url": "https://outlook.office.com/mail/"
     }
   ]
 }
@@ -227,7 +227,7 @@ The schema marks only `title`, `answer` and `sources` as required. **Every other
     },
     "answer": {
       "type": "string",
-      "description": "REQUIRED. Answer-first markdown bullets, rendered under the title: 2-4 short '- ' bullets, each ONE sentence, that answer ONLY what the user asked. Lead with how many accounts and the overall sentiment (e.g. 'net positive'), then the consistent friction or praise and which accounts raised it — the themes, not a re-listing of the quotes. When any source was searched with nothing relevant, or could not be searched (connector missing, connection failed, search not enabled), the last bullet says which sources the quotes came from and names those empty or excluded sources (e.g. 'Gmail searched, no relevant customer threads; Slack not connected'), so the user knows what isn't reflected. Put **bold** inline on the key values (counts, sentiment, theme, account names), never on a whole bullet. When nothing was found, say so and what was searched."
+      "description": "REQUIRED. Answer-first markdown bullets, rendered under the title: 2-4 short '- ' bullets, each ONE sentence, that answer ONLY what the user asked. Lead with how many accounts and the overall sentiment (e.g. 'net positive'), then the consistent friction or praise and which accounts raised it — the themes, not a re-listing of the quotes. When any source was searched with nothing relevant, or could not be searched (connector missing, connection failed, search not enabled), the last bullet says which sources the quotes came from and names those empty or excluded sources (e.g. 'Outlook searched, no relevant customer threads; Slack not connected'), so the user knows what isn't reflected. Put **bold** inline on the key values (counts, sentiment, theme, account names), never on a whole bullet. When nothing was found, say so and what was searched."
     },
     "labels": {
       "type": "object",
@@ -282,7 +282,7 @@ The schema marks only `title`, `answer` and `sources` as required. **Every other
               "source": {
                 "type": "string",
                 "enum": [
-                  "Gmail",
+                  "Outlook",
                   "Slack Connect", "Teams",
                   "Salesforce call",
                   "Call transcript"
@@ -299,7 +299,7 @@ The schema marks only `title`, `answer` and `sources` as required. **Every other
               },
               "sourceUrl": {
                 "type": "string",
-                "description": "Link to the email thread, Slack/Teams permalink, VoiceCall/VideoCall record, or the document's viewUrl. Omit if none."
+                "description": "Link to the email thread, Slack/Teams permalink, VoiceCall/VideoCall record, or the document's webUrl. Omit if none."
               },
               "theme": {
                 "type": "string",
@@ -316,7 +316,7 @@ The schema marks only `title`, `answer` and `sources` as required. **Every other
     },
     "callout": {
       "type": "object",
-      "description": "OPTIONAL tail, time-sensitive. Warning icon, a bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if something is time-sensitive AND the user can act on it.",
+      "description": "OPTIONAL tail, time-sensitive. Warning icon, a bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if something is time-sensitive AND the user can act on it. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "required": [
         "lead",
         "text",
@@ -326,11 +326,11 @@ The schema marks only `title`, `answer` and `sources` as required. **Every other
       "properties": {
         "lead": {
           "type": "string",
-          "description": "The bold first sentence of the callout (the caution in one sentence, ending with a period)."
+          "description": "REQUIRED, visible (non-whitespace). The bold first sentence of the callout (the caution in one sentence, ending with a period)."
         },
         "text": {
           "type": "string",
-          "description": "One to three sentences of normal-weight text that follow the bold lead on the same line: what, why now, and the move."
+          "description": "REQUIRED, visible (non-whitespace). One to three sentences of normal-weight text that follow the bold lead on the same line: what, why now, and the move."
         },
         "buttonLabel": {
           "type": "string",
@@ -362,7 +362,7 @@ The schema marks only `title`, `answer` and `sources` as required. **Every other
     },
     "sources": {
       "type": "array",
-      "description": "REQUIRED. Where the answer came from: one entry per source system or list that contributed at least one quote, labelled '<System> · <what was searched>' — e.g. 'Gmail · implementation & onboarding mentions (90 days)', 'Salesforce · Einstein Conversation Insights transcripts', 'Slack Connect · external shared channels (2)', 'Accounts · 6 with implementation feedback' — each linked (see `url`). Never list a source that returned nothing relevant, or one you could not search (connector missing, connection failed, search not enabled): name it in the last `answer` bullet instead. Exception: when nothing was found anywhere, list what you searched so the 'none found' answer is checkable. Not one entry per quote: each quote already links its own source. Shown as a compact 'Salesforce · Sources (N)' toggle that expands to a numbered list (the word comes from labels.sources). Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
+      "description": "REQUIRED. Where the answer came from: one entry per source system or list that contributed at least one quote, labelled '<System> · <what was searched>' — e.g. 'Outlook · implementation & onboarding mentions (90 days)', 'Salesforce · Einstein Conversation Insights transcripts', 'Slack Connect · external shared channels (2)', 'Accounts · 6 with implementation feedback' — each linked (see `url`). Never list a source that returned nothing relevant, or one you could not search (connector missing, connection failed, search not enabled): name it in the last `answer` bullet instead. Exception: when nothing was found anywhere, list what you searched so the 'none found' answer is checkable. Not one entry per quote: each quote already links its own source. Shown as a compact 'Salesforce · Sources (N)' toggle that expands to a numbered list (the word comes from labels.sources). Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
       "items": {
         "type": "object",
         "required": [
@@ -372,11 +372,11 @@ The schema marks only `title`, `answer` and `sources` as required. **Every other
         "properties": {
           "label": {
             "type": "string",
-            "description": "'<System> · <what was searched>' (e.g. 'Gmail · implementation & onboarding mentions (90 days)', 'Accounts · 6 with implementation feedback')."
+            "description": "'<System> · <what was searched>' (e.g. 'Outlook · implementation & onboarding mentions (90 days)', 'Accounts · 6 with implementation feedback')."
           },
           "url": {
             "type": "string",
-            "description": "REQUIRED: every listed source was searched, so link to it (the search or list that produced the quotes): Salesforce list view 'https://<instanceUrl>/lightning/o/<Object>/list?filterName=<view>' (e.g. Account / MyAccounts, VoiceCall), a Gmail search 'https://mail.google.com/mail/u/0/#search/<url-encoded query>', a Google Drive folder viewUrl (or 'https://drive.google.com/drive/search?q=<query>' when the files span folders), or a Slack/Teams channel permalink."
+            "description": "REQUIRED: every listed source was searched, so link to it (the search or list that produced the quotes): Salesforce list view 'https://<instanceUrl>/lightning/o/<Object>/list?filterName=<view>' (e.g. Account / MyAccounts, VoiceCall), an Outlook link (a message's `webLink`, or 'https://outlook.office.com/mail/' for a mailbox search), a SharePoint/OneDrive folder link (its `webUrl`), or a Slack/Teams channel permalink."
           }
         }
       }

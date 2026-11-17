@@ -331,7 +331,7 @@ The schema marks only `title`, `answer` and `sources` as required. **Every other
     },
     "callout": {
       "type": "object",
-      "description": "OPTIONAL tail, time-sensitive: the real deadline. Warning icon, a bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if a step's date gates the close AND the user can act on it now.",
+      "description": "OPTIONAL tail, time-sensitive: the real deadline. Warning icon, a bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if a step's date gates the close AND the user can act on it now. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "required": [
         "lead",
         "text",
@@ -341,11 +341,11 @@ The schema marks only `title`, `answer` and `sources` as required. **Every other
       "properties": {
         "lead": {
           "type": "string",
-          "description": "The bold first sentence: the gating date in one sentence, ending with a period (e.g. 'The CFO 1:1 by Aug 26 is the real deadline.')."
+          "description": "REQUIRED, visible (non-whitespace). The bold first sentence: the gating date in one sentence, ending with a period (e.g. 'The CFO 1:1 by Aug 26 is the real deadline.')."
         },
         "text": {
           "type": "string",
-          "description": "One to three sentences of normal-weight text after the bold lead: what waits on it, what slipping costs, and the move."
+          "description": "REQUIRED, visible (non-whitespace). One to three sentences of normal-weight text after the bold lead: what waits on it, what slipping costs, and the move."
         },
         "buttonLabel": {
           "type": "string",

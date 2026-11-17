@@ -508,7 +508,7 @@ The names, amounts and dates below (e.g. Brightwave, Cedarline, $800K) are illus
     },
     "callout": {
       "type": "object",
-      "description": "OPTIONAL tail, time-sensitive. Warning icon, a bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if something is time-sensitive AND the user can act on it (e.g. the Commit rests on one deal closing this week with an open blocker).",
+      "description": "OPTIONAL tail, time-sensitive. Warning icon, a bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if something is time-sensitive AND the user can act on it (e.g. the Commit rests on one deal closing this week with an open blocker). Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "required": [
         "lead",
         "text",
@@ -518,11 +518,11 @@ The names, amounts and dates below (e.g. Brightwave, Cedarline, $800K) are illus
       "properties": {
         "lead": {
           "type": "string",
-          "description": "The bold first sentence of the callout (the caution in one sentence, ending with a period, e.g. 'Brightwave closes in 3 days – the MSA is still in redlines.')."
+          "description": "REQUIRED, visible (non-whitespace). The bold first sentence of the callout (the caution in one sentence, ending with a period, e.g. 'Brightwave closes in 3 days – the MSA is still in redlines.')."
         },
         "text": {
           "type": "string",
-          "description": "One to three sentences: what, why now, and the move."
+          "description": "REQUIRED, visible (non-whitespace). One to three sentences: what, why now, and the move."
         },
         "buttonLabel": {
           "type": "string",

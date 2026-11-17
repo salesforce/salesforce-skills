@@ -223,7 +223,7 @@ Rules:
 ```json
 {
   "title": "Your 9:00 AM Northpeak Logistics proposal review is on track — three allies in the room and the goal is a path to a Sep 14 signature.",
-  "answer": "- You are meeting **Northpeak Logistics** at **9:00 AM PT** on Zoom for a 60-minute proposal review of the **$285K Service Cloud + Dispatch Modernization** opportunity (Proposal / Price Quote, closing Sep 14).\n- The proposal landed Friday and Marcus Reyes, the economic buyer, responded positively.\n- The job today is to walk the full scope and secure his yes on the phased structure — without letting the separate Data Cloud thread derail the close.",
+  "answer": "- You are meeting **Northpeak Logistics** at **9:00 AM PT** on Teams for a 60-minute proposal review of the **$285K Service Cloud + Dispatch Modernization** opportunity (Proposal / Price Quote, closing Sep 14).\n- The proposal landed Friday and Marcus Reyes, the economic buyer, responded positively.\n- The job today is to walk the full scope and secure his yes on the phased structure — without letting the separate Data Cloud thread derail the close.",
   "attendees": [
     { "name": "Marcus Reyes", "role": "VP Operations · Economic Buyer", "rsvp": "accepted", "watchFor": "Wants ROI framed in ops efficiency, not tech spend. His yes on structure is the goal." },
     { "name": "Neelu Sharma", "role": "Director, Data", "rsvp": "tentative", "watchFor": "Data Cloud interest is a separate thread — don't let it derail today's proposal." }
@@ -383,13 +383,13 @@ Rules:
     },
     "callout": {
       "type": "object",
-      "description": "OPTIONAL tail, time-sensitive: a bold first sentence followed by normal text, and at most ONE primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if something before or on this call is time-sensitive or blocked AND the user can act on it.",
+      "description": "OPTIONAL tail, time-sensitive: a bold first sentence followed by normal text, and at most ONE primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if something before or on this call is time-sensitive or blocked AND the user can act on it. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "additionalProperties": false,
       "required": ["lead", "text"],
       "properties": {
         "level": { "type": "string", "enum": ["tip", "note", "blocker"], "description": "Emphasis, lowest that fits: 'tip' helpful context, 'note' one clear move (default), 'blocker' time-sensitive or blocked." },
-        "lead": { "type": "string", "description": "The bold first sentence of the callout (the caution in one sentence, ending with a period)." },
-        "text": { "type": "string", "description": "One to three sentences of normal-weight text that follow the bold lead: what, why now, and the move." },
+        "lead": { "type": "string", "description": "REQUIRED, visible (non-whitespace). The bold first sentence of the callout (the caution in one sentence, ending with a period)." },
+        "text": { "type": "string", "description": "REQUIRED, visible (non-whitespace). One to three sentences of normal-weight text that follow the bold lead: what, why now, and the move." },
         "buttonLabel": { "type": "string", "description": "Label of the single primary button (e.g. 'Draft the agenda'). Send with actionMsg, or omit both." },
         "actionMsg": { "type": "string", "description": "First-person request sent to chat when the button is clicked." }
       }

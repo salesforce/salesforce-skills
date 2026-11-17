@@ -490,7 +490,7 @@ Rules:
     },
     "callout": {
       "type": "object",
-      "description": "OPTIONAL tail for the biggest-lever ask only (not on a broad review). Warning icon, a bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders).",
+      "description": "OPTIONAL tail for the biggest-lever ask only (not on a broad review). Warning icon, a bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "required": [
         "lead",
         "text",
@@ -500,11 +500,11 @@ Rules:
       "properties": {
         "lead": {
           "type": "string",
-          "description": "The bold first sentence of the callout (the move in one sentence, ending with a period, e.g. 'Reopen Cedarline – $640K on a dark CFO.')."
+          "description": "REQUIRED, visible (non-whitespace). The bold first sentence of the callout (the move in one sentence, ending with a period, e.g. 'Reopen Cedarline – $640K on a dark CFO.')."
         },
         "text": {
           "type": "string",
-          "description": "One to three sentences: what, why now, and the move."
+          "description": "REQUIRED, visible (non-whitespace). One to three sentences: what, why now, and the move."
         },
         "buttonLabel": {
           "type": "string",

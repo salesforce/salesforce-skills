@@ -132,8 +132,8 @@ Rules:
       "amount": "$285K",
       "attendees": "Marcus Reyes (VP Operations), Dana Whitfield (Director, Dispatch Systems), you.",
       "detail": "Walk the Service Cloud + dispatch-modernization scope and open items. Your first external meeting – prep the workshop deck before the stand-up wraps.",
-      "joinUrl": "https://meet.google.com/abc-defg-hij",
-      "joinLabel": "Join Google Meet",
+      "joinUrl": "https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc123%40thread.v2/0",
+      "joinLabel": "Join Teams meeting",
       "prepMsg": "Prep me for my 9:00 AM Solution workshop with Northpeak Logistics.",
       "isNext": true
     },
@@ -330,7 +330,7 @@ Rules:
           },
           "joinLabel": {
             "type": "string",
-            "description": "Join button label naming the provider when the URL makes it obvious (e.g. 'Join Google Meet'). Omit to use labels.join."
+            "description": "Join button label naming the provider when the URL makes it obvious (e.g. 'Join Teams meeting'). Omit to use labels.join."
           },
           "prepMsg": {
             "type": "string",
@@ -346,7 +346,7 @@ Rules:
     "callout": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Tail, time-sensitive (send this or nextStep: one of the two is always sent). A bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if something is time-sensitive AND the user can act on it.",
+      "description": "Tail, time-sensitive (send this or nextStep: one of the two is always sent). A bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if something is time-sensitive AND the user can act on it. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "required": [
         "lead",
         "text",
@@ -356,11 +356,11 @@ Rules:
       "properties": {
         "lead": {
           "type": "string",
-          "description": "The bold first sentence of the callout (the caution in one sentence, ending with a period)."
+          "description": "REQUIRED, visible (non-whitespace). The bold first sentence of the callout (the caution in one sentence, ending with a period)."
         },
         "text": {
           "type": "string",
-          "description": "One to three sentences: what, why now, and the move."
+          "description": "REQUIRED, visible (non-whitespace). One to three sentences: what, why now, and the move."
         },
         "buttonLabel": {
           "type": "string",

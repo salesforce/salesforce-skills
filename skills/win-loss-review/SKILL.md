@@ -251,12 +251,12 @@ Follow the block order and the per-block inclusion rules in the `props` schema b
     },
     "callout": {
       "type": "object",
-      "description": "OPTIONAL tail, time-sensitive: a bold first sentence followed by normal text, and at most ONE primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only for an actual dated, actionable deadline or blocker supported by the win-loss evidence; undated coaching belongs in nextStep.",
+      "description": "OPTIONAL tail, time-sensitive: a bold first sentence followed by normal text, and at most ONE primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only for an actual dated, actionable deadline or blocker supported by the win-loss evidence; undated coaching belongs in nextStep. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "additionalProperties": false, "required": ["lead", "text"],
       "properties": {
         "level": { "type": "string", "enum": ["tip", "note", "blocker"], "description": "Emphasis, lowest that fits: 'tip' helpful context, 'note' one clear move (default), 'blocker' time-sensitive or blocked." },
-        "lead": { "type": "string", "description": "The bold first sentence of the callout (the caution in one sentence, ending with a period)." },
-        "text": { "type": "string", "description": "One to three sentences of normal-weight text that follow the bold lead: what, why now, and the move." },
+        "lead": { "type": "string", "description": "REQUIRED, visible (non-whitespace). The bold first sentence of the callout (the caution in one sentence, ending with a period)." },
+        "text": { "type": "string", "description": "REQUIRED, visible (non-whitespace). One to three sentences of normal-weight text that follow the bold lead: what, why now, and the move." },
         "buttonLabel": { "type": "string", "description": "Label of the single primary button (e.g. 'Draft the coaching plan'). Send with actionMsg, or omit both." },
         "actionMsg": { "type": "string", "description": "First-person request sent to chat when the button is clicked." }
       }
