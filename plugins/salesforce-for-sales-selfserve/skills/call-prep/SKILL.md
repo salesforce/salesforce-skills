@@ -17,8 +17,15 @@ description: "Build a call brief from Salesforce meeting, account, opportunity, 
 - **Use plain language.** Choose terms any reader understands on first read, with no domain knowledge or cultural context required. Avoid jargon and colloquialisms, and make labels signal what follows. Test: would a reader unfamiliar with the idiom understand the term and know what content to expect? Use "No engagement", not "went dark" or "ghosted".
 - **Reproduce Salesforce terminology exactly.** Use the field labels, object names, and stage values the data returns; do not paraphrase them. Spell out acronyms on first use unless the term is an industry framework (for example, MEDDIC).
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
-- **ONLY use the local instructions in this skill file, ONLY call MCP tools mentioned in the skill file and NEVER call an API or endpoint not written in this skill file.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
+- **While following this skill, don't call `discover` or `describe`, and don't call any API or endpoint not written here. This file already has every query and widget reference you need. (Outside this skill, they're available as normal.)** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
 <!-- /global-rules-bootstrap -->
+<!-- response-formatting -->
+## Response formatting
+
+- **Number formatting:** Format numbers for readability across the entire response, including values retrieved directly from Salesforce fields. Abbreviate large numbers with a suffix for their scale: K (thousand), M (million), B (billion), T (trillion), and the next suffix up for anything larger, never leaving a big number unabbreviated or spelling it out in full (e.g., $120K, $1.25M, $2.4B, $1.3T), and round percentages to whole numbers unless decimals are required for meaningful comparison.
+- **Empty table cells (structured data tables only):** keep empty states terse and never explain them inside a table cell.
+  - AI-generated cells: write "Not enough data" when the returned data cannot support a grounded answer (for example, a Suggested Action cell when no recommendation can be supported).
+  - Cells filled directly from CRM fields: leave the cell blank when the source field was queried and confirmed empty or null. Keep valid values such as 0.
 
 # Call Prep
 
@@ -374,13 +381,13 @@ Rules:
     },
     "callout": {
       "type": "object",
-      "description": "OPTIONAL tail, time-sensitive: a bold first sentence followed by normal text, and at most ONE primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if something before or on this call is time-sensitive or blocked AND the user can act on it.",
+      "description": "OPTIONAL tail, time-sensitive: a bold first sentence followed by normal text, and at most ONE primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if something before or on this call is time-sensitive or blocked AND the user can act on it. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "additionalProperties": false,
       "required": ["lead", "text"],
       "properties": {
         "level": { "type": "string", "enum": ["tip", "note", "blocker"], "description": "Emphasis, lowest that fits: 'tip' helpful context, 'note' one clear move (default), 'blocker' time-sensitive or blocked." },
-        "lead": { "type": "string", "description": "The bold first sentence of the callout (the caution in one sentence, ending with a period)." },
-        "text": { "type": "string", "description": "One to three sentences of normal-weight text that follow the bold lead: what, why now, and the move." },
+        "lead": { "type": "string", "description": "REQUIRED, visible (non-whitespace). The bold first sentence of the callout (the caution in one sentence, ending with a period)." },
+        "text": { "type": "string", "description": "REQUIRED, visible (non-whitespace). One to three sentences of normal-weight text that follow the bold lead: what, why now, and the move." },
         "buttonLabel": { "type": "string", "description": "Label of the single primary button (e.g. 'Draft the agenda'). Send with actionMsg, or omit both." },
         "actionMsg": { "type": "string", "description": "First-person request sent to chat when the button is clicked." }
       }

@@ -17,8 +17,15 @@ description: "Answer which deals are slipping and what a slip costs, scoped to w
 - **Use plain language.** Choose terms any reader understands on first read, with no domain knowledge or cultural context required. Avoid jargon and colloquialisms, and make labels signal what follows. Test: would a reader unfamiliar with the idiom understand the term and know what content to expect? Use "No engagement", not "went dark" or "ghosted".
 - **Reproduce Salesforce terminology exactly.** Use the field labels, object names, and stage values the data returns; do not paraphrase them. Spell out acronyms on first use unless the term is an industry framework (for example, MEDDIC).
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
-- **ONLY use the local instructions in this skill file, ONLY call MCP tools mentioned in the skill file and NEVER call an API or endpoint not written in this skill file.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
+- **While following this skill, don't call `discover` or `describe`, and don't call any API or endpoint not written here. This file already has every query and widget reference you need. (Outside this skill, they're available as normal.)** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
 <!-- /global-rules-bootstrap -->
+<!-- response-formatting -->
+## Response formatting
+
+- **Number formatting:** Format numbers for readability across the entire response, including values retrieved directly from Salesforce fields. Abbreviate large numbers with a suffix for their scale: K (thousand), M (million), B (billion), T (trillion), and the next suffix up for anything larger, never leaving a big number unabbreviated or spelling it out in full (e.g., $120K, $1.25M, $2.4B, $1.3T), and round percentages to whole numbers unless decimals are required for meaningful comparison.
+- **Empty table cells (structured data tables only):** keep empty states terse and never explain them inside a table cell.
+  - AI-generated cells: write "Not enough data" when the returned data cannot support a grounded answer (for example, a Suggested Action cell when no recommendation can be supported).
+  - Cells filled directly from CRM fields: leave the cell blank when the source field was queried and confirmed empty or null. Keep valid values such as 0.
 
 # Deal Slip Scenario
 
@@ -173,6 +180,7 @@ The schema marks only `title`, `answer` and `sources` as required. **Every other
 
 Rules:
 - **Omit a key and its block is not shown.** Never send empty arrays, empty strings, placeholder text, or "N/A" to fill a block, and never send a card the prompt did not ask for.
+- **Overflow:** the `deals` table shows at most 8. For the other flagged deals give only their count in `answer` (e.g. "+25 more flagged"); never list them there, and add no trailing caveats or limits paragraph.
 - **`deals`:** the flagged deals from step 3, HIGH first then MEDIUM, biggest first; `_tone` `error` + `_status` "HIGH", or `warning` + "MEDIUM". `close` is the date and days left ("Sep 30 · 37d"). `next` puts the move in **bold** first, then why.
 - **`health`:** `atRisk` = the flagged deals, `onTrack` = the other open deals; the two values add up to the open total. The renderer colors them red and green.
 - **`impact`:** for a review, `start` is "Full potential" (booked + every open deal this period) and one step per flagged deal, **capped at 6 steps**: with 6 or fewer flagged deals, one step each; with more, the 5 largest by amount as their own steps plus one last step labelled "Other (N deals)" whose `delta` is the sum of the rest (N ≥ 2). `end` still equals `start` minus every flagged deal, so the bars add up; for a named deal, `start` is today's commit and one step for that deal (a cut is the lost amount, with `sublabel` "(cut)"; a loss `sublabel` "(lost)"). `end` is the remainder ("On-track floor", "If Cedarline slips"). Send `quota` / `quotaLabel` only when quota came from the quota read or the user. `summary` is one sentence comparing the end bar with quota when known (bold the amounts); it shows under the bars on mobile, where the chart draws no quota line.
@@ -191,7 +199,7 @@ The names, amounts and dates below (e.g. Cedarline, $640K, Sep 30) are illustrat
 ```json
 {
   "title": "$1.23M across three deals is at risk of slipping – more than half your open pipeline.",
-  "answer": "- Of **$1.93M open across 5 deals, $1.23M sits at risk of slipping** – against just **$695K on track**.\n- Your biggest exposure is **Cedarline Financial ($640K)**, slipping past its **Sep 30** close because the CFO has been unresponsive 3+ weeks.\n- **Summit Health ($360K)** and **Orion ($230K)** carry the rest.",
+  "answer": "- **$1.23M of $1.93M open** sits at risk of slipping.\n- **Cedarline ($640K)** is the biggest exposure: the CFO has been unresponsive 3+ weeks.",
   "deals": {
     "items": [
       {"account": "Cedarline Financial", "name": "Enterprise Sales Cloud Platform", "amount": "$640K", "close": "Sep 30 · 37d", "stage": "Negotiation / Review", "next": "**Send the phased proposal** ($300K Q3 / $340K Q4) and escalate for a sign-off date before Sep 30.", "_tone": "error", "_status": "HIGH"},
@@ -329,7 +337,7 @@ The names, amounts and dates below (e.g. Cedarline, $640K, Sep 30) are illustrat
     },
     "answer": {
       "type": "string",
-      "description": "REQUIRED. Answer-first markdown with **bold** on the key facts (amounts, deal names, dates, quota). A broad ask gets 2-4 short '- ' bullets; a direct question ('will I still make quota if Cedarline slips?') gets a 1-3 sentence paragraph. Answer ONLY what the user asked; do not restate the cards below it."
+      "description": "REQUIRED. Answer-first markdown with **bold** on the key facts (amounts, deal names, dates, quota). A broad ask gets at most 2 short '- ' bullets: the headline number and the single biggest driver; a direct question ('will I still make quota if Cedarline slips?') gets 1-2 sentences. Answer ONLY what the user asked; never repeat deal rows, amounts, dates or quota math that the cards below already show. When more deals are flagged than the table shows, give only the count of the rest (e.g. '+25 more flagged'), never list them; no trailing caveats or limits paragraph."
     },
     "deals": {
       "type": "object",
@@ -536,7 +544,7 @@ The names, amounts and dates below (e.g. Cedarline, $640K, Sep 30) are illustrat
     },
     "callout": {
       "type": "object",
-      "description": "OPTIONAL tail, time-sensitive. Warning icon, a bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if one move protects the period AND the user can act on it now (e.g. phase the biggest at-risk deal before its close date).",
+      "description": "OPTIONAL tail, time-sensitive. Warning icon, a bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if one move protects the period AND the user can act on it now (e.g. phase the biggest at-risk deal before its close date). Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "required": [
         "lead",
         "text",
@@ -546,11 +554,11 @@ The names, amounts and dates below (e.g. Cedarline, $640K, Sep 30) are illustrat
       "properties": {
         "lead": {
           "type": "string",
-          "description": "The bold first sentence of the callout (the caution in one sentence, ending with a period, e.g. 'Cedarline has 37 days to its Sep 30 close and no CFO sign-off scheduled.')."
+          "description": "REQUIRED, visible (non-whitespace). The bold first sentence of the callout (the caution in one sentence, ending with a period, e.g. 'Cedarline has 37 days to its Sep 30 close and no CFO sign-off scheduled.')."
         },
         "text": {
           "type": "string",
-          "description": "One to three sentences: what, why now, and the move."
+          "description": "REQUIRED, visible (non-whitespace). One to three sentences: what, why now, and the move."
         },
         "buttonLabel": {
           "type": "string",
