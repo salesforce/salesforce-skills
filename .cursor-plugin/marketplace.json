@@ -16,11 +16,6 @@
       "description": "The full Salesforce sales suite for Grok Bot and Cursor — pipeline, deals, accounts, prospecting, and daily productivity — grounded live on your org's schema through the Headless 360 MCP server."
     },
     {
-      "name": "salesforce-for-sales-sandbox",
-      "source": "salesforce-for-sales-sandbox",
-      "description": "The full Salesforce sales suite for Grok Bot and Cursor — pipeline, deals, accounts, prospecting, and daily productivity — grounded live on your org's schema through the Headless 360 MCP server."
-    },
-    {
       "name": "salesforce-for-sales-blitz",
       "source": "salesforce-for-sales-blitz",
       "description": "The full Salesforce sales suite for Grok Bot and Cursor — pipeline, deals, accounts, prospecting, and daily productivity — grounded live on your org's schema through the Headless 360 MCP server."
