@@ -17,8 +17,15 @@ description: "Audit open Salesforce opportunities for past-due close dates and o
 - **Use plain language.** Choose terms any reader understands on first read, with no domain knowledge or cultural context required. Avoid jargon and colloquialisms, and make labels signal what follows. Test: would a reader unfamiliar with the idiom understand the term and know what content to expect? Use "No engagement", not "went dark" or "ghosted".
 - **Reproduce Salesforce terminology exactly.** Use the field labels, object names, and stage values the data returns; do not paraphrase them. Spell out acronyms on first use unless the term is an industry framework (for example, MEDDIC).
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
-- **ONLY use the local instructions in this skill file, ONLY call MCP tools mentioned in the skill file and NEVER call an API or endpoint not written in this skill file.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
+- **While following this skill, don't call `discover` or `describe`, and don't call any API or endpoint not written here. This file already has every query and widget reference you need. (Outside this skill, they're available as normal.)** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
 <!-- /global-rules-bootstrap -->
+<!-- response-formatting -->
+## Response formatting
+
+- **Number formatting:** Format numbers for readability across the entire response, including values retrieved directly from Salesforce fields. Abbreviate large numbers with a suffix for their scale: K (thousand), M (million), B (billion), T (trillion), and the next suffix up for anything larger, never leaving a big number unabbreviated or spelling it out in full (e.g., $120K, $1.25M, $2.4B, $1.3T), and round percentages to whole numbers unless decimals are required for meaningful comparison.
+- **Empty table cells (structured data tables only):** keep empty states terse and never explain them inside a table cell.
+  - AI-generated cells: write "Not enough data" when the returned data cannot support a grounded answer (for example, a Suggested Action cell when no recommendation can be supported).
+  - Cells filled directly from CRM fields: leave the cell blank when the source field was queried and confirmed empty or null. Keep valid values such as 0.
 # Goal:
 Answer what the user asked about their pipeline's hygiene (which open opportunities are past their close date, which have had no logged activity in 14+ days, and the fix for each) in one pass. **Answer what the user asked about** and present only that: a full check ("run a hygiene check on my pipeline") shows both; a specific ask ("which deals are past their close date?", "which deals have gone quiet?") shows only that.
 
@@ -318,7 +325,7 @@ The names, amounts and dates below (e.g. Cedarline, $640K, 6 weeks ago) are illu
     "callout": {
       "type": "object",
       "additionalProperties": false,
-      "description": "OPTIONAL tail, time-sensitive. Warning icon, a bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if overdue opportunities are still counted in the open pipeline AND the user can fix them now.",
+      "description": "OPTIONAL tail, time-sensitive. Warning icon, a bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if overdue opportunities are still counted in the open pipeline AND the user can fix them now. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "required": [
         "lead",
         "text",
@@ -328,11 +335,11 @@ The names, amounts and dates below (e.g. Cedarline, $640K, 6 weeks ago) are illu
       "properties": {
         "lead": {
           "type": "string",
-          "description": "The bold first sentence of the callout (the caution in one sentence, ending with a period, e.g. '$1.03M across 3 opportunities has a Close Date in the past but is still counted in your open pipeline.')."
+          "description": "REQUIRED, visible (non-whitespace). The bold first sentence of the callout (the caution in one sentence, ending with a period, e.g. '$1.03M across 3 opportunities has a Close Date in the past but is still counted in your open pipeline.')."
         },
         "text": {
           "type": "string",
-          "description": "One to three sentences: what, why now, and the fix you can apply (e.g. 'Until each Close Date is corrected and a current Next Step is set, these distort the forecast your manager pulls – fix them before the next review. I can set each Close Date to its next realistic date and draft a fresh Next Step for you to approve.')."
+          "description": "REQUIRED, visible (non-whitespace). One to three sentences: what, why now, and the fix you can apply (e.g. 'Until each Close Date is corrected and a current Next Step is set, these distort the forecast your manager pulls – fix them before the next review. I can set each Close Date to its next realistic date and draft a fresh Next Step for you to approve.')."
         },
         "buttonLabel": {
           "type": "string",

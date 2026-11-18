@@ -17,8 +17,15 @@ description: "Answer questions about expansion whitespace, scoped to what was as
 - **Use plain language.** Choose terms any reader understands on first read, with no domain knowledge or cultural context required. Avoid jargon and colloquialisms, and make labels signal what follows. Test: would a reader unfamiliar with the idiom understand the term and know what content to expect? Use "No engagement", not "went dark" or "ghosted".
 - **Reproduce Salesforce terminology exactly.** Use the field labels, object names, and stage values the data returns; do not paraphrase them. Spell out acronyms on first use unless the term is an industry framework (for example, MEDDIC).
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
-- **ONLY use the local instructions in this skill file, ONLY call MCP tools mentioned in the skill file and NEVER call an API or endpoint not written in this skill file.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
+- **While following this skill, don't call `discover` or `describe`, and don't call any API or endpoint not written here. This file already has every query and widget reference you need. (Outside this skill, they're available as normal.)** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
 <!-- /global-rules-bootstrap -->
+<!-- response-formatting -->
+## Response formatting
+
+- **Number formatting:** Format numbers for readability across the entire response, including values retrieved directly from Salesforce fields. Abbreviate large numbers with a suffix for their scale: K (thousand), M (million), B (billion), T (trillion), and the next suffix up for anything larger, never leaving a big number unabbreviated or spelling it out in full (e.g., $120K, $1.25M, $2.4B, $1.3T), and round percentages to whole numbers unless decimals are required for meaningful comparison.
+- **Empty table cells (structured data tables only):** keep empty states terse and never explain them inside a table cell.
+  - AI-generated cells: write "Not enough data" when the returned data cannot support a grounded answer (for example, a Suggested Action cell when no recommendation can be supported).
+  - Cells filled directly from CRM fields: leave the cell blank when the source field was queried and confirmed empty or null. Keep valid values such as 0.
 # Goal:
 Answer what the user asked about expansion whitespace (product coverage across their accounts, open white space to pitch, or ranked plays) in one pass. **Read only what the question needs** and present only that: a broad sweep ("where's my expansion whitespace this quarter?") reads and shows the whole book; a specific ask ("what white space does Orion Manufacturing have?", "which of my accounts own Marketing Cloud?") reads and shows only that.
 
@@ -29,7 +36,7 @@ Answer what the user asked about expansion whitespace (product coverage across t
 
 # Expansion Whitespace
 
-Resolve account → ground → read → map whitespace → output. Product catalog is external knowledge — ask once.
+Resolve account → ground → read → extract products → map whitespace → output. Product catalog derived from OpportunityLineItems — limited to top 5-7 by revenue.
 
 ## 1. Resolve the account
 
@@ -113,11 +120,26 @@ Run this only when the ask needs white space or plays; a coverage or direct owne
 
 Use whatever email/doc/Slack search tools are available. If none present, skip silently (SF-only is fine). Cite source + date for anything you use. **Prioritize evidence from last 90 days for recency/relevance.**
 
+## 3.5. Extract product catalog
+
+From the OpportunityLineItems fetched in steps 3 (Dispatch B and Dispatch C), extract and rank products:
+
+1. **Collect all Product2.Name values** from won opportunities (Dispatch B) and open/lost opportunities (Dispatch C if using HXL widgets)
+2. **Aggregate by product name**: For each unique product, calculate:
+   - Total revenue (sum of all TotalPrice values)
+   - Frequency (count of OpportunityLineItems)
+3. **Rank products** by: (1) total revenue DESC, (2) frequency DESC
+4. **Take top 5-7 products only** to ensure mobile compatibility
+5. **Fallback**: If fewer than 3 products with line items, parse `Opportunity.Name` fields for product keywords (Sales Cloud, Service, Marketing Cloud, Data Cloud, Agentforce, Revenue, Commerce, etc.)
+6. **Normalize names**: Strip common prefixes ("Salesforce ", "SFDC ") to get short display names
+
+Use this extracted, limited product list for the coverage matrix and whitespace analysis.
+
 ## 4. Map whitespace
 
 Map and rank only what the prompt needs: a coverage ask needs the cell states above, not the dimension grid, ranking or plays.
 
-**Product catalog (external):** ask user for the product/SKU list once — never invent. Build owned-vs-possible grid:
+**Product catalog (derived):** Use the top 5-7 products extracted in step 3.5. Build owned-vs-possible grid:
 
 | Dimension | Owned today | Whitespace | Evidence |
 |---|---|---|---|
@@ -200,7 +222,7 @@ Rules:
   "answer": "Orion owns **Sales Cloud ($160K)** and nothing else. The one gap I'd pitch is **Data Cloud + Tableau**: a CIO discussion is open but there is no formal opportunity yet.",
   "whitespace": {"rows": [{"account": "Orion Manufacturing", "product": "Data Cloud + Tableau", "whyNow": "Discussion open with the CIO; no formal opportunity yet. Q4 target.", "actionMsg": "Create an opportunity for Data Cloud + Tableau on Orion Manufacturing."}]},
   "suggestedAction": {"lead": "Open the Data Cloud conversation with the CIO.", "text": "Orion is your warmest white space with a Q4 target. Want me to draft the pitch?"},
-  "sources": [{"label": "Account: Orion Manufacturing"}, {"label": "Product catalog · 6 clouds"}]
+  "sources": [{"label": "Account: Orion Manufacturing"}, {"label": "Opportunities and products"}]
 }
 ```
 
@@ -336,7 +358,7 @@ Rules:
       "properties": {
         "products": {
           "type": "array",
-          "description": "Column headers, one short name per cloud, in display order (e.g. ['Sales Cloud','Service','Marketing','Data Cloud','Agentforce','Revenue']). Shown uppercase. Each cell's x must be one of these, spelled identically.",
+          "description": "Column headers, one short name per cloud, in display order (e.g. ['Sales Cloud','Service','Marketing','Data Cloud','Agentforce','Revenue']). **Limited to top 5-7 products by revenue to ensure mobile compatibility.** Shown uppercase. Each cell's x must be one of these, spelled identically.",
           "items": {
             "type": "string"
           }
@@ -433,7 +455,7 @@ Rules:
     },
     "callout": {
       "type": "object",
-      "description": "OPTIONAL tail, time-sensitive. A bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of suggestedAction, never both (if both are sent only the callout renders). Include only if one move is time-sensitive (a close date is days away) AND the user can act on it now. White space is rarely time-sensitive: prefer suggestedAction.",
+      "description": "OPTIONAL tail, time-sensitive. A bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of suggestedAction, never both (if both are sent only the callout renders). Include only if one move is time-sensitive (a close date is days away) AND the user can act on it now. White space is rarely time-sensitive: prefer suggestedAction. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "required": [
         "lead",
         "text",
@@ -443,11 +465,11 @@ Rules:
       "properties": {
         "lead": {
           "type": "string",
-          "description": "The bold first sentence of the callout (the stake in one sentence, ending with a period, e.g. '$930K of Marketing Cloud closes within two weeks.')."
+          "description": "REQUIRED, visible (non-whitespace). The bold first sentence of the callout (the stake in one sentence, ending with a period, e.g. '$930K of Marketing Cloud closes within two weeks.')."
         },
         "text": {
           "type": "string",
-          "description": "One to three sentences: what, why now, and the move."
+          "description": "REQUIRED, visible (non-whitespace). One to three sentences: what, why now, and the move."
         },
         "buttonLabel": {
           "type": "string",
