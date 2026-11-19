@@ -1,0 +1,657 @@
+{
+  "_about": "Mock Gmail for the Grok Bot Blitz (org aiforce.prod2). Customer names, titles, addresses, amounts and dates match the org's Contacts, Opportunities and [blitz-1120] activity notes. Internal colleagues (Legal, Deal Desk, VP Sales) are mock-only. Times are Pacific. Bodies are lists of lines.",
+  "mailbox": { "name": "Std User", "email": "std.user@aiforce-blitz.example" },
+  "directory": [
+    { "name": "Maya Chen", "email": "maya.chen@cobaltfintech.example", "title": "Chief Executive Officer", "account": "Cobalt Fintech" },
+    { "name": "Victor Hale", "email": "victor.hale@cobaltfintech.example", "title": "Chief Financial Officer", "account": "Cobalt Fintech" },
+    { "name": "Priya Nair", "email": "priya.nair@cobaltfintech.example", "title": "VP Engineering", "account": "Cobalt Fintech" },
+    { "name": "Tom Ruiz", "email": "tom.ruiz@cobaltfintech.example", "title": "General Counsel", "account": "Cobalt Fintech" },
+    { "name": "Sara Kim", "email": "sara.kim@cobaltfintech.example", "title": "Director of Procurement", "account": "Cobalt Fintech" },
+    { "name": "Liam Ortega", "email": "liam.ortega@northpeak.example", "title": "VP Fleet Operations", "account": "Northpeak" },
+    { "name": "Dana Wills", "email": "dana.wills@northpeak.example", "title": "Director of IT", "account": "Northpeak" },
+    { "name": "Kenji Watanabe", "email": "kenji.watanabe@sunhollow.example", "title": "VP Manufacturing", "account": "Sunhollow Semiconductor" },
+    { "name": "Aisha Bello", "email": "aisha.bello@sunhollow.example", "title": "Operations Manager", "account": "Sunhollow Semiconductor" },
+    { "name": "Mark Feld", "email": "mark.feld@sunhollow.example", "title": "IT Lead", "account": "Sunhollow Semiconductor" },
+    { "name": "Michael Aduba", "email": "michael.aduba@lakefront.example", "title": "VP Logistics", "account": "Lakefront Freight" },
+    { "name": "Joan Pike", "email": "joan.pike@lakefront.example", "title": "Fleet Manager", "account": "Lakefront Freight" },
+    { "name": "Andy Young", "email": "a_young@dickenson-consulting.example.com", "title": "SVP, Operations", "account": "Dickenson plc" },
+    { "name": "Grace Lin", "email": "grace.lin@thornwell.example", "title": "Chief Operating Officer", "account": "Thornwell Utilities" },
+    { "name": "Nora Hayes", "email": "nora.hayes@brightwater.example", "title": "VP Digital", "account": "Brightwater Retail" },
+    { "name": "Owen Grant", "email": "owen.grant@ridgeline.example", "title": "VP Security", "account": "Ridgeline Security" },
+    { "name": "Claire Dubois", "email": "claire.dubois@axa.example.com", "title": "Head of Claims Transformation", "account": "AXA" },
+    { "name": "Jordan Reyes", "email": "jordan.reyes@example.com", "title": "Account Executive", "internal": true },
+    { "name": "Casey Morgan", "email": "casey.morgan@example.com", "title": "Account Executive", "internal": true },
+    { "name": "Pat Rivera", "email": "pat.rivera@aiforce-blitz.example", "title": "VP Sales", "internal": true },
+    { "name": "Deal Desk", "email": "deal-desk@aiforce-blitz.example", "title": "Deal Desk", "internal": true },
+    { "name": "Hannah Ortiz", "email": "hannah.ortiz@aiforce-blitz.example", "title": "General Counsel", "internal": true },
+    { "name": "Marcus Webb", "email": "marcus.webb@aiforce-blitz.example", "title": "Chief Financial Officer", "internal": true }
+  ],
+  "messages": [
+    {
+      "id": "msg-cobalt-shield-0929",
+      "thread_id": "thr-cobalt-shield",
+      "date": "2026-09-29T10:05",
+      "account": "Cobalt Fintech",
+      "from": { "name": "Std User", "email": "std.user@aiforce-blitz.example" },
+      "to": [{ "name": "Priya Nair", "email": "priya.nair@cobaltfintech.example" }],
+      "subject": "Security Shield add-on proposal",
+      "labels": ["SENT"],
+      "attachments": [{ "name": "Cobalt - Security Shield Add-On proposal.pdf", "doc_id": "doc-cobalt-shield-proposal" }],
+      "body": [
+        "Hi Priya,",
+        "",
+        "As promised after our scoping call, here's the Security Shield add-on proposal: $85,000 a year, live in about six weeks.",
+        "",
+        "Two things I'd love your read on:",
+        "- Does the scope match what your team flagged?",
+        "- Who else needs to see this before budget review?",
+        "",
+        "Thanks,",
+        "Std User"
+      ]
+    },
+    {
+      "id": "msg-cobalt-proc-1024a",
+      "thread_id": "thr-cobalt-procurement",
+      "date": "2026-10-24T11:20",
+      "account": "Cobalt Fintech",
+      "from": { "name": "Sara Kim", "email": "sara.kim@cobaltfintech.example" },
+      "to": [{ "name": "Std User", "email": "std.user@aiforce-blitz.example" }],
+      "subject": "Competitor comparison for the renewal",
+      "labels": ["INBOX"],
+      "body": [
+        "Hi,",
+        "",
+        "Competitor A quoted us 15% less for the same seats. Before we go further on the renewal I need a comparison I can put in front of Victor.",
+        "",
+        "Sara Kim",
+        "Director of Procurement, Cobalt Fintech"
+      ]
+    },
+    {
+      "id": "msg-cobalt-proc-1024b",
+      "thread_id": "thr-cobalt-procurement",
+      "date": "2026-10-24T15:02",
+      "account": "Cobalt Fintech",
+      "from": { "name": "Std User", "email": "std.user@aiforce-blitz.example" },
+      "to": [{ "name": "Sara Kim", "email": "sara.kim@cobaltfintech.example" }],
+      "subject": "Re: Competitor comparison for the renewal",
+      "labels": ["SENT"],
+      "body": [
+        "Hi Sara,",
+        "",
+        "Understood. I'll put together a side-by-side that covers more than seat price: support tiers, API limits, and what the migration would cost your engineering team.",
+        "",
+        "You'll have it before our next pricing conversation.",
+        "",
+        "Thanks,",
+        "Std User"
+      ]
+    },
+    {
+      "id": "msg-axa-1110",
+      "thread_id": "thr-axa-proposal",
+      "date": "2026-11-10T09:40",
+      "account": "AXA",
+      "from": { "name": "Std User", "email": "std.user@aiforce-blitz.example" },
+      "to": [{ "name": "Claire Dubois", "email": "claire.dubois@axa.example.com" }],
+      "subject": "Revised phased proposal - Claims Automation",
+      "labels": ["SENT"],
+      "attachments": [{ "name": "AXA - Claims Automation phased proposal v2.pdf", "doc_id": "doc-axa-claims-proposal" }],
+      "body": [
+        "Hi Claire,",
+        "",
+        "Thanks for the time yesterday. Attached is the revised proposal, split into two phases as you asked:",
+        "- Phase 1: first-notice-of-loss intake, $95,000",
+        "- Phase 2: adjuster triage and routing, $80,000",
+        "",
+        "Total stays at $175,000. Happy to walk your team through it.",
+        "",
+        "Thanks,",
+        "Std User"
+      ]
+    },
+    {
+      "id": "msg-tom-1111",
+      "thread_id": "thr-cobalt-legal",
+      "date": "2026-11-11T16:30",
+      "account": "Cobalt Fintech",
+      "from": { "name": "Std User", "email": "std.user@aiforce-blitz.example" },
+      "to": [{ "name": "Tom Ruiz", "email": "tom.ruiz@cobaltfintech.example" }],
+      "subject": "MSA review - next steps",
+      "labels": ["SENT"],
+      "body": [
+        "Hi Tom,",
+        "",
+        "Thanks for kicking off the legal review today. I've noted your concern on the uncapped data-breach liability clause and I'm taking it to our legal team.",
+        "",
+        "I'll get you our redlined MSA by 11/21.",
+        "",
+        "Thanks,",
+        "Std User"
+      ]
+    },
+    {
+      "id": "msg-sunhollow-1112",
+      "thread_id": "thr-sunhollow-pilot",
+      "date": "2026-11-12T15:10",
+      "account": "Sunhollow Semiconductor",
+      "from": { "name": "Std User", "email": "std.user@aiforce-blitz.example" },
+      "to": [{ "name": "Aisha Bello", "email": "aisha.bello@sunhollow.example" }],
+      "subject": "AI Assistant demo follow-up",
+      "labels": ["SENT"],
+      "body": [
+        "Hi Aisha,",
+        "",
+        "Great session with the ops team today. As requested, I'll send a pilot plan with clear success criteria so you can take it to Kenji.",
+        "",
+        "Thanks,",
+        "Std User"
+      ]
+    },
+    {
+      "id": "msg-cobalt-prop-1114",
+      "thread_id": "thr-cobalt-proposal",
+      "date": "2026-11-14T09:12",
+      "account": "Cobalt Fintech",
+      "from": { "name": "Std User", "email": "std.user@aiforce-blitz.example" },
+      "to": [{ "name": "Maya Chen", "email": "maya.chen@cobaltfintech.example" }],
+      "cc": [{ "name": "Victor Hale", "email": "victor.hale@cobaltfintech.example" }],
+      "subject": "Cobalt Fintech 2026 renewal proposal",
+      "labels": ["SENT"],
+      "attachments": [{ "name": "Cobalt Fintech - 2026 Platform Renewal Proposal.pdf", "doc_id": "doc-cobalt-renewal-proposal" }],
+      "body": [
+        "Hi Maya,",
+        "",
+        "Attached is the 2026 platform renewal proposal: $320,000 for the year, with a three-year option that locks pricing.",
+        "",
+        "Quick summary:",
+        "- Adoption is up 12% since the October QBR",
+        "- Both open support escalations now have an owner and a date",
+        "- The three-year option lowers the annual price in exchange for the longer term",
+        "",
+        "Happy to walk through it at the working session on the 19th.",
+        "",
+        "Thanks,",
+        "Std User"
+      ]
+    },
+    {
+      "id": "msg-andy-1115",
+      "thread_id": "thr-dickenson",
+      "date": "2026-11-15T08:55",
+      "account": "Dickenson plc",
+      "from": { "name": "Andy Young", "email": "a_young@dickenson-consulting.example.com" },
+      "to": [{ "name": "Std User", "email": "std.user@aiforce-blitz.example" }],
+      "subject": "Mobile generators - formal proposal",
+      "labels": ["INBOX"],
+      "body": [
+        "Hi,",
+        "",
+        "Budget is approved for Q1. Send the formal proposal and order form so procurement can review.",
+        "",
+        "Andy Young",
+        "SVP, Operations, Dickenson plc"
+      ]
+    },
+    {
+      "id": "msg-michael-1116",
+      "thread_id": "thr-lakefront",
+      "date": "2026-11-16T13:45",
+      "account": "Lakefront Freight",
+      "from": { "name": "Std User", "email": "std.user@aiforce-blitz.example" },
+      "to": [{ "name": "Michael Aduba", "email": "michael.aduba@lakefront.example" }],
+      "subject": "Routing pricing - revised quote coming",
+      "labels": ["SENT"],
+      "body": [
+        "Hi Michael,",
+        "",
+        "Thanks for being straight with me on the call. I hear you: the Driver App add-on only makes sense if routing pricing comes down.",
+        "",
+        "I'm working on a revised routing quote and will have it to you by 11/20.",
+        "",
+        "Thanks,",
+        "Std User"
+      ]
+    },
+    {
+      "id": "msg-maya-1116",
+      "thread_id": "thr-cobalt-proposal",
+      "date": "2026-11-16T18:40",
+      "account": "Cobalt Fintech",
+      "from": { "name": "Maya Chen", "email": "maya.chen@cobaltfintech.example" },
+      "to": [{ "name": "Std User", "email": "std.user@aiforce-blitz.example" }],
+      "cc": [{ "name": "Victor Hale", "email": "victor.hale@cobaltfintech.example" }],
+      "subject": "Re: Cobalt Fintech 2026 renewal proposal",
+      "labels": ["INBOX"],
+      "body": [
+        "Thanks. Victor will push on price, so come ready for that. Let's use Thursday's working session to go through the three-year option in detail.",
+        "",
+        "Maya"
+      ]
+    },
+    {
+      "id": "msg-victor-1117",
+      "thread_id": "thr-cobalt-pricing",
+      "date": "2026-11-17T16:05",
+      "account": "Cobalt Fintech",
+      "from": { "name": "Victor Hale", "email": "victor.hale@cobaltfintech.example" },
+      "to": [{ "name": "Std User", "email": "std.user@aiforce-blitz.example" }],
+      "subject": "Renewal pricing",
+      "labels": ["INBOX"],
+      "body": [
+        "Following up on our call. A 7% uplift is hard to justify when usage is flat. Show me what we get for it.",
+        "",
+        "If you can lock pricing for two years, I can take that to the board.",
+        "",
+        "Victor Hale",
+        "CFO, Cobalt Fintech"
+      ]
+    },
+    {
+      "id": "msg-victor-reply-1117",
+      "thread_id": "thr-cobalt-pricing",
+      "date": "2026-11-17T17:30",
+      "account": "Cobalt Fintech",
+      "from": { "name": "Std User", "email": "std.user@aiforce-blitz.example" },
+      "to": [{ "name": "Victor Hale", "email": "victor.hale@cobaltfintech.example" }],
+      "subject": "Re: Renewal pricing",
+      "labels": ["SENT"],
+      "body": [
+        "Hi Victor,",
+        "",
+        "Fair challenge. I'll bring two options to Friday's call: what the 7% covers, and what a two-year price lock would look like.",
+        "",
+        "Thanks,",
+        "Std User"
+      ]
+    },
+    {
+      "id": "msg-aisha-1117",
+      "thread_id": "thr-sunhollow-pilot",
+      "date": "2026-11-17T11:25",
+      "account": "Sunhollow Semiconductor",
+      "from": { "name": "Aisha Bello", "email": "aisha.bello@sunhollow.example" },
+      "to": [{ "name": "Std User", "email": "std.user@aiforce-blitz.example" }],
+      "subject": "Re: AI Assistant demo follow-up",
+      "labels": ["INBOX"],
+      "body": [
+        "Thanks! For the pilot plan, could we aim for a January start? Mark will need two weeks for the IT review.",
+        "",
+        "Aisha"
+      ]
+    },
+    {
+      "id": "msg-grace-1117",
+      "thread_id": "thr-thornwell",
+      "date": "2026-11-17T09:50",
+      "account": "Thornwell Utilities",
+      "from": { "name": "Grace Lin", "email": "grace.lin@thornwell.example" },
+      "to": [{ "name": "Std User", "email": "std.user@aiforce-blitz.example" }],
+      "subject": "Before our renewal review",
+      "labels": ["INBOX"],
+      "body": [
+        "Hello,",
+        "",
+        "Ahead of our 11/25 review, please send the current contract value and a summary of what has changed in pricing since the last renewal. We are reviewing every vendor contract and price is the first question.",
+        "",
+        "Grace Lin",
+        "COO, Thornwell Utilities"
+      ]
+    },
+    {
+      "id": "msg-grace-reply-1117",
+      "thread_id": "thr-thornwell",
+      "date": "2026-11-17T13:15",
+      "account": "Thornwell Utilities",
+      "from": { "name": "Std User", "email": "std.user@aiforce-blitz.example" },
+      "to": [{ "name": "Grace Lin", "email": "grace.lin@thornwell.example" }],
+      "subject": "Re: Before our renewal review",
+      "labels": ["SENT"],
+      "body": [
+        "Hi Grace,",
+        "",
+        "Will do. You'll have the contract summary and pricing history by Monday so there are no surprises on the 25th.",
+        "",
+        "Thanks,",
+        "Std User"
+      ]
+    },
+    {
+      "id": "msg-dealdesk-1118",
+      "thread_id": "thr-dealdesk-cobalt",
+      "date": "2026-11-18T10:20",
+      "account": "Cobalt Fintech",
+      "from": { "name": "Deal Desk", "email": "deal-desk@aiforce-blitz.example" },
+      "to": [{ "name": "Std User", "email": "std.user@aiforce-blitz.example" }],
+      "subject": "Re: Cobalt three-year option - discount check",
+      "labels": ["INBOX"],
+      "body": [
+        "Hi,",
+        "",
+        "Checked the Cobalt three-year option against the multi-year discount policy. Up to 15% off list for a three-year term is within manager approval. Anything over 20% needs VP Sales (Pat Rivera) and Deal Desk sign-off, and a two-year price lock needs Deal Desk sign-off on its own.",
+        "",
+        "Deal Desk"
+      ]
+    },
+    {
+      "id": "msg-kenji-1118",
+      "thread_id": "thr-sunhollow-pricing",
+      "date": "2026-11-18T16:30",
+      "account": "Sunhollow Semiconductor",
+      "from": { "name": "Std User", "email": "std.user@aiforce-blitz.example" },
+      "to": [{ "name": "Kenji Watanabe", "email": "kenji.watanabe@sunhollow.example" }],
+      "subject": "Pricing review recap",
+      "labels": ["SENT"],
+      "body": [
+        "Hi Kenji,",
+        "",
+        "Thanks for the time today. Recap:",
+        "- You're good with the scope",
+        "- Budget sign-off sits with your CFO, who I haven't met yet",
+        "- Security questionnaire is done",
+        "",
+        "Could you introduce me to your CFO so we can walk through the numbers together?",
+        "",
+        "Thanks,",
+        "Std User"
+      ]
+    },
+    {
+      "id": "msg-andy-reply-1118",
+      "thread_id": "thr-dickenson",
+      "date": "2026-11-18T12:10",
+      "account": "Dickenson plc",
+      "from": { "name": "Std User", "email": "std.user@aiforce-blitz.example" },
+      "to": [{ "name": "Andy Young", "email": "a_young@dickenson-consulting.example.com" }],
+      "subject": "Re: Mobile generators - formal proposal",
+      "labels": ["SENT"],
+      "body": [
+        "Hi Andy,",
+        "",
+        "Thanks for the walkthrough this morning. Confirming tier 2 for 40 mobile generators, with your CFO as signer. I'll send the formal proposal and order form for procurement.",
+        "",
+        "Thanks,",
+        "Std User"
+      ]
+    },
+    {
+      "id": "msg-liam-fleet-1118",
+      "thread_id": "thr-northpeak-fleet",
+      "date": "2026-11-18T09:35",
+      "account": "Northpeak",
+      "from": { "name": "Std User", "email": "std.user@aiforce-blitz.example" },
+      "to": [{ "name": "Liam Ortega", "email": "liam.ortega@northpeak.example" }],
+      "subject": "Fleet analytics - volume pricing options",
+      "labels": ["SENT"],
+      "body": [
+        "Hi Liam,",
+        "",
+        "You said per-vehicle pricing is steep at 6,000 vehicles and you need a volume tier. Fair point. I'll have pricing options ready for our check-in on Friday.",
+        "",
+        "Thanks,",
+        "Std User"
+      ]
+    },
+    {
+      "id": "msg-tom-1118",
+      "thread_id": "thr-cobalt-legal",
+      "date": "2026-11-18T15:10",
+      "account": "Cobalt Fintech",
+      "from": { "name": "Tom Ruiz", "email": "tom.ruiz@cobaltfintech.example" },
+      "to": [{ "name": "Std User", "email": "std.user@aiforce-blitz.example" }],
+      "subject": "Re: MSA review - next steps",
+      "labels": ["INBOX", "UNREAD"],
+      "attachments": [{ "name": "Cobalt MSA - Cobalt legal markup.docx", "doc_id": "doc-cobalt-msa-redline" }],
+      "body": [
+        "Hi,",
+        "",
+        "Reminder that we need your redlined MSA by Saturday 11/21. Our position on Section 9 hasn't changed: we can't accept the data-breach liability language as drafted and we want it uncapped. Our markup is attached.",
+        "",
+        "Tom Ruiz",
+        "General Counsel, Cobalt Fintech"
+      ]
+    },
+    {
+      "id": "msg-nora-1118",
+      "thread_id": "thr-brightwater",
+      "date": "2026-11-18T17:05",
+      "account": "Brightwater Retail",
+      "from": { "name": "Nora Hayes", "email": "nora.hayes@brightwater.example" },
+      "to": [{ "name": "Std User", "email": "std.user@aiforce-blitz.example" }],
+      "subject": "POS Analytics - final pricing",
+      "labels": ["INBOX", "UNREAD"],
+      "body": [
+        "Hi,",
+        "",
+        "Our finance team does final pricing approval on POS Analytics this week. Is $60,000 firm? Also, store managers stopped logging in after the POS migration, so I want to make sure adoption is part of the plan.",
+        "",
+        "Nora Hayes",
+        "VP Digital, Brightwater Retail"
+      ]
+    },
+    {
+      "id": "msg-liam-ds-1119",
+      "thread_id": "thr-northpeak-driversafety",
+      "date": "2026-11-19T09:00",
+      "account": "Northpeak",
+      "from": { "name": "Std User", "email": "std.user@aiforce-blitz.example" },
+      "to": [{ "name": "Liam Ortega", "email": "liam.ortega@northpeak.example" }],
+      "cc": [{ "name": "Dana Wills", "email": "dana.wills@northpeak.example" }],
+      "subject": "Driver Safety Add-On - order form for countersignature",
+      "labels": ["SENT"],
+      "attachments": [{ "name": "Northpeak - Driver Safety Add-On order form.pdf", "doc_id": "doc-northpeak-driver-safety-order-form" }],
+      "body": [
+        "Hi Liam,",
+        "",
+        "Attached is the Driver Safety Add-On order form for countersignature: $45,000, as agreed. We need it back by Friday 11/20 to hit the close date.",
+        "",
+        "Thanks,",
+        "Std User"
+      ]
+    },
+    {
+      "id": "msg-sara-1119",
+      "thread_id": "thr-cobalt-procurement",
+      "date": "2026-11-19T08:20",
+      "account": "Cobalt Fintech",
+      "from": { "name": "Sara Kim", "email": "sara.kim@cobaltfintech.example" },
+      "to": [{ "name": "Std User", "email": "std.user@aiforce-blitz.example" }],
+      "subject": "Re: Competitor comparison for the renewal",
+      "labels": ["INBOX", "UNREAD"],
+      "body": [
+        "Hi,",
+        "",
+        "Still waiting on the comparison. Competitor A is 15% lower for the same seats. I need a line-item comparison for my pricing memo before Friday's call.",
+        "",
+        "Sara"
+      ]
+    },
+    {
+      "id": "msg-kenji-1119",
+      "thread_id": "thr-sunhollow-pricing",
+      "date": "2026-11-19T10:15",
+      "account": "Sunhollow Semiconductor",
+      "from": { "name": "Kenji Watanabe", "email": "kenji.watanabe@sunhollow.example" },
+      "to": [{ "name": "Std User", "email": "std.user@aiforce-blitz.example" }],
+      "cc": [
+        { "name": "Aisha Bello", "email": "aisha.bello@sunhollow.example" },
+        { "name": "Mark Feld", "email": "mark.feld@sunhollow.example" }
+      ],
+      "subject": "Re: Pricing review recap",
+      "labels": ["INBOX", "UNREAD"],
+      "body": [
+        "Happy to. Our CFO can make 30 minutes sometime next week. Can you find a time that works for me, Aisha and Mark too and send an invite? I'll forward it to the CFO.",
+        "",
+        "Kenji"
+      ]
+    },
+    {
+      "id": "msg-priya-1119",
+      "thread_id": "thr-cobalt-working-session",
+      "date": "2026-11-19T12:05",
+      "account": "Cobalt Fintech",
+      "from": { "name": "Priya Nair", "email": "priya.nair@cobaltfintech.example" },
+      "to": [{ "name": "Std User", "email": "std.user@aiforce-blitz.example" }],
+      "cc": [{ "name": "Maya Chen", "email": "maya.chen@cobaltfintech.example" }],
+      "subject": "After today's working session",
+      "labels": ["INBOX", "UNREAD"],
+      "body": [
+        "Thanks for this morning. As I said, engineering loves the APIs, but finance only sees the invoice. Could you send a one-page adoption summary Victor can read before Friday?",
+        "",
+        "Priya"
+      ]
+    },
+    {
+      "id": "msg-michael-1119",
+      "thread_id": "thr-lakefront",
+      "date": "2026-11-19T14:02",
+      "account": "Lakefront Freight",
+      "from": { "name": "Michael Aduba", "email": "michael.aduba@lakefront.example" },
+      "to": [{ "name": "Std User", "email": "std.user@aiforce-blitz.example" }],
+      "subject": "Re: Routing pricing - revised quote coming",
+      "labels": ["INBOX", "UNREAD"],
+      "body": [
+        "Any update on the revised routing quote? I'd like to go through it before our call on Monday.",
+        "",
+        "Michael"
+      ]
+    },
+    {
+      "id": "msg-dana-1119",
+      "thread_id": "thr-northpeak-driversafety",
+      "date": "2026-11-19T19:45",
+      "account": "Northpeak",
+      "from": { "name": "Dana Wills", "email": "dana.wills@northpeak.example" },
+      "to": [{ "name": "Std User", "email": "std.user@aiforce-blitz.example" }],
+      "cc": [{ "name": "Liam Ortega", "email": "liam.ortega@northpeak.example" }],
+      "subject": "Re: Driver Safety Add-On - order form for countersignature",
+      "labels": ["INBOX", "UNREAD"],
+      "body": [
+        "Hi,",
+        "",
+        "Liam is out until Monday, so I'm handling the countersignature. Our PO for the Driver Safety Add-On is approved at $54,000. Can you reissue the order form at $54,000 and send it today? We need it signed before your Friday deadline.",
+        "",
+        "Dana Wills",
+        "Director of IT, Northpeak"
+      ]
+    },
+    {
+      "id": "msg-expenses-1119",
+      "thread_id": "thr-expenses",
+      "date": "2026-11-19T07:00",
+      "from": { "name": "Finance Ops", "email": "finance-ops@aiforce-blitz.example" },
+      "to": [{ "name": "Std User", "email": "std.user@aiforce-blitz.example" }],
+      "subject": "Reminder: October expense reports due 11/24",
+      "labels": ["INBOX", "UNREAD"],
+      "body": ["Submit October expense reports by Tuesday 11/24. No reply needed."]
+    },
+    {
+      "id": "msg-webinar-1119",
+      "thread_id": "thr-webinar",
+      "date": "2026-11-19T06:30",
+      "from": { "name": "Fleet Tech Weekly", "email": "news@fleettech-weekly.example" },
+      "to": [{ "name": "Std User", "email": "std.user@aiforce-blitz.example" }],
+      "subject": "Webinar: The future of route optimization",
+      "labels": ["INBOX", "UNREAD"],
+      "body": ["Join us on December 3 for a live panel on route optimization. Register today."]
+    },
+    {
+      "id": "msg-victor-1120",
+      "thread_id": "thr-cobalt-pricing",
+      "date": "2026-11-20T07:40",
+      "account": "Cobalt Fintech",
+      "from": { "name": "Victor Hale", "email": "victor.hale@cobaltfintech.example" },
+      "to": [{ "name": "Std User", "email": "std.user@aiforce-blitz.example" }],
+      "cc": [{ "name": "Sara Kim", "email": "sara.kim@cobaltfintech.example" }],
+      "subject": "Re: Renewal pricing",
+      "labels": ["INBOX", "UNREAD"],
+      "body": [
+        "For this afternoon's call: I want to see the two-year lock option side by side with the 7% uplift. Sara will bring the competitor numbers.",
+        "",
+        "Victor"
+      ]
+    },
+    {
+      "id": "msg-legal-uncapped-0910",
+      "thread_id": "thr-legal-uncapped",
+      "date": "2026-09-10T14:00",
+      "account": "CrowdStrike",
+      "from": { "name": "Hannah Ortiz", "email": "hannah.ortiz@aiforce-blitz.example" },
+      "to": [{ "name": "Std User", "email": "std.user@aiforce-blitz.example" }],
+      "cc": [
+        { "name": "Marcus Webb", "email": "marcus.webb@aiforce-blitz.example" },
+        { "name": "Deal Desk", "email": "deal-desk@aiforce-blitz.example" }
+      ],
+      "subject": "APPROVED: uncapped data-breach liability - CrowdStrike Threat Intel Add-on",
+      "labels": ["INBOX"],
+      "attachments": [{ "name": "Approval record - CrowdStrike uncapped liability.pdf", "doc_id": "doc-uncapped-liability-approval" }],
+      "body": [
+        "Approved, as a one-time exception, with Marcus Webb (CFO) co-signing:",
+        "- Uncapped liability applies to data-breach claims caused by our gross negligence only",
+        "- All other liability stays at the standard 12-month fee cap",
+        "- Our cyber insurance must name the customer as additional insured",
+        "",
+        "This does not set a precedent. Any future request goes through the same GC + CFO review. See the approval record attached.",
+        "",
+        "Hannah Ortiz",
+        "General Counsel"
+      ]
+    },
+    {
+      "id": "msg-legal-uncapped-0910b",
+      "thread_id": "thr-legal-uncapped",
+      "date": "2026-09-10T15:20",
+      "account": "CrowdStrike",
+      "from": { "name": "Std User", "email": "std.user@aiforce-blitz.example" },
+      "to": [{ "name": "Hannah Ortiz", "email": "hannah.ortiz@aiforce-blitz.example" }],
+      "cc": [{ "name": "Marcus Webb", "email": "marcus.webb@aiforce-blitz.example" }],
+      "subject": "Re: APPROVED: uncapped data-breach liability - CrowdStrike Threat Intel Add-on",
+      "labels": ["SENT"],
+      "body": [
+        "Hi Hannah,",
+        "",
+        "Thank you both. I'll send the updated paper to CrowdStrike today with the conditions exactly as written.",
+        "",
+        "Thanks,",
+        "Std User"
+      ]
+    },
+    {
+      "id": "msg-nora-1105",
+      "thread_id": "thr-brightwater",
+      "date": "2026-11-05T16:40",
+      "account": "Brightwater Retail",
+      "from": { "name": "Std User", "email": "std.user@aiforce-blitz.example" },
+      "to": [{ "name": "Nora Hayes", "email": "nora.hayes@brightwater.example" }],
+      "subject": "Usage dip - next steps",
+      "labels": ["SENT"],
+      "body": [
+        "Hi Nora,",
+        "",
+        "Thanks for walking me through the usage dip. Store managers stopping after the POS migration makes sense. I'll pull together a short re-onboarding plan for them.",
+        "",
+        "Thanks,",
+        "Std User"
+      ]
+    },
+    {
+      "id": "msg-grace-1108",
+      "thread_id": "thr-thornwell-intro",
+      "date": "2026-11-08T12:30",
+      "account": "Thornwell Utilities",
+      "from": { "name": "Std User", "email": "std.user@aiforce-blitz.example" },
+      "to": [{ "name": "Grace Lin", "email": "grace.lin@thornwell.example" }],
+      "subject": "Great to meet you",
+      "labels": ["SENT"],
+      "body": [
+        "Hi Grace,",
+        "",
+        "Great to meet you today, and congratulations on the new role. I understand you're reviewing every vendor contract before renewal. I'll make sure you have what you need well ahead of time.",
+        "",
+        "Thanks,",
+        "Std User"
+      ]
+    }
+  ]
+}

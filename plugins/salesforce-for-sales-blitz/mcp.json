@@ -8,6 +8,11 @@
         "CLIENT_SECRET": "${CLIENT_SECRET}",
         "scopes": ["mcp_api", "refresh_token"]
       }
+    },
+    "workspace": {
+      "type": "stdio",
+      "command": "python3",
+      "args": ["${CURSOR_PLUGIN_ROOT}/mocks/workspace_server.py"]
     }
   }
 }
