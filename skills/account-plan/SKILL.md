@@ -17,8 +17,15 @@ description: "Build or retrieve an account plan from Salesforce Account, Account
 - **Use plain language.** Choose terms any reader understands on first read, with no domain knowledge or cultural context required. Avoid jargon and colloquialisms, and make labels signal what follows. Test: would a reader unfamiliar with the idiom understand the term and know what content to expect? Use "No engagement", not "went dark" or "ghosted".
 - **Reproduce Salesforce terminology exactly.** Use the field labels, object names, and stage values the data returns; do not paraphrase them. Spell out acronyms on first use unless the term is an industry framework (for example, MEDDIC).
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
-- **ONLY use the local instructions in this skill file, ONLY call MCP tools mentioned in the skill file and NEVER call an API or endpoint not written in this skill file.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
+- **While following this skill, don't call `discover` or `describe`, and don't call any API or endpoint not written here. This file already has every query and widget reference you need. (Outside this skill, they're available as normal.)** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
 <!-- /global-rules-bootstrap -->
+<!-- response-formatting -->
+## Response formatting
+
+- **Number formatting:** Format numbers for readability across the entire response, including values retrieved directly from Salesforce fields. Abbreviate large numbers with a suffix for their scale: K (thousand), M (million), B (billion), T (trillion), and the next suffix up for anything larger, never leaving a big number unabbreviated or spelling it out in full (e.g., $120K, $1.25M, $2.4B, $1.3T), and round percentages to whole numbers unless decimals are required for meaningful comparison.
+- **Empty table cells (structured data tables only):** keep empty states terse and never explain them inside a table cell.
+  - AI-generated cells: write "Not enough data" when the returned data cannot support a grounded answer (for example, a Suggested Action cell when no recommendation can be supported).
+  - Cells filled directly from CRM fields: leave the cell blank when the source field was queried and confirmed empty or null. Keep valid values such as 0.
 # Goal:
 View or create an `AccountPlan` for a Salesforce Account entirely via the API — the strategic picture (challenges, competitive landscape, industry trends, priorities, vision) and the relationship SWOT.
 
@@ -32,9 +39,9 @@ Sales-org workers who want results fast. Minimize thinking when it's not needed;
 - On the create path, flag anything you can't source with `[needs validation]`.
 - **`Status` is always `"Not Started"` on creation.** Never create a plan in any other status; lifecycle changes are out of scope.
 
-**Voice/tone (create path only).** The generated narrative fields should read in the org's own house voice, not a generic register. Infer that voice in priority order: (1) **explicit user direction** — if the user dictates tone or wording, follow it verbatim; (2) **this account's existing plan prose**, when V1 already returned a plan (the second-plan case) — the truest house-voice sample you'll have; (3) **`Account.Description`** from step 1, as a light register anchor — it's often short or blank, so lean on it lightly. Absent all three, **default to a clear, plainly-professional register**: direct declarative sentences, concrete and specific, no marketing adjectives ("robust", "cutting-edge"), no filler, no exclamation points. Voice governs **style only** — it never licenses inventing content: numbers, quotes, competitor names, and every other claim still obey the cite-as-queried / `[needs validation]` rule above.
+**Voice/tone (create path only).** Generated narrative fields use the org's house voice: (1) explicit user direction (follow verbatim); (2) existing plan prose from V1 (the truest sample); (3) `Account.Description` as a light anchor. Default: clear, plainly-professional register—direct declarative sentences, concrete, no marketing adjectives, no filler. Voice governs style only; never invent content: numbers, quotes, competitor names still obey cite-as-queried / `[needs validation]`.
 
-The account's real competitor list and org defaults for plan naming/start date are external knowledge — infer from the org's own data or ask the user once. Never invent them.
+Competitor lists and org defaults for plan naming/start date are external knowledge—infer from org data or ask once. Never invent.
 
 # Account Plan
 
@@ -250,21 +257,51 @@ Open opps inform `RelationshipOpportunities`/`RelationshipStrengths`; quiet Task
 | `StartDate` | Default today, `YYYY-MM-DD`. |
 | `Status` | **Always `"Not Started"`.** |
 
+## C3a. Ground and propose structured objectives
+
+Before proposing child records, describe `AccountPlanObjective` and `AccountPlanObjectiveMeasure` through the runtime REST version. Confirm the objective foreign key whose `referenceTo` includes `AccountPlan`, the measure foreign key whose `referenceTo` includes `AccountPlanObjective`, and only createable fields. Use the returned labels, types, picklist values, and required flags to map objective name, description, owner, lifecycle status, start/end date, measure name, value type, target, and current value. Do not assume `AccountPlanId`, `AccountPlanObjectiveId`, `TargetValue`, or `CurrentValue` exists in every org.
+
+```
+dispatch_readonly(method: "GET", url: "/services/data/<apiVersion>/sobjects/AccountPlanObjective/describe")
+dispatch_readonly(method: "GET", url: "/services/data/<apiVersion>/sobjects/AccountPlanObjectiveMeasure/describe")
+```
+
+Build a small set of objective proposals from the grounded strategic priorities and C2 evidence. Each proposal needs a source-backed objective name and description; include lifecycle status, owner, and dates only when the returned schema supports them and the values are known. Use the Account Plan start date as an objective start date only when the objective start-date field is createable and no more-specific date was sourced. Do not create an objective from vague prose alone: retain `[needs validation]` in the proposal and ask the user to supply or approve a concrete objective.
+
+Propose a measure only when the user supplied or the grounded evidence establishes its value type and both current and target values. Never invent a target, baseline, zero progress, a percentage, or a due date just to populate the widget. For a percentage, use the object metadata's actual allowed picklist value and the confirmed write fields; for other units, preserve the returned type/value semantics. An objective without a valid measure is still created after confirmation and renders without fabricated progress.
+
 ## C4. Confirm — the write gate
 
-Show the assembled field map (narrative + resolved `AccountId`/`Name`) and let the user correct it. **Do not create the record until the user confirms or edits.**
+Present a plain-language **Review proposed account plan** summary, not raw JSON, API field names, or record IDs. Include the account name; plan name, status, and start date; concise strategic priorities and narrative highlights; then number each proposed objective with its name, status, owner when known, date range when known, and source or `[needs validation]` label. Under an objective, show each measure as `Measure name: current → target <unit>`; omit a missing value instead of showing a placeholder. Use compact bullets and retain the user's wording for requested values. End with a direct question: **“Would you like me to create this account plan and its N objectives and M measures?”** Explain that no records have been created yet. Keep the exact resolved payloads internally for the subsequent write. A request to “show the payload,” “show the complete payload,” or “show the fields” still means this readable review, not a JSON dump. Show technical JSON only when the user unambiguously asks for **raw JSON** or an **API field mapping**. Let the user correct, remove, or add plan details, objectives, and measures. **Do not create any record until the user confirms the complete mutation set or edits it.**
 
 ## C5. Create, verify, render
 
+After confirmation, create records in dependency order. Use only the field names and values confirmed by C3a; omit unsupported optional fields rather than sending guessed names.
+
 ```
-dispatch(method: "POST", url: "/services/data/v63.0/sobjects/AccountPlan",
+dispatch(method: "POST", url: "/services/data/<apiVersion>/sobjects/AccountPlan",
   body: { "AccountId": "[accountId]", "Name": "[Account Name] Account Plan", "AccountChallenges": "…", "AccountCmptvWeaknesses": "…", "AccountCompetitiveStrengths": "…", "AccountCompetitors": "…", "AccountIndustryTrends": "…", "AccountPrfmIndicators": "…", "AccountStrategicPriorities": "…", "AccountVision": "…", "RelationshipOpportunities": "…", "RelationshipStrengths": "…", "RelationshipThreats": "…", "RelationshipWeaknesses": "…", "StartDate": "[today YYYY-MM-DD]", "Status": "Not Started" })
 ```
 
-Capture the returned `id`, read it back to confirm it persisted, verify `Status` is `Not Started` and `AccountId` matches, then render (**Step R**):
+Capture the returned plan `id`, then create each confirmed objective with that actual Id in the metadata-confirmed plan foreign key. Capture every returned objective Id before creating its confirmed measures with that actual Id in the metadata-confirmed objective foreign key:
 
 ```
-dispatch_readonly(method: "GET", url: "/services/data/v63.0/sobjects/AccountPlan/[createdPlanId]")
+dispatch(method: "POST", url: "/services/data/<apiVersion>/sobjects/AccountPlanObjective",
+  body: { "<CONFIRMED_PLAN_FOREIGN_KEY>": "<CREATED_PLAN_ID>", "<CONFIRMED_CREATEABLE_OBJECTIVE_FIELDS>": "<CONFIRMED_VALUES>" })
+dispatch(method: "POST", url: "/services/data/<apiVersion>/sobjects/AccountPlanObjectiveMeasure",
+  body: { "<CONFIRMED_OBJECTIVE_FOREIGN_KEY>": "<CREATED_OBJECTIVE_ID>", "<CONFIRMED_CREATEABLE_MEASURE_FIELDS>": "<CONFIRMED_VALUES>" })
+```
+
+If any child create fails, report the persisted parent and every successful child precisely, including the failed record and server error. Do not claim a complete account plan and do not retry a non-idempotent create blindly. Offer to correct the failed payload or delete the incomplete test plan only with explicit user confirmation.
+
+Read back the parent and every successfully created child, verify `Status` is `Not Started`, `AccountId` matches, and each child foreign key points to its actual parent. Then use V2b/V3 to map and render the verified hierarchy (**Step R**). Include the created parent, objective, and measure records in `sources`:
+
+```
+dispatch_readonly(method: "GET", url: "/services/data/<apiVersion>/sobjects/AccountPlan/<CREATED_PLAN_ID>")
+dispatch_readonly(method: "GET", url: "/services/data/<apiVersion>/query",
+  queryParams: { "q": "SELECT Id, <CONFIRMED_OBJECTIVE_FIELDS> FROM AccountPlanObjective WHERE <CONFIRMED_PLAN_FOREIGN_KEY> = '<CREATED_PLAN_ID>' ORDER BY Id" })
+dispatch_readonly(method: "GET", url: "/services/data/<apiVersion>/query",
+  queryParams: { "q": "SELECT Id, <CONFIRMED_MEASURE_FIELDS> FROM AccountPlanObjectiveMeasure WHERE <CONFIRMED_OBJECTIVE_FOREIGN_KEY> IN (<QUOTED_CREATED_OBJECTIVE_IDS>) ORDER BY Id" })
 ```
 
 ---
@@ -275,16 +312,16 @@ When the data is assembled, call `display_widget`; a single one-line "Displaying
 
 ### Self-verification (before calling display_widget)
 
-- [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
+- [ ] `props` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 
 The layout is built into the renderer and registered by name — you send **only the widget name and its data**. Call `display_widget` once:
 
 ```
-display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "account-plan", data: <object matching the schema below>, renderer: { body: [] } } })
+display_widget({ resourceType: "salesforce_widget", widget_resource_uri: "ui://widget/standard/account-plan", props: <object matching the schema below> })
 ```
 
-- `renderer: { body: [] }` is required. Send data only; never author presentation, HTML, icons, layout keys, `{!…}`/`{{…}}`, or a hydrated template.
-- `widgetDefinition` and `data` must be nested JSON objects, not quoted JSON strings.
+- Send data only; never author presentation, HTML, icons, layout keys, `{!…}`/`{{…}}`, or a hydrated template.
+- `props` must be a nested JSON object, not a quoted JSON string.
 - Scope reading and output to the prompt, never a default full account plan. For a specific question, fetch only what that block needs.
 
 ### What to send
@@ -338,7 +375,7 @@ The following is a compact **shape example**, not a substitute for the live V2 r
 }
 ```
 
-`data` schema (JSON Schema). Only `title`, `answer`, and `sources` are required:
+`props` schema (JSON Schema). Only `title`, `answer`, and `sources` are required:
 
 ```json
 {
@@ -709,7 +746,7 @@ The following is a compact **shape example**, not a substitute for the live V2 r
      },
      "callout": {
       "type": "object",
-      "description": "OPTIONAL tail for a time-sensitive or blocked move. Use INSTEAD of nextStep, never both. Send only when an urgent action is grounded.",
+      "description": "OPTIONAL tail for a time-sensitive or blocked move. Use INSTEAD of nextStep, never both. Send only when an urgent action is grounded. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "required": [
         "lead",
         "text",
@@ -719,10 +756,12 @@ The following is a compact **shape example**, not a substitute for the live V2 r
       ],
       "properties": {
         "lead": {
-          "type": "string"
+          "type": "string",
+          "description": "REQUIRED, visible (non-whitespace)."
         },
         "text": {
-          "type": "string"
+          "type": "string",
+          "description": "REQUIRED, visible (non-whitespace)."
         },
         "buttonLabel": {
           "type": "string"
@@ -758,7 +797,7 @@ The following is a compact **shape example**, not a substitute for the live V2 r
     },
     "sources": {
       "type": "array",
-      "description": "REQUIRED. Salesforce records or lists actually read. Linked records use a dedicated url; unlinked sources remain plain text.",
+      "description": "REQUIRED. Salesforce records or lists actually read. Linked records use a dedicated url; unlinked sources remain plain text. Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
       "items": {
         "type": "object",
         "required": [
