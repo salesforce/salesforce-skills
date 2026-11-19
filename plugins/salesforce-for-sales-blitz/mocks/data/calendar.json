@@ -1,0 +1,214 @@
+{
+  "_about": "Mock Google Calendar for the Grok Bot Blitz (org aiforce.prod2). Customer meetings mirror the org's Event records (StartDateTime converted to America/Los_Angeles); internal blocks are mock-only. Times without an offset are Pacific.",
+  "working_hours": { "start": "09:00", "end": "17:00" },
+  "events": [
+    {
+      "id": "evt-pipeline-1117",
+      "title": "Weekly pipeline review",
+      "start": "2026-11-17T09:00",
+      "end": "2026-11-17T09:30",
+      "location": "Zoom",
+      "attendees": [
+        { "name": "Jordan Reyes", "email": "jordan.reyes@example.com", "response": "accepted" },
+        { "name": "Casey Morgan", "email": "casey.morgan@example.com", "response": "accepted" }
+      ],
+      "description": "Team pipeline review: commits for the week, slipped close dates, deals that need help.",
+      "internal": true
+    },
+    {
+      "id": "evt-1on1-jordan-1118",
+      "title": "1:1 with Jordan Reyes",
+      "start": "2026-11-18T14:00",
+      "end": "2026-11-18T14:30",
+      "location": "Zoom",
+      "attendees": [{ "name": "Jordan Reyes", "email": "jordan.reyes@example.com", "response": "accepted" }],
+      "description": "Weekly 1:1.",
+      "internal": true
+    },
+    {
+      "id": "evt-1on1-casey-1118",
+      "title": "1:1 with Casey Morgan",
+      "start": "2026-11-18T14:30",
+      "end": "2026-11-18T15:00",
+      "location": "Zoom",
+      "attendees": [{ "name": "Casey Morgan", "email": "casey.morgan@example.com", "response": "accepted" }],
+      "description": "Weekly 1:1.",
+      "internal": true
+    },
+    {
+      "id": "evt-chicago-dinner-1118",
+      "title": "Chicago customer dinner",
+      "start": "2026-11-18T18:30",
+      "end": "2026-11-18T21:00",
+      "location": "Chicago, IL",
+      "attendees": [],
+      "description": "Customer dinner in Chicago.",
+      "org_event": true
+    },
+    {
+      "id": "evt-cobalt-working-1119",
+      "title": "Cobalt Fintech - renewal working session (Zoom)",
+      "start": "2026-11-19T10:00",
+      "end": "2026-11-19T11:00",
+      "location": "Zoom",
+      "account": "Cobalt Fintech",
+      "opportunity": "Cobalt Fintech - 2026 Platform Renewal",
+      "attendees": [
+        { "name": "Maya Chen", "email": "maya.chen@cobaltfintech.example", "response": "accepted" },
+        { "name": "Priya Nair", "email": "priya.nair@cobaltfintech.example", "response": "accepted" }
+      ],
+      "description": "Walk through the 2026 renewal proposal (320K, three-year option) and the adoption numbers from the October QBR.",
+      "org_event": true
+    },
+    {
+      "id": "evt-forecast-1120",
+      "title": "Forecast call with sales leadership",
+      "start": "2026-11-20T08:30",
+      "end": "2026-11-20T09:00",
+      "location": "Zoom",
+      "attendees": [{ "name": "VP Sales", "email": "vp-sales@aiforce-blitz.example", "response": "accepted" }],
+      "description": "Weekly forecast call: commit, best case, and deals closing this month.",
+      "internal": true
+    },
+    {
+      "id": "evt-northpeak-1120",
+      "title": "Northpeak - fleet analytics check-in",
+      "start": "2026-11-20T10:00",
+      "end": "2026-11-20T10:30",
+      "location": "Zoom",
+      "account": "Northpeak",
+      "opportunity": "Northpeak - Fleet Analytics Rollout",
+      "attendees": [
+        { "name": "Liam Ortega", "email": "liam.ortega@northpeak.example", "response": "accepted" },
+        { "name": "Dana Wills", "email": "dana.wills@northpeak.example", "response": "tentative" }
+      ],
+      "description": "Check in on the fleet analytics pricing options (volume tier at 6,000 vehicles). Also confirm the Driver Safety order form countersignature due today.",
+      "org_event": true
+    },
+    {
+      "id": "evt-focus-1120",
+      "title": "Focus: proposals and follow-ups",
+      "start": "2026-11-20T11:00",
+      "end": "2026-11-20T12:00",
+      "location": "",
+      "attendees": [],
+      "description": "Hold for proposal work.",
+      "internal": true,
+      "show_as": "free"
+    },
+    {
+      "id": "evt-sunhollow-1120",
+      "title": "Sunhollow - pricing and pilot plan",
+      "start": "2026-11-20T13:00",
+      "end": "2026-11-20T13:45",
+      "location": "Zoom",
+      "account": "Sunhollow Semiconductor",
+      "opportunity": "Sunhollow - AI Assistant Expansion",
+      "attendees": [
+        { "name": "Kenji Watanabe", "email": "kenji.watanabe@sunhollow.example", "response": "accepted" },
+        { "name": "Aisha Bello", "email": "aisha.bello@sunhollow.example", "response": "accepted" },
+        { "name": "Mark Feld", "email": "mark.feld@sunhollow.example", "response": "needsAction" }
+      ],
+      "description": "Review pricing and the pilot plan with success criteria. Open item: budget sign-off from Sunhollow's CFO, who we have not met yet.",
+      "org_event": true
+    },
+    {
+      "id": "evt-cobalt-call-1120",
+      "title": "Cobalt Fintech - renewal call (Zoom)",
+      "start": "2026-11-20T15:00",
+      "end": "2026-11-20T16:00",
+      "location": "Zoom",
+      "account": "Cobalt Fintech",
+      "opportunity": "Cobalt Fintech - 2026 Platform Renewal",
+      "attendees": [
+        { "name": "Victor Hale", "email": "victor.hale@cobaltfintech.example", "response": "accepted" },
+        { "name": "Sara Kim", "email": "sara.kim@cobaltfintech.example", "response": "accepted" },
+        { "name": "Tom Ruiz", "email": "tom.ruiz@cobaltfintech.example", "response": "tentative" }
+      ],
+      "description": "Renewal pricing call. Victor pushed back on the 7% uplift and asked for a two-year price lock; Sara has a competitor quote 15% lower. Tom Ruiz is still reviewing the uncapped data-breach liability clause.",
+      "org_event": true
+    },
+    {
+      "id": "evt-lakefront-1123",
+      "title": "Lakefront Freight - routing pricing call",
+      "start": "2026-11-23T14:00",
+      "end": "2026-11-23T14:30",
+      "location": "Zoom",
+      "account": "Lakefront Freight",
+      "opportunity": "Lakefront Freight - Routing Platform",
+      "attendees": [{ "name": "Michael Aduba", "email": "michael.aduba@lakefront.example", "response": "accepted" }],
+      "description": "Walk Michael through the revised routing quote. The Driver App add-on depends on routing pricing coming down.",
+      "org_event": true
+    },
+    {
+      "id": "evt-pipeline-1124",
+      "title": "Weekly pipeline review",
+      "start": "2026-11-24T09:00",
+      "end": "2026-11-24T09:30",
+      "location": "Zoom",
+      "attendees": [
+        { "name": "Jordan Reyes", "email": "jordan.reyes@example.com", "response": "accepted" },
+        { "name": "Casey Morgan", "email": "casey.morgan@example.com", "response": "accepted" }
+      ],
+      "description": "Team pipeline review.",
+      "internal": true
+    },
+    {
+      "id": "evt-ridgeline-1124",
+      "title": "Ridgeline - discovery workshop",
+      "start": "2026-11-24T10:00",
+      "end": "2026-11-24T11:00",
+      "location": "Zoom",
+      "account": "Ridgeline Security",
+      "opportunity": "Ridgeline Security Rollout",
+      "attendees": [{ "name": "Owen Grant", "email": "owen.grant@ridgeline.example", "response": "accepted" }],
+      "description": "Discovery workshop for the Ridgeline rollout.",
+      "org_event": true
+    },
+    {
+      "id": "evt-thornwell-1125",
+      "title": "Thornwell Utilities - renewal risk review",
+      "start": "2026-11-25T09:00",
+      "end": "2026-11-25T09:30",
+      "location": "Zoom",
+      "account": "Thornwell Utilities",
+      "opportunity": "Thornwell Utilities - Renewal",
+      "attendees": [{ "name": "Grace Lin", "email": "grace.lin@thornwell.example", "response": "accepted" }],
+      "description": "New COO Grace Lin is reviewing every vendor contract before renewal; price is her first question.",
+      "org_event": true
+    },
+    {
+      "id": "evt-thanksgiving",
+      "title": "Thanksgiving (office closed)",
+      "start": "2026-11-26",
+      "end": "2026-11-27",
+      "all_day": true,
+      "attendees": [],
+      "description": "Company holiday.",
+      "internal": true
+    }
+  ],
+  "busy": {
+    "_about": "Free/busy shared by other people's calendars. Anyone not listed is treated as free.",
+    "michael.aduba@lakefront.example": [
+      { "start": "2026-11-23T09:00", "end": "2026-11-23T10:30", "label": "Busy" },
+      { "start": "2026-11-23T14:00", "end": "2026-11-23T14:30", "label": "Busy" },
+      { "start": "2026-11-24T11:00", "end": "2026-11-24T15:00", "label": "Busy" }
+    ],
+    "kenji.watanabe@sunhollow.example": [
+      { "start": "2026-11-23T09:00", "end": "2026-11-23T12:00", "label": "Busy" },
+      { "start": "2026-11-24T13:00", "end": "2026-11-24T17:00", "label": "Busy" },
+      { "start": "2026-11-25T09:00", "end": "2026-11-25T10:00", "label": "Busy" }
+    ],
+    "aisha.bello@sunhollow.example": [
+      { "start": "2026-11-23T13:00", "end": "2026-11-23T15:00", "label": "Busy" },
+      { "start": "2026-11-24T09:00", "end": "2026-11-24T10:30", "label": "Busy" },
+      { "start": "2026-11-25T14:00", "end": "2026-11-25T16:00", "label": "Busy" }
+    ],
+    "mark.feld@sunhollow.example": [
+      { "start": "2026-11-23T10:00", "end": "2026-11-23T11:00", "label": "Busy" },
+      { "start": "2026-11-24T10:00", "end": "2026-11-24T12:00", "label": "Busy" },
+      { "start": "2026-11-25T11:00", "end": "2026-11-25T12:00", "label": "Busy" }
+    ]
+  }
+}

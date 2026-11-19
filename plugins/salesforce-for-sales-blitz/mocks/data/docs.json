@@ -1,0 +1,282 @@
+{
+  "_about": "Mock Google Drive for the Grok Bot Blitz (org aiforce.prod2). Customer docs match the org's opportunities (names, amounts, stages, close dates); internal policies are mock-only. Content is a list of lines.",
+  "docs": [
+    {
+      "id": "doc-cobalt-renewal-proposal",
+      "title": "Cobalt Fintech - 2026 Platform Renewal Proposal",
+      "account": "Cobalt Fintech",
+      "opportunity": "Cobalt Fintech - 2026 Platform Renewal",
+      "type": "proposal",
+      "owner": "Std User",
+      "modified": "2026-11-14",
+      "url": "https://drive.mock.example/doc-cobalt-renewal-proposal",
+      "content": [
+        "Cobalt Fintech - 2026 Platform Renewal Proposal",
+        "Prepared for: Maya Chen, Chief Executive Officer. Copy: Victor Hale, Chief Financial Officer.",
+        "Date sent: 11/14/2026. Target close: 12/11/2026.",
+        "",
+        "1. Summary",
+        "Renewal of the Cobalt Fintech platform subscription for 2026 at $320,000 per year (a 7% uplift on the current term).",
+        "",
+        "2. Options",
+        "- Option A, one year: $320,000.",
+        "- Option B, three years: $304,000 per year (5% off the one-year price), with pricing locked for the full term.",
+        "",
+        "3. Value delivered this term",
+        "- Adoption up 12% since the October QBR.",
+        "- API usage by Priya Nair's engineering team up quarter over quarter.",
+        "- Two open support escalations, each with a named owner and a fix date.",
+        "",
+        "4. Open items",
+        "- Victor Hale asked for a two-year price lock as an alternative to the 7% uplift.",
+        "- Sara Kim (Procurement) reports a competitor quote 15% lower for the same seats.",
+        "- Tom Ruiz (General Counsel) flagged the uncapped data-breach liability clause; legal review in progress.",
+        "",
+        "5. Next steps",
+        "- Renewal working session 11/19, renewal call 11/20.",
+        "- Redlined MSA to Tom Ruiz by 11/21."
+      ]
+    },
+    {
+      "id": "doc-cobalt-msa-redline",
+      "title": "Cobalt Fintech - Master Subscription Agreement (Cobalt legal markup)",
+      "account": "Cobalt Fintech",
+      "opportunity": "Cobalt Fintech - 2026 Platform Renewal",
+      "type": "contract",
+      "owner": "Tom Ruiz",
+      "modified": "2026-11-18",
+      "url": "https://drive.mock.example/doc-cobalt-msa-redline",
+      "content": [
+        "Master Subscription Agreement - Cobalt Fintech (renewal draft with Cobalt legal markup, 11/18/2026)",
+        "",
+        "Section 4. Term and renewal. Initial term of one year from 1/1/2026; Cobalt proposes a three-year term at a fixed annual fee.",
+        "Section 5. Fees. Annual fee $320,000. Cobalt markup: price increases capped at 0% for years 2 and 3 (price lock).",
+        "Section 7. Payment. Net 30. Cobalt markup: Net 60.",
+        "Section 9. Limitation of liability.",
+        "  9.1 (our draft) Each party's total liability is capped at the fees paid in the 12 months before the claim.",
+        "  9.2 (Cobalt markup) Liability for data-breach claims is UNCAPPED and excluded from 9.1.",
+        "  9.3 (Cobalt markup) Supplier indemnifies Cobalt for regulatory fines arising from any security incident.",
+        "Section 11. Termination for convenience. Cobalt markup: Cobalt may terminate on 90 days' notice after year one.",
+        "Section 14. Governing law: California.",
+        "",
+        "Cobalt comment (Tom Ruiz): Sections 9.2 and 9.3 are required for our board. Please return your redline by 11/21."
+      ]
+    },
+    {
+      "id": "doc-cobalt-shield-proposal",
+      "title": "Cobalt - Security Shield Add-On proposal",
+      "account": "Cobalt Fintech",
+      "opportunity": "Cobalt - Security Shield Add-On",
+      "type": "proposal",
+      "owner": "Std User",
+      "modified": "2026-09-29",
+      "url": "https://drive.mock.example/doc-cobalt-shield-proposal",
+      "content": [
+        "Cobalt - Security Shield Add-On proposal (sent to Priya Nair 9/29/2026)",
+        "Price: $85,000 per year. Rollout: about six weeks.",
+        "Scope: threat detection for the payments API, audit log retention, and quarterly security reviews.",
+        "Status: no reply since it was sent; budget is still pending on Cobalt's side."
+      ]
+    },
+    {
+      "id": "doc-cobalt-qbr-oct",
+      "title": "Cobalt Fintech QBR - October 2026",
+      "account": "Cobalt Fintech",
+      "type": "meeting notes",
+      "owner": "Std User",
+      "modified": "2026-10-10",
+      "url": "https://drive.mock.example/doc-cobalt-qbr-oct",
+      "content": [
+        "Cobalt Fintech QBR, 10/10/2026. Attendees: Maya Chen (CEO), Priya Nair (VP Engineering), Std User.",
+        "- Adoption up 12% quarter over quarter.",
+        "- Two open support escalations: API rate limits and report export timeouts.",
+        "- Maya wants a renewal proposal before mid-November."
+      ]
+    },
+    {
+      "id": "doc-northpeak-fleet-proposal",
+      "title": "Northpeak - Fleet Analytics Rollout proposal",
+      "account": "Northpeak",
+      "opportunity": "Northpeak - Fleet Analytics Rollout",
+      "type": "proposal",
+      "owner": "Std User",
+      "modified": "2026-11-18",
+      "url": "https://drive.mock.example/doc-northpeak-fleet-proposal",
+      "content": [
+        "Northpeak - Fleet Analytics Rollout (draft pricing options for Liam Ortega)",
+        "Total: $260,000. Target close: 12/18/2026.",
+        "Liam's feedback (10/26 demo): per-vehicle pricing is steep at 6,000 vehicles; Northpeak needs a volume tier.",
+        "Options under review:",
+        "- Standard: per-vehicle pricing across all 6,000 vehicles.",
+        "- Volume tier: lower per-vehicle price above 5,000 vehicles, two-year term.",
+        "Status: draft, not yet sent."
+      ]
+    },
+    {
+      "id": "doc-northpeak-driver-safety-order-form",
+      "title": "Northpeak - Driver Safety Add-On order form",
+      "account": "Northpeak",
+      "opportunity": "Northpeak - Driver Safety Add-On",
+      "type": "order form",
+      "owner": "Std User",
+      "modified": "2026-11-19",
+      "url": "https://drive.mock.example/doc-northpeak-driver-safety-order-form",
+      "content": [
+        "Order form - Northpeak Driver Safety Add-On",
+        "Customer: Northpeak. Signer: Liam Ortega, VP Fleet Operations.",
+        "Total contract value: $45,000. Term: 12 months.",
+        "Countersignature due: Friday 11/20/2026.",
+        "Sent for countersignature 11/19/2026."
+      ]
+    },
+    {
+      "id": "doc-sunhollow-pilot-plan",
+      "title": "Sunhollow Semiconductor - AI Assistant pilot plan (draft)",
+      "account": "Sunhollow Semiconductor",
+      "opportunity": "Sunhollow - AI Assistant Expansion",
+      "type": "plan",
+      "owner": "Std User",
+      "modified": "2026-11-17",
+      "url": "https://drive.mock.example/doc-sunhollow-pilot-plan",
+      "content": [
+        "Sunhollow Semiconductor - AI Assistant pilot plan (draft)",
+        "Opportunity: Sunhollow - AI Assistant Expansion, $150,000, Qualification, target close 1/29/2027.",
+        "Team: Kenji Watanabe (VP Manufacturing, sponsor), Aisha Bello (Operations Manager), Mark Feld (IT Lead).",
+        "Pilot: 6 weeks, January start, one fab operations team. Mark needs two weeks for the IT review first.",
+        "Success criteria: shift-handover time down 20%; 80% weekly active use by the pilot team.",
+        "Open: budget sign-off from Sunhollow's CFO (not yet met)."
+      ]
+    },
+    {
+      "id": "doc-lakefront-routing-quote",
+      "title": "Lakefront Freight - Routing Platform revised quote (draft)",
+      "account": "Lakefront Freight",
+      "opportunity": "Lakefront Freight - Routing Platform",
+      "type": "quote",
+      "owner": "Std User",
+      "modified": "2026-11-19",
+      "url": "https://drive.mock.example/doc-lakefront-routing-quote",
+      "content": [
+        "Lakefront Freight - Routing Platform, revised quote (draft, not sent)",
+        "Original: $90,000. Revised draft: $81,000 with a two-year term.",
+        "Context: Michael Aduba said the Driver App add-on ($40,000) only makes sense if routing pricing comes down.",
+        "Due to Michael: 11/20."
+      ]
+    },
+    {
+      "id": "doc-dickenson-proposal",
+      "title": "Dickenson plc - Mobile Generators proposal (draft)",
+      "account": "Dickenson plc",
+      "opportunity": "Dickenson Mobile Generators",
+      "type": "proposal",
+      "owner": "Std User",
+      "modified": "2026-11-18",
+      "url": "https://drive.mock.example/doc-dickenson-proposal",
+      "content": [
+        "Dickenson plc - Mobile Generators proposal (draft)",
+        "Opportunity: Dickenson Mobile Generators, $85,000, Qualification, target close 12/4/2026.",
+        "Andy Young (SVP, Operations) chose tier 2 for 40 mobile generators on 11/18; the CFO signs.",
+        "Status: formal proposal and order form not yet sent."
+      ]
+    },
+    {
+      "id": "doc-axa-claims-proposal",
+      "title": "AXA - Claims Automation phased proposal v2",
+      "account": "AXA",
+      "opportunity": "AXA - Claims Automation",
+      "type": "proposal",
+      "owner": "Std User",
+      "modified": "2026-11-10",
+      "url": "https://drive.mock.example/doc-axa-claims-proposal",
+      "content": [
+        "AXA - Claims Automation, revised phased proposal (v2, sent to Claire Dubois 11/10/2026)",
+        "Total: $175,000.",
+        "- Phase 1: first-notice-of-loss intake, $95,000.",
+        "- Phase 2: adjuster triage and routing, $80,000.",
+        "Stage: Proposal/Quote."
+      ]
+    },
+    {
+      "id": "doc-legal-playbook",
+      "title": "Legal playbook - customer contracts (2026)",
+      "type": "policy",
+      "owner": "Legal",
+      "modified": "2026-07-01",
+      "url": "https://drive.mock.example/doc-legal-playbook",
+      "content": [
+        "Legal playbook - customer contracts (2026). Owner: Hannah Ortiz, General Counsel.",
+        "",
+        "Limitation of liability",
+        "- Standard: each party's liability capped at fees paid in the prior 12 months.",
+        "- Fallback 1: data-breach claims capped at 2x annual fees (super-cap). AE may offer with Legal review.",
+        "- Fallback 2: data-breach super-cap up to 3x annual fees. Needs General Counsel approval.",
+        "- Uncapped liability: not standard. Needs General Counsel AND CFO approval, and is limited to gross negligence.",
+        "",
+        "Indemnities",
+        "- We indemnify for third-party IP claims. We do not indemnify customers for regulatory fines.",
+        "",
+        "Payment terms",
+        "- Standard Net 30. Net 45 with Deal Desk approval. Net 60 needs CFO approval.",
+        "",
+        "Price protection",
+        "- Renewal uplift caps of up to 5% may be offered by the AE. Price locks of two years or more need Deal Desk approval.",
+        "",
+        "Termination",
+        "- No termination for convenience in the first term. Any exception needs General Counsel approval."
+      ]
+    },
+    {
+      "id": "doc-discount-policy",
+      "title": "Discount policy - multi-year deals (FY27)",
+      "type": "policy",
+      "owner": "Deal Desk",
+      "modified": "2026-08-15",
+      "url": "https://drive.mock.example/doc-discount-policy",
+      "content": [
+        "Discount policy - multi-year deals (FY27). Owner: Deal Desk.",
+        "",
+        "Approval levels (discount off list, total contract value)",
+        "- Up to 10%: Account Executive.",
+        "- Over 10% up to 20%: Sales Manager.",
+        "- Over 20%: VP Sales (Pat Rivera) AND Deal Desk.",
+        "- Over 30%: also needs CFO (Marcus Webb).",
+        "",
+        "Multi-year guidance",
+        "- Two-year term: up to 8% off the one-year price.",
+        "- Three-year term: up to 15% off the one-year price.",
+        "- Price locks of two years or more need Deal Desk sign-off regardless of discount."
+      ]
+    },
+    {
+      "id": "doc-uncapped-liability-approval",
+      "title": "Approval record - uncapped data-breach liability (CrowdStrike Threat Intel Add-on)",
+      "account": "CrowdStrike",
+      "opportunity": "CrowdStrike - Threat Intel Add-on",
+      "type": "approval",
+      "owner": "Legal",
+      "modified": "2026-09-10",
+      "url": "https://drive.mock.example/doc-uncapped-liability-approval",
+      "content": [
+        "Approval record: uncapped data-breach liability exception.",
+        "Deal: CrowdStrike - Threat Intel Add-on ($90,000, Closed Won 9/18/2026).",
+        "Approved 9/10/2026 by Hannah Ortiz (General Counsel) and Marcus Webb (CFO).",
+        "Conditions: uncapped only for data-breach claims caused by our gross negligence; all other liability at the 12-month fee cap; customer named as additional insured on our cyber policy.",
+        "One-time exception, not a precedent. Email thread: 'APPROVED: uncapped data-breach liability - CrowdStrike Threat Intel Add-on'."
+      ]
+    },
+    {
+      "id": "doc-brightwater-pos",
+      "title": "Brightwater Retail - POS Analytics quote",
+      "account": "Brightwater Retail",
+      "opportunity": "Brightwater Retail - POS Analytics",
+      "type": "quote",
+      "owner": "Std User",
+      "modified": "2026-11-12",
+      "url": "https://drive.mock.example/doc-brightwater-pos",
+      "content": [
+        "Brightwater Retail - POS Analytics quote. Total: $60,000. Target close: 11/21/2026. Next step: final pricing approval.",
+        "Nora Hayes (VP Digital) asked that store-manager adoption be part of the plan."
+      ]
+    }
+  ]
+}

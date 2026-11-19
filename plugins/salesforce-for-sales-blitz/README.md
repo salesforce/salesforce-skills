@@ -7,6 +7,13 @@ server.
 Every call runs as the signed-in Salesforce user, so field-level security, object permissions,
 and sharing rules apply as they do in Salesforce.
 
+## Blitz test build
+
+This copy also ships a **mock Google Workspace** server (`workspace`: Gmail, Calendar and Drive
+tools) with fixed data that matches the Blitz test org. Drafts, sends and new events stay inside
+the mock: nothing is sent or booked. It needs `python3` on the agent's machine and no other
+installs.
+
 ## Admin setup
 
 Setup takes a Salesforce admin and a Cursor team admin. It is done once per team; after that,
