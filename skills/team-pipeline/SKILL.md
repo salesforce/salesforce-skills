@@ -17,8 +17,15 @@ description: "Answer questions about a manager’s team pipeline, scoped to what
 - **Use plain language.** Choose terms any reader understands on first read, with no domain knowledge or cultural context required. Avoid jargon and colloquialisms, and make labels signal what follows. Test: would a reader unfamiliar with the idiom understand the term and know what content to expect? Use "No engagement", not "went dark" or "ghosted".
 - **Reproduce Salesforce terminology exactly.** Use the field labels, object names, and stage values the data returns; do not paraphrase them. Spell out acronyms on first use unless the term is an industry framework (for example, MEDDIC).
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
-- **ONLY use the local instructions in this skill file, ONLY call MCP tools mentioned in the skill file and NEVER call an API or endpoint not written in this skill file.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
+- **While following this skill, don't call `discover` or `describe`, and don't call any API or endpoint not written here. This file already has every query and widget reference you need. (Outside this skill, they're available as normal.)** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
 <!-- /global-rules-bootstrap -->
+<!-- response-formatting -->
+## Response formatting
+
+- **Number formatting:** Format numbers for readability across the entire response, including values retrieved directly from Salesforce fields. Abbreviate large numbers with a suffix for their scale: K (thousand), M (million), B (billion), T (trillion), and the next suffix up for anything larger, never leaving a big number unabbreviated or spelling it out in full (e.g., $120K, $1.25M, $2.4B, $1.3T), and round percentages to whole numbers unless decimals are required for meaningful comparison.
+- **Empty table cells (structured data tables only):** keep empty states terse and never explain them inside a table cell.
+  - AI-generated cells: write "Not enough data" when the returned data cannot support a grounded answer (for example, a Suggested Action cell when no recommendation can be supported).
+  - Cells filled directly from CRM fields: leave the cell blank when the source field was queried and confirmed empty or null. Keep valid values such as 0.
 
 # Rules:
 
@@ -91,7 +98,7 @@ Fire these as tool calls in **one turn** (independent, all filtered by the team-
 
 **Date filters take a `DateInput` object, never a bare string** (`gte: \"2026-07-01\"` fails `WrongType … must be an object type`). For the current-quarter bounds below, use the exact-date form on both ends: `{ value: \"YYYY-MM-DD\" }`. Multiple ops on one field (`gte`/`lte`) AND automatically — no `and: [...]` wrapper needed around them.
 
-**Rollup by forecast category (GraphQL aggregate — folded into the top-N sample request below).** `ExpectedRevenue` (Amount × Probability, a standard field) sums straight to the Weighted column — no client-side probability math. This rollup rides in the sample query (below) as an `aggregate` sibling of the detail read — one dispatch returns both. It yields one row per rep × forecast category. Per rep: Commit $ = that rep's `Commit`-category `Amount.sum`; Best-case $ = the `BestCase` row; Weighted = Σ `ExpectedRevenue.sum` across that rep's rows.
+**Rollup by forecast category (GraphQL aggregate — folded into the top-N sample request below).** `ExpectedRevenue` (Amount × Probability, a standard field) sums straight to the Weighted column — no client-side probability math. This rollup rides in the sample query (below) as an `aggregate` sibling of the detail read — one dispatch returns both. It yields one row per rep × forecast category. Forecast Category API values map to display labels: `Pipeline` → Pipeline, `BestCase` → Best Case, `Forecast` → **Commit**, `Closed` → Closed. The `Forecast` row IS the Commit row; never report Commit as missing or unverified because no row is literally named `Commit`. Per rep: Commit $ = that rep's `Forecast`-category `Amount.sum` (label Commit); Best-case $ = the `BestCase` row; Weighted = Σ `ExpectedRevenue.sum` across that rep's rows (omit Weighted when `ExpectedRevenue` is unavailable; that never blocks `byRep`).
 
 **Closed-won this period, per rep (GraphQL aggregate).** Feeds the scoreboard's Closed column:
 ```
@@ -144,7 +151,7 @@ Use whatever Slack search tools are available. If none present, skip silently. C
 ## 4. Per-rep scoreboard
 Skip this for stage-only, attention-only and direct hygiene asks. **Projected attainment = (Closed Won + incremental Commit) / positive verified rep quota.** Best Case is upside, excluded from projected attainment; coverage is open pipeline / quota. Format the answer with these denominators stated. A team percentage is summed projected / summed comparable quotas, never an average of rep percentages. If any quota is unavailable, omit the team percentage and identify the missing quota without blocking the other cards.
 
-For `byRep`, use disjoint Closed, Commit, Best Case and remaining Pipeline contributions. The SOQL/GraphQL category rollup is already incremental; on Tableau, confirm whether forecast totals are cumulative and subtract only when their semantics and scope are verified. Never reconstruct a missing forecast/quota row from category slices. Omit an unavailable category or card rather than treating unknown as zero. Set one common max at least as large as every full stack and quota. Missing/zero quota means no marker and no percentage. Show rep segment/territory only if it was read. Use consistent category labels and colors across all reps: Closed = `tone: "success"`, Commit = `tone: "success"` with `soft: true`, Best Case = `tone: "info"`, remaining Pipeline = `tone: "info"` with `soft: true`. These reuse the design-token status and action marks (soft is the same mark mixed toward the card surface); never invent colors. Build `byRep.legend` from the union of categories actually present in any rep’s segments, not only the last rep; each entry has the same label, tone and soft flag as its segments.
+For `byRep`, use disjoint Closed, Commit, Best Case and remaining Pipeline contributions. The SOQL/GraphQL category rollup is already incremental; on Tableau, confirm whether forecast totals are cumulative and subtract only when their semantics and scope are verified. On the Tableau path, never reconstruct a missing forecast/quota row (answer 7) from category slices; on the SOQL/GraphQL path the category rollup is the source, so use it. Omit an unavailable category rather than treating unknown as zero. **Quota is optional for `byRep`: with no quota, still send the card** — segments from Closed, Commit, Best Case and Pipeline, `projected` = Closed + Commit, a `projectedLabel`, and no `quota` or `attainment`. A missing quota, an unavailable `ExpectedRevenue`, or reps with identical figures never justifies omitting the card. Set one common max at least as large as every full stack and quota. Missing/zero quota means no marker and no percentage. Show rep segment/territory only if it was read. Use consistent category labels and colors across all reps: Closed = `tone: "success"`, Commit = `tone: "success"` with `soft: true`, Best Case = `tone: "info"`, remaining Pipeline = `tone: "info"` with `soft: true`. These reuse the design-token status and action marks (soft is the same mark mixed toward the card surface); never invent colors. Build `byRep.legend` from the union of categories actually present in any rep’s segments, not only the last rep; each entry has the same label, tone and soft flag as its segments.
 
 For each rep, compute and assign a one-word **Call**:
 
@@ -190,15 +197,15 @@ When the data is assembled, call `display_widget`; a single one-line "Displaying
 
 ### Self-verification (before calling display_widget)
 
-- [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
+- [ ] `props` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 
 The layout is registered by name. **Send data only**, using this call once:
 
 ```
-display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "team-pipeline", data: <object matching the schema below>, renderer: { body: [] } } })
+display_widget({ resourceType: "salesforce_widget", widget_resource_uri: "ui://widget/standard/team-pipeline", props: <object matching the schema below> })
 ```
 
-`widgetDefinition` and `data` must be nested JSON objects, NOT strings. Send `renderer: { body: [] }` exactly as written. Never send layout, HTML, icons, colors or expressions in data. When the widget succeeds, do not repeat its contents as text.
+`props` must be a nested JSON object, NOT a string. Never send layout, HTML, icons, colors or expressions in data. When the widget succeeds, do not repeat its contents as text.
 
 ### What to send
 
@@ -212,9 +219,11 @@ display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "team-pipe
 
 ### Scope the blocks to the prompt
 
+A prompt that combines asks, or fits no row below, is treated as Broad.
+
 | The prompt is… | Send / read |
 |---|---|
-| Broad ("how's my team's pipeline looking this quarter?") | `title` + `answer` + supported `byRep` + `byStage` + `attention`; tail only for a useful move; `sources`. Run the broad-review reads. |
+| Broad ("how's my team's pipeline looking this quarter?") | `title` + `answer` + `byRep` + `byStage` + `attention`; tail only for a useful move; `sources`. Run the broad-review reads. Send `byRep` whenever the forecast-category rollup returned data for at least one rep; quota is not needed. |
 | Rep comparison ("who is behind quota?") | Only `byRep`, plus the required head and sources. Skip stage, sample, hygiene and evidence. |
 | Stage distribution ("show open pipeline by stage") | Only `byStage`, plus the required head and sources. Read the full-book stage aggregate only after team resolution/grounding. |
 | Attention ("which deals need attention?") | Only `attention`, plus the required head and sources; tail only if actionable. Read the bounded risk sample and relevant hygiene aggregates, not quota or stage totals. |
@@ -535,13 +544,13 @@ display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "team-pipe
 }
 ```
 
-`data` schema (JSON Schema). Only title, answer and sources are required; include other keys only when the prompt asks for them:
+`props` schema (JSON Schema). Title, answer and sources are always sent; send the other keys according to the prompt-type table above:
 
 ```json
 {
   "type": "object",
   "additionalProperties": false,
-  "description": "Block order: title, answer, optional byRep, byStage, attention, at most one tail (callout OR nextStep), then sources. Only title, answer and sources are required. Omit a key and its block is not shown. Format display strings before sending, except numeric chart amounts, quota, max, projected and palette indices. Direct factual asks usually get no cards and no tail. Never invent quotas, evidence, stage totals or complete-book coverage from a sample.",
+  "description": "Block order: title, answer, byRep, byStage, attention (cards chosen by the prompt type in the scope table), at most one tail (callout OR nextStep), then sources. Only title, answer and sources are always present; which cards are sent depends on the prompt type. Omit a key and its block is not shown. Format display strings before sending, except numeric chart amounts, quota, max, projected and palette indices. Direct factual asks usually get no cards and no tail. Never invent quotas, evidence, stage totals or complete-book coverage from a sample.",
   "required": [
     "title",
     "answer",
@@ -558,7 +567,7 @@ display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "team-pipe
     },
     "callout": {
       "type": "object",
-      "description": "OPTIONAL tail, time-sensitive. Warning icon, a bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if something is time-sensitive AND the user can act on it.",
+      "description": "OPTIONAL tail, time-sensitive. Warning icon, a bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if something is time-sensitive AND the user can act on it. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "required": [
         "lead",
         "text",
@@ -568,11 +577,11 @@ display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "team-pipe
       "properties": {
         "lead": {
           "type": "string",
-          "description": "The bold first sentence of the callout (the caution in one sentence, ending with a period)."
+          "description": "REQUIRED, visible (non-whitespace). The bold first sentence of the callout (the caution in one sentence, ending with a period)."
         },
         "text": {
           "type": "string",
-          "description": "One to three sentences of normal-weight text that follow the bold lead on the same line: what, why now, and the move."
+          "description": "REQUIRED, visible (non-whitespace). One to three sentences of normal-weight text that follow the bold lead on the same line: what, why now, and the move."
         },
         "buttonLabel": {
           "type": "string",
@@ -604,7 +613,7 @@ display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "team-pipe
     },
     "sources": {
       "type": "array",
-      "description": "REQUIRED. Where the answer came from: the Salesforce records/lists you actually read, linked (this is where Opportunity/Account record links go). Shown as a compact 'Salesforce · Sources (N)' toggle (the word comes from labels.sources).",
+      "description": "REQUIRED. Where the answer came from: the Salesforce records/lists you actually read, linked (this is where Opportunity/Account record links go). Shown as a compact 'Salesforce · Sources (N)' toggle (the word comes from labels.sources). Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
       "items": {
         "type": "object",
         "required": [
@@ -631,7 +640,17 @@ display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "team-pipe
         "byRep": {
           "type": "string",
           "default": "PROJECTED QUOTA ATTAINMENT BY REP",
-          "description": "Translated label. English: 'PROJECTED QUOTA ATTAINMENT BY REP'."
+          "description": "Translated label. English: 'PROJECTED QUOTA ATTAINMENT BY REP'. Shown when at least one rep has a quota percent."
+        },
+        "byRepForecast": {
+          "type": "string",
+          "default": "FORECAST BY REP",
+          "description": "Translated label for the rep card when no rep has a quota. English: 'FORECAST BY REP'."
+        },
+        "projectedCaption": {
+          "type": "string",
+          "default": "Closed + Commit",
+          "description": "Translated caption under a rep's projected amount when that rep has no quota. English: 'Closed + Commit'."
         },
         "byStage": {
           "type": "string",
@@ -693,7 +712,7 @@ display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "team-pipe
     "byRep": {
       "type": "object",
       "additionalProperties": false,
-      "description": "OPTIONAL card 'PROJECTED QUOTA ATTAINMENT BY REP'. Include for broad team reviews or rep attainment/coverage comparisons. Omit the key otherwise; never an empty array. Read only verified forecast/quota values; unknown quotas have no percentage or marker.",
+      "description": "Card 'PROJECTED QUOTA ATTAINMENT BY REP'. Send for broad team reviews and rep attainment/coverage comparisons. Omit for stage-only, attention-only and direct-fact prompts, and when the forecast-category rollup returned no data; never an empty array. Quota is optional: unknown quotas have no percentage or marker, but the card is still sent. The API value `Forecast` is the Commit category.",
       "required": [
         "max",
         "items",

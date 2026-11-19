@@ -1,6 +1,6 @@
 ---
 name: draft-outreach
-description: "Create a personalized email draft from Salesforce contact, account, opportunity and activity data plus prior email, documents and Slack. Use when starting, following up with or re-engaging one prospect or customer. For batch inbox replies, use inbox-sweep."
+description: "Write, draft or help with personalized outreach emails, cold emails, follow-ups, or reaching out to a specific prospect or customer by name. Creates email drafts from Salesforce contact, account, opportunity and activity data plus prior email, documents and Slack. Use when the user specifies who to email (person name, email address, or company name). For batch inbox replies, use inbox-sweep."
 ---
 <!-- global-rules-bootstrap -->
 
@@ -17,7 +17,7 @@ description: "Create a personalized email draft from Salesforce contact, account
 - **Use plain language.** Choose terms any reader understands on first read, with no domain knowledge or cultural context required. Avoid jargon and colloquialisms, and make labels signal what follows. Test: would a reader unfamiliar with the idiom understand the term and know what content to expect? Use "No engagement", not "went dark" or "ghosted".
 - **Reproduce Salesforce terminology exactly.** Use the field labels, object names, and stage values the data returns; do not paraphrase them. Spell out acronyms on first use unless the term is an industry framework (for example, MEDDIC).
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
-- **ONLY use the local instructions in this skill file, ONLY call MCP tools mentioned in the skill file and NEVER call an API or endpoint not written in this skill file.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
+- **While following this skill, don't call `discover` or `describe`, and don't call any API or endpoint not written here. This file already has every query and widget reference you need. (Outside this skill, they're available as normal.)** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
 <!-- /global-rules-bootstrap -->
 # Rules:
 
@@ -95,7 +95,7 @@ When `display_widget` is present, produce widget output first. If unavailable or
 
 ### HXL data contract
 
-Build a `data` object per `renderer.props.schema.json` (embedded below) — every key's type + description. Required keys (`title`, `sources`) must be present; optional keys (`draft`) are included ONLY when data exists. Omit keys without data (their blocks are not shown). All values are display-ready — no formatting functions in the template.
+Build a `props` object per `renderer.props.schema.json` (embedded below) — every key's type + description. Required keys (`title`, `sources`) must be present; optional keys (`draft`) are included ONLY when data exists. Omit keys without data (their blocks are not shown). All values are display-ready — no formatting functions in the template.
 
 ```json
 {
@@ -177,7 +177,7 @@ Build a `data` object per `renderer.props.schema.json` (embedded below) — ever
     },
     "sources": {
       "type": "array",
-      "description": "Citation sources array. Each item has label (text) and optional url (link).",
+      "description": "Citation sources array. Each item has label (text) and optional url (link). Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
       "items": {
         "type": "object",
         "properties": {
@@ -240,19 +240,16 @@ Omit a key and its block is not shown.
 }
 ```
 
-`data` schema (JSON Schema) is embedded in the HXL data contract section above.
+`props` schema (JSON Schema) is embedded in the HXL data contract section above.
 
 ### Rendering
 
 Once data is assembled, call:
 ```
 display_widget({
-  resourceType: "dynamic",
-  widgetDefinition: {
-    widget: "draft-outreach",
-    data: <your data object>,
-    renderer: { body: [] }
-  }
+  resourceType: "salesforce_widget",
+  widget_resource_uri: "ui://widget/standard/draft-outreach",
+  props: <your data object>
 })
 ```
 
