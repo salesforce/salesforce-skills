@@ -23,7 +23,7 @@ package declaration as proof of Quick support.
 | `dispatch_readonly` | Required for the documented Salesforce GraphQL, SOQL, and UI API reads. |
 | `display_widget` | Required for widget-first output on a compatible MCP Apps host. |
 | `discover`, `describe` | Not used by the normal skill workflows; the skill rules tell the agent not to call them. |
-| `dispatch` | General REST tool that can mutate data. Write skills (`account-plan`, `assign-target-to-sdr`, `log-activity`, `schedule-meeting`, `update-opportunity`) call it once each, only after the user's explicit yes; `summarize-conversation-transcript` calls the read-only `getConversationTranscript` action through it. With only `dispatch_readonly`, `log-activity` and `schedule-meeting` return paste-ready text, `update-opportunity` gives a manual checklist, and `assign-target-to-sdr` stops. |
+| `dispatch` | General REST tool that can mutate data. Write skills (`account-plan`, `assign-target-to-sdr`, `log-activity`, `schedule-meeting`) call it once each, only after the user's explicit yes; `summarize-conversation-transcript` calls the read-only `getConversationTranscript` action through it. With only `dispatch_readonly`, `log-activity` and `schedule-meeting` return paste-ready text and `assign-target-to-sdr` stops. |
 
 Real authorization belongs at the Salesforce permission and tool layer and in the client. For a
 read-only deployment, use least privilege and disable the tools the deployment does not need. Do

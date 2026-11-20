@@ -1,6 +1,6 @@
 ---
 name: daily-briefing
-description: "Answer what needs the rep today, scoped to what was asked: a full morning rundown, the #1 move, the next call, slipping deals, or what's closing soon, from Salesforce events, near-term and overdue deals, commitments, and unread customer email. Schedule-only requests: calendar-events."
+description: "What does my day look like, what should I focus on today, daily briefing, prep me for today, morning rundown, or answer what needs the rep today, scoped to what was asked: a full morning rundown, the #1 move, the next call, slipping deals, or what's closing soon, from Salesforce events, near-term and overdue deals, commitments, and unread customer email. Schedule-only requests: calendar-events."
 ---
 <!-- global-rules-bootstrap -->
 
@@ -17,8 +17,15 @@ description: "Answer what needs the rep today, scoped to what was asked: a full 
 - **Use plain language.** Choose terms any reader understands on first read, with no domain knowledge or cultural context required. Avoid jargon and colloquialisms, and make labels signal what follows. Test: would a reader unfamiliar with the idiom understand the term and know what content to expect? Use "No engagement", not "went dark" or "ghosted".
 - **Reproduce Salesforce terminology exactly.** Use the field labels, object names, and stage values the data returns; do not paraphrase them. Spell out acronyms on first use unless the term is an industry framework (for example, MEDDIC).
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
-- **ONLY use the local instructions in this skill file, ONLY call MCP tools mentioned in the skill file and NEVER call an API or endpoint not written in this skill file.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
+- **While following this skill, don't call `discover` or `describe`, and don't call any API or endpoint not written here. This file already has every query and widget reference you need. (Outside this skill, they're available as normal.)** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
 <!-- /global-rules-bootstrap -->
+<!-- response-formatting -->
+## Response formatting
+
+- **Number formatting:** Format numbers for readability across the entire response, including values retrieved directly from Salesforce fields. Abbreviate large numbers with a suffix for their scale: K (thousand), M (million), B (billion), T (trillion), and the next suffix up for anything larger, never leaving a big number unabbreviated or spelling it out in full (e.g., $120K, $1.25M, $2.4B, $1.3T), and round percentages to whole numbers unless decimals are required for meaningful comparison.
+- **Empty table cells (structured data tables only):** keep empty states terse and never explain them inside a table cell.
+  - AI-generated cells: write "Not enough data" when the returned data cannot support a grounded answer (for example, a Suggested Action cell when no recommendation can be supported).
+  - Cells filled directly from CRM fields: leave the cell blank when the source field was queried and confirmed empty or null. Keep valid values such as 0.
 # Goal:
 Answer what the user asked about their day — today's meetings, deals closing soon or past due, and (when connected) customer email — in one pass. **Read only what the question needs** and present only that: a broad rundown ("kick off my day", "what needs me today?") reads and shows the whole day; a specific ask ("what's my #1 move?", "who's on my next call?", "which deals are slipping?") reads and shows only that.
 
@@ -30,7 +37,7 @@ Answer what the user asked about their day — today's meetings, deals closing s
 
 # Daily Briefing
 
-Ground → (calendar + closing-soon + inbox, ALL in ONE turn) → match meetings to accounts (one batched turn) → flag → output. This is today's rundown, not a pipeline review — closing-soon is a small bounded set, so pull concrete rows, don't aggregate.
+Ground → (calendar + closing-soon + inbox, ALL in ONE turn) → match meetings to accounts (one batched turn) → flag → output. This is today's rundown, not a pipeline review — keep closing-soon and past-due detail rows bounded, and pair each list with a population aggregate for count and Amount totals.
 
 ## 1. Ground (hardcoded — Opportunity only; fire with the step-2 batch)
 
@@ -61,6 +68,7 @@ dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
 **Event identity:** Treat each returned Event Id as one calendar record. Do not collapse records merely because Subject, start time, or account match: reconcile the meeting KPI, section heading, and rendered entries to the distinct returned Ids. Describe same-time records as overlapping; call one a duplicate only when a returned field or connected calendar result explicitly establishes that identity. Classify a meeting as internal or external only from returned attendee or domain evidence; when no participant evidence exists, leave attendee type unknown.
 
 **2b. Closing soon** — the rep's open opps closing in the next 14 days. A small filtered set — pull concrete rows (`first: 50`), not an aggregate.
+**2b. Closing soon** — the rep's open opps closing in the next 14 days. Keep concrete rows bounded at `first: 50` and take population count/Amount from the paired aggregate in the same request.
 
 **Date filters take a `DateInput` object, never a bare string** (`gte: \"…\"` fails `WrongType … must be an object type`). Three forms, each nested under a comparison op (`gte`/`lte`/`eq`); multiple ops on one field are AND'd automatically (no `and: [...]` wrapper):
 - **relative window** (preferred here — no client-side date math): `{ range: { next_n_days: 14 } }` / `{ range: { last_n_days: 30 } }`. Keys come in `last_n_*` / `next_n_*` / `n_*_ago` families over `days|weeks|months|quarters|years` (e.g. `last_n_months: 3`, `n_days_ago: 2`).
@@ -72,17 +80,19 @@ dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
 So "closing in the next 14 days" = `CloseDate: { gte: { literal: TODAY }, lte: { range: { next_n_days: 14 } } }`:
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Opportunity(scope: MINE, where: { IsClosed: { eq: false }, CloseDate: { gte: { literal: TODAY }, lte: { range: { next_n_days: 14 } } } }, first: 50, orderBy: { CloseDate: { order: ASC } }) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } NextStep { value } LastActivityDate { value } <OPP_CUSTOM> Account { Name { value } } } } } } } }\"}" })
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Opportunity(scope: MINE, where: { IsClosed: { eq: false }, CloseDate: { gte: { literal: TODAY }, lte: { range: { next_n_days: 14 } } } }, first: 50, orderBy: { CloseDate: { order: ASC } }) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } NextStep { value } LastActivityDate { value } <OPP_CUSTOM> Account { Name { value } } } } } } aggregate { Opportunity(scope: MINE, where: { IsClosed: { eq: false }, CloseDate: { gte: { literal: TODAY }, lte: { range: { next_n_days: 14 } } } }) { edges { node { aggregate { Id { count { value } } Amount { sum { value displayValue } } } } } totalCount } } } }\"}" })
 ```
 (To widen the window, change `next_n_days`; for a named period the user gives, swap to the exact-date form `{ value: \"YYYY-MM-DD\" }` on both bounds.)
 
-**2c. Past due** — the rep's open opps with close date in the past (still not closed); 2b starts at today, so this is the only read that finds them. Pull concrete rows (`first: 50`). They have no card of their own: a past-due deal is a `needsMove` row with tone `error`, and the `answer` says so (or "nothing is past due"):
+**2c. Past due** — the rep's open opps with close date in the past (still not closed); 2b starts at today, so this is the only read that finds them. Keep concrete rows bounded at `first: 50` and take population count/Amount from the paired aggregate in the same request. They have no card of their own: a past-due deal is a `needsMove` row with tone `error`, and the `answer` says so (or "nothing is past due"):
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Opportunity(scope: MINE, where: { IsClosed: { eq: false }, CloseDate: { lt: { literal: TODAY } } }, first: 50, orderBy: { CloseDate: { order: ASC } }) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } NextStep { value } LastActivityDate { value } <OPP_CUSTOM> Account { Name { value } } } } } } } }\"}" })
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Opportunity(scope: MINE, where: { IsClosed: { eq: false }, CloseDate: { lt: { literal: TODAY } } }, first: 50, orderBy: { CloseDate: { order: ASC } }) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } NextStep { value } LastActivityDate { value } <OPP_CUSTOM> Account { Name { value } } } } } } aggregate { Opportunity(scope: MINE, where: { IsClosed: { eq: false }, CloseDate: { lt: { literal: TODAY } } }) { edges { node { aggregate { Id { count { value } } Amount { sum { value displayValue } } } } } totalCount } } } }\"}" })
 ```
 
 **Amount ranking:** Before any `largest`, `second-largest`, `top`, or `highest-value` Opportunity claim, compare the raw numeric `Amount.value` for every relevant returned row keyed by Id and sort descending; never hand-pick a row, treat a missing Amount as zero, or omit a larger visible value. When a read returned its full `first: 50` rows, more may exist: say `among the N shown` or omit the ranking, and do the same when any relevant Amount is missing. Copy the selected row's returned Name and Amount unchanged.
+
+**Population totals:** For each 2b/2c result, let `R` be returned detail edges, `C` be aggregate `Id.count.value` (or `totalCount`), and `T` be aggregate `Amount.sum`. Use `C` and `T` for every count and total shown for that list (labels, summary, closing-pipeline KPI). When `R < C`, say `showing R of C` and `T total`; qualify any detail-derived gap count as `among the R shown`. If the aggregate is absent or errors while detail rows are usable, say `R shown` and, if useful, `$S across shown rows`; never present `R`, `$S`, null, or an unavailable aggregate as a complete population total or zero.
 
 **2d. Inbox signal** — unread email from the last 48h whose sender domain matches an account you own (email tool). Sender, subject, domain only — don't read bodies (that's `inbox-sweep`).
 
@@ -118,21 +128,20 @@ When the data is assembled, call `display_widget`; a single one-line "Displaying
 
 ### Self-verification (before calling display_widget)
 
-- [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
+- [ ] `props` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 The layout is built into the renderer and registered by name — you send **only the widget name and its data**. Call `display_widget` once:
 
 ```
-display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "daily-briefing", data: <object matching the schema below>, renderer: { body: [] } } })
+display_widget({ resourceType: "salesforce_widget", widget_resource_uri: "ui://widget/standard/daily-briefing", props: <object matching the schema below> })
 ```
 
-- `renderer: { body: [] }` is a required placeholder — send it exactly as written; the renderer fills it in.
 - **Send data only; never author presentation** (colours, pills, icons, HTML, emoji, layout keys, `{!…}`/`{{…}}`): the renderer owns the look and shows or hides each block from the keys you send. Keys outside the schema are rejected.
-- **CRITICAL — `widgetDefinition` and `data` must be nested JSON objects, NOT strings.** ❌ WRONG: `widgetDefinition: "{\"widget\":...}"`. ✅ RIGHT: `widgetDefinition: {"widget": "daily-briefing", "data": {...}, "renderer": {"body": []}}`. If you hold a JSON string, `JSON.parse` it first.
+- **CRITICAL — `props` must be a nested JSON object, NOT a string.** ❌ WRONG: `props: "{\"title\":...}"`. ✅ RIGHT: `props: {"title": ...}`. If you hold a JSON string, `JSON.parse` it first.
 - When `display_widget` is available the widget is the output; produce the section 6 text only as the fallback when the tool is unavailable (e.g. a terminal).
 
 ### What to send
 
-Follow the block order and the per-block inclusion rules in the `data` schema below (the root description and each property's `description`).
+Follow the block order and the per-block inclusion rules in the `props` schema below (the root description and each property's `description`).
 
 Rules:
 - **Language:** when the user writes in English, omit `labels`. When they write in another language, send `labels` with EVERY key translated (headings in upper case) and write every free-text field (`detail`, `closes`, `next`, ...) in that language. Never join translated text with English fragments: each phrase is written whole, because word order differs.
@@ -158,9 +167,9 @@ Rules:
 - **Tail fork:** `callout` when something is time-sensitive and the user can act on it (one button, a first-person `actionMsg`); otherwise a `nextStep` line; if nothing applies, neither. Never both (if both are sent only the callout renders).
 - **Sources:** a record is `https://<myDomain>/lightning/r/<SObjectType>/<Id>/view` (Opportunity, Event, Account); a list ("Opportunities · Closing in 14 days") is `https://<myDomain>/lightning/o/Opportunity/list`. Omit `url` if you have no Id. When email or Slack wasn't connected, add one source with no `url`: "Email & Slack not connected – Salesforce only".
 - Format every value as a ready-to-display string (currency, dates; `closingSoon.items[].close` is "Aug 30 · 6d"). Names are plain strings, never objects. `closingSoon.items[].next` is "None set" when `NextStep` is blank.
-- Before calling: `data` has no `{!…}`/`{{…}}`, no keys outside the schema, and every optional key you included is justified by the prompt.
+- Before calling: `props` has no `{!…}`/`{{…}}`, no keys outside the schema, and every optional key you included is justified by the prompt.
 
-#### Worked examples (the `data` object only)
+#### Worked examples (the `props` object only)
 
 **Broad — "Kick off my day – what actually needs me today?"** (bulleted answer, both cards, a time-sensitive callout, several sources):
 
@@ -223,7 +232,7 @@ Rules:
 }
 ```
 
-`data` schema (JSON Schema). Only `title`, `answer` and `sources` are required; include any other key only when the prompt asks for it or it clearly speeds up the answer (see "Scope the blocks to the prompt"):
+`props` schema (JSON Schema). Only `title`, `answer` and `sources` are required; include any other key only when the prompt asks for it or it clearly speeds up the answer (see "Scope the blocks to the prompt"):
 
 ```json
 {
@@ -370,7 +379,7 @@ Rules:
     },
     "callout": {
       "type": "object",
-      "description": "OPTIONAL tail, time-sensitive. Warning icon, a bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if something is time-sensitive today AND the user can act on it.",
+      "description": "OPTIONAL tail, time-sensitive. Warning icon, a bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if something is time-sensitive today AND the user can act on it. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "required": [
         "lead",
         "text",
@@ -380,11 +389,11 @@ Rules:
       "properties": {
         "lead": {
           "type": "string",
-          "description": "The bold first sentence of the callout (the caution in one sentence, ending with a period, e.g. 'Lumina closes today – DocuSign not sent.')."
+          "description": "REQUIRED, visible (non-whitespace). The bold first sentence of the callout (the caution in one sentence, ending with a period, e.g. 'Lumina closes today – DocuSign not sent.')."
         },
         "text": {
           "type": "string",
-          "description": "One to three sentences: what, why now, and the move."
+          "description": "REQUIRED, visible (non-whitespace). One to three sentences: what, why now, and the move."
         },
         "buttonLabel": {
           "type": "string",
@@ -416,7 +425,7 @@ Rules:
     },
     "sources": {
       "type": "array",
-      "description": "REQUIRED. Where the answer came from: the Salesforce records/lists you actually read, linked (this is where Opportunity/Account record links go). Shown as a compact 'Salesforce · Sources (N)' toggle (the word comes from labels.sources). When email/Slack connectors were unavailable, add one source with no url saying so (e.g. 'Email & Slack not connected – Salesforce only').",
+      "description": "REQUIRED. Where the answer came from: the Salesforce records/lists you actually read, linked (this is where Opportunity/Account record links go). Shown as a compact 'Salesforce · Sources (N)' toggle (the word comes from labels.sources). When email/Slack connectors were unavailable, add one source with no url saying so (e.g. 'Email & Slack not connected – Salesforce only'). Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
       "items": {
         "type": "object",
         "required": [

@@ -17,8 +17,15 @@ description: "Diagnose why one Salesforce opportunity is not advancing, scoped t
 - **Use plain language.** Choose terms any reader understands on first read, with no domain knowledge or cultural context required. Avoid jargon and colloquialisms, and make labels signal what follows. Test: would a reader unfamiliar with the idiom understand the term and know what content to expect? Use "No engagement", not "went dark" or "ghosted".
 - **Reproduce Salesforce terminology exactly.** Use the field labels, object names, and stage values the data returns; do not paraphrase them. Spell out acronyms on first use unless the term is an industry framework (for example, MEDDIC).
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
-- **ONLY use the local instructions in this skill file, ONLY call MCP tools mentioned in the skill file and NEVER call an API or endpoint not written in this skill file.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
+- **While following this skill, don't call `discover` or `describe`, and don't call any API or endpoint not written here. This file already has every query and widget reference you need. (Outside this skill, they're available as normal.)** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
 <!-- /global-rules-bootstrap -->
+<!-- response-formatting -->
+## Response formatting
+
+- **Number formatting:** Format numbers for readability across the entire response, including values retrieved directly from Salesforce fields. Abbreviate large numbers with a suffix for their scale: K (thousand), M (million), B (billion), T (trillion), and the next suffix up for anything larger, never leaving a big number unabbreviated or spelling it out in full (e.g., $120K, $1.25M, $2.4B, $1.3T), and round percentages to whole numbers unless decimals are required for meaningful comparison.
+- **Empty table cells (structured data tables only):** keep empty states terse and never explain them inside a table cell.
+  - AI-generated cells: write "Not enough data" when the returned data cannot support a grounded answer (for example, a Suggested Action cell when no recommendation can be supported).
+  - Cells filled directly from CRM fields: leave the cell blank when the source field was queried and confirmed empty or null. Keep valid values such as 0.
 # Goal:
 Explain what must happen for one opportunity to advance or close, scoped to what the user asked. A broad ask maps the evidenced stage path and gaps; a specific ask reads only the requested blocker; a direct question returns only its answer and sources.
 
@@ -44,13 +51,14 @@ Step 1 is the authority on names. Note: (a) scalar `__c` fields carrying stage-e
 
 ## 2a. Resolve to ONE opportunity Id (before the detail read)
 
-Given an SFDC **Id** already → skip to 2b with `Id: { eq: "<Id>" }`. Given a **name**, resolve it first — `first: 1` on a `Name like` only caps the response; it does **not** pick the right deal, so on a multi-match it returns an arbitrary one. Run a bounded, ordered candidate query (`%DEALNAME%` = 1–2 distinctive words):
+Given an SFDC **Id** already → skip to 2b with `Id: { eq: "<Id>" }`. Given a **name**, resolve it first — `first: 1` on a `Name like` only caps the response; it does **not** pick the right deal, so on a multi-match it returns an arbitrary one. Run a bounded, ordered candidate query over open deals, since only an open deal can advance (`%DEALNAME%` = 1–2 distinctive words; when the request also names the account, use `%<account word>%<deal words>%`):
 
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Opportunity(where: { Name: { like: \\\"%DEALNAME%\\\" } }, orderBy: { CloseDate: { order: ASC } }, first: 10) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } Account { Name { value } } } } } } } }\"}" })
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Opportunity(where: { Name: { like: \\\"%DEALNAME%\\\" }, IsClosed: { eq: false } }, orderBy: { CloseDate: { order: ASC } }, first: 10) { totalCount edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } Account { Name { value } } } } } } } }\"}" })
 ```
 
+- **`totalCount` above the rows returned** → the list is cut off and may not include the requested deal. Narrow `%DEALNAME%` (add the account or another distinctive word) and retry once; if it is still cut off, say how many open deals match and ask for the account. Never ask the user to choose from a cut-off list.
 - **Exactly one** candidate → take its `Id`, go to 2b.
 - **Several** → list them (Account · Name · Stage · $ · close) and **ask which**; don't guess.
 - **None** → broaden `%…%` and retry once.
@@ -117,17 +125,16 @@ When the data is assembled, call `display_widget`; a single one-line "Displaying
 
 ### Self-verification (before calling display_widget)
 
-- [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
+- [ ] `props` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 - [ ] Row states: every row marked In motion or Scheduled names the open or future-dated task or event behind it in its `item` text. If it cannot, set that row to Not started; a completed touch awaiting a reply is never In motion.
 
 The layout is built into the renderer and registered by name. Send only the widget name and its data:
 
 ```
-display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "deal-advance-gap", data: <object matching the schema below>, renderer: { body: [] } } })
+display_widget({ resourceType: "salesforce_widget", widget_resource_uri: "ui://widget/standard/deal-advance-gap", props: <object matching the schema below> })
 ```
 
-- `renderer: { body: [] }` is a required placeholder.
-- **Send data only; never author presentation** (colours, badges, icons, HTML, emojis, or layout keys). `widgetDefinition` and `data` must be nested JSON objects, not strings.
+- **Send data only; never author presentation** (colours, badges, icons, HTML, emojis, or layout keys). `props` must be a nested JSON object, not a string.
 - When the widget renders, do not also produce the text fallback.
 
 ### What to send
@@ -194,7 +201,7 @@ Rules:
 {"title":"Cedarline is in Negotiation / Review.","answer":"The opportunity is currently in **Negotiation / Review**. The close date is Aug 31.","stages":{"items":[{"name":"Qualification","state":"completed"},{"name":"Needs Analysis","state":"completed"},{"name":"Proposal / Price Quote","state":"completed"},{"name":"Negotiation / Review","state":"current"},{"name":"Closed Won","state":"target"}],"summary":"Three stages cleared; **Negotiation / Review** is the last open stage before **Closed Won**."},"sources":[{"label":"Opportunity · Cedarline — Enterprise Sales Cloud Platform","url":"https://<myDomain>/lightning/r/Opportunity/<Id>/view"}]}
 ```
 
-`data` schema (JSON Schema). Only `title`, `answer` and `sources` are required; include optional blocks only when grounded and prompt-relevant:
+`props` schema (JSON Schema). Only `title`, `answer` and `sources` are required; include optional blocks only when grounded and prompt-relevant:
 ```json
 {
   "type": "object",
@@ -280,11 +287,11 @@ Rules:
     "callout": {
       "type": "object",
       "additionalProperties": false,
-      "description": "The one recommended move, shown with an icon and one primary button. Include for a broad 'what is blocking this deal' ask, whether or not a date exists (never invent one). Omit for a specific or direct question.",
+      "description": "The one recommended move, shown with an icon and one primary button. Include for a broad 'what is blocking this deal' ask, whether or not a date exists (never invent one). Omit for a specific or direct question. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "required": ["lead", "text", "buttonLabel", "actionMsg"],
       "properties": {
-        "lead": { "type": "string", "description": "The single most important blocker or move, in one evidence-backed sentence. Needs no date." },
-        "text": { "type": "string", "description": "Recommended move and its grounded rationale." },
+        "lead": { "type": "string", "description": "REQUIRED, visible (non-whitespace). The single most important blocker or move, in one evidence-backed sentence. Needs no date." },
+        "text": { "type": "string", "description": "REQUIRED, visible (non-whitespace). Recommended move and its grounded rationale." },
         "buttonLabel": { "type": "string", "description": "One concise primary action label." },
         "actionMsg": { "type": "string", "description": "First-person request sent by action/sendMessage." }
       }
@@ -301,7 +308,7 @@ Rules:
     },
     "sources": {
       "type": "array",
-      "description": "Sources actually used for the answer, in display order. Include at least one source. Add a record URL only when its Id and org domain are known.",
+      "description": "Sources actually used for the answer, in display order. Include at least one source. Add a record URL only when its Id and org domain are known. Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -342,5 +349,5 @@ Rules:
 
 ## Suggested SFDC updates
 - NextStep → "<the #1 action>" · CloseDate → <if path math says current date isn't credible>
-[Apply with `update-opportunity`, or manually if read-only.]
+[Apply manually if read-only.]
 ```

@@ -17,8 +17,15 @@ description: "Answer executive-change questions scoped to what was asked: a swee
 - **Use plain language.** Choose terms any reader understands on first read, with no domain knowledge or cultural context required. Avoid jargon and colloquialisms, and make labels signal what follows. Test: would a reader unfamiliar with the idiom understand the term and know what content to expect? Use "No engagement", not "went dark" or "ghosted".
 - **Reproduce Salesforce terminology exactly.** Use the field labels, object names, and stage values the data returns; do not paraphrase them. Spell out acronyms on first use unless the term is an industry framework (for example, MEDDIC).
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
-- **ONLY use the local instructions in this skill file, ONLY call MCP tools mentioned in the skill file and NEVER call an API or endpoint not written in this skill file.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
+- **While following this skill, don't call `discover` or `describe`, and don't call any API or endpoint not written here. This file already has every query and widget reference you need. (Outside this skill, they're available as normal.)** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
 <!-- /global-rules-bootstrap -->
+<!-- response-formatting -->
+## Response formatting
+
+- **Number formatting:** Format numbers for readability across the entire response, including values retrieved directly from Salesforce fields. Abbreviate large numbers with a suffix for their scale: K (thousand), M (million), B (billion), T (trillion), and the next suffix up for anything larger, never leaving a big number unabbreviated or spelling it out in full (e.g., $120K, $1.25M, $2.4B, $1.3T), and round percentages to whole numbers unless decimals are required for meaningful comparison.
+- **Empty table cells (structured data tables only):** keep empty states terse and never explain them inside a table cell.
+  - AI-generated cells: write "Not enough data" when the returned data cannot support a grounded answer (for example, a Suggested Action cell when no recommendation can be supported).
+  - Cells filled directly from CRM fields: leave the cell blank when the source field was queried and confirmed empty or null. Keep valid values such as 0.
 
 # Rules:
 
@@ -112,12 +119,11 @@ Prepare record updates as proposals only, with a "needs confirmation" marker on 
 Call `display_widget` immediately after assembling the changes. Do not write markdown first — only fall back to Step 7 when the tool is unavailable. A single one-line "Displaying the visualization now (this may take a minute)." notice may precede it.
 
 ```
-display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "executive-movement", data: <object matching the schema below>, renderer: { body: [] } } })
+display_widget({ resourceType: "salesforce_widget", widget_resource_uri: "ui://widget/standard/executive-movement", props: <object matching the schema below> })
 ```
 
-- `renderer: { body: [] }` is a required placeholder; send it exactly as written.
 - **Send data only; never author presentation** (layout, HTML, colors, badges, icons, or `{!…}` / `{{…}}` expressions).
-- **`widgetDefinition` and `data` are nested JSON objects, NOT strings.** Parse a JSON string before the call.
+- **`props` is a nested JSON object, NOT a string.** Parse a JSON string before the call.
 - The widget is the output. Step 7 is only a fallback when `display_widget` is unavailable or fails.
 
 ### What to send
@@ -149,7 +155,7 @@ Rules:
 - Visible names and values are plain strings extracted from `.value` fields. Never send response objects, markdown links or raw Lightning URLs in visible text; put a record URL only in a source `url`.
 - `relationshipMap` stance is `Unknown` unless a grounded stance or buyer-relationship value exists. A champion needs demonstrated advocacy, not a supportive tone.
 - The tail is exclusive: `callout` only for a time-sensitive action (level `note`, never `blocker`), with at most one primary button whose `actionMsg` is first-person; otherwise `nextStep`, usually an offer to draft outreach.
-- Before calling, verify no `{!…}` or `{{…}}` in `data`, no keys outside the schema, and every optional key is justified by the prompt.
+- Before calling, verify no `{!…}` or `{{…}}` in `props`, no keys outside the schema, and every optional key is justified by the prompt.
 
 #### Worked examples (the data object only)
 
@@ -190,7 +196,7 @@ The names, amounts and dates below are illustrative; every value comes from the 
 }
 ```
 
-`data` schema (JSON Schema). Only `title`, `answer` and `sources` are required; include optional keys only when the prompt and evidence call for them (see the scope table):
+`props` schema (JSON Schema). Only `title`, `answer` and `sources` are required; include optional keys only when the prompt and evidence call for them (see the scope table):
 
 ```json
 {
@@ -295,11 +301,11 @@ The names, amounts and dates below are illustrative; every value comes from the 
     "callout": {
       "type": "object",
       "additionalProperties": false,
-      "description": "OPTIONAL tail for a time-sensitive action the user can take now, such as a champion leaving before a close date. Use INSTEAD of nextStep, never both.",
+      "description": "OPTIONAL tail for a time-sensitive action the user can take now, such as a champion leaving before a close date. Use INSTEAD of nextStep, never both. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "required": ["lead", "text"],
       "properties": {
-        "lead": {"type": "string", "description": "Bold one-sentence urgent action or risk."},
-        "text": {"type": "string", "description": "Why it matters and the immediate move, in one to three sentences. State that nothing has been written to Salesforce when a record update is proposed."},
+        "lead": {"type": "string", "description": "REQUIRED, visible (non-whitespace). Bold one-sentence urgent action or risk."},
+        "text": {"type": "string", "description": "REQUIRED, visible (non-whitespace). Why it matters and the immediate move, in one to three sentences. State that nothing has been written to Salesforce when a record update is proposed."},
         "level": {"type": "string", "enum": ["tip", "note"], "description": "OPTIONAL emphasis: note for one clear move (the default), tip for helpful context."},
         "buttonLabel": {"type": "string", "description": "OPTIONAL primary action label, e.g. 'Draft outreach to find a new sponsor'. Include only with actionMsg."},
         "actionMsg": {"type": "string", "description": "OPTIONAL first-person message sent when the primary action is clicked. Include only with buttonLabel."}
@@ -317,7 +323,7 @@ The names, amounts and dates below are illustrative; every value comes from the 
     },
     "sources": {
       "type": "array",
-      "description": "REQUIRED. Salesforce records and external sources actually read. Rendered in a collapsed 'Salesforce + web sources · Sources (N)' footer. Use scalar labels and put URLs only in url fields.",
+      "description": "REQUIRED. Salesforce records and external sources actually read. Rendered in a collapsed 'Salesforce + web sources · Sources (N)' footer. Use scalar labels and put URLs only in url fields. Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
       "items": {
         "type": "object",
         "additionalProperties": false,
