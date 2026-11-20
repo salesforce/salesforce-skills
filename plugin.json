@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "salesforce-for-sales",
-  "version": "1.0.0-beta.3.1",
+  "version": "1.0.0-beta.3.10",
   "description": "Sales workflows for account executives and sales leaders: account research, call prep and follow-up, pipeline review, forecasting, deal-slip scenarios, lead triage, outreach drafting, and approval-gated Salesforce updates. Built on Salesforce (Headless 360) and Slack.",
   "author": {
     "name": "Salesforce, Inc."

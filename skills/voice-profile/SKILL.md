@@ -17,7 +17,7 @@ description: "Build a reusable voice profile from recent sent emails and Slack m
 - **Use plain language.** Choose terms any reader understands on first read, with no domain knowledge or cultural context required. Avoid jargon and colloquialisms, and make labels signal what follows. Test: would a reader unfamiliar with the idiom understand the term and know what content to expect? Use "No engagement", not "went dark" or "ghosted".
 - **Reproduce Salesforce terminology exactly.** Use the field labels, object names, and stage values the data returns; do not paraphrase them. Spell out acronyms on first use unless the term is an industry framework (for example, MEDDIC).
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
-- **ONLY use the local instructions in this skill file, ONLY call MCP tools mentioned in the skill file and NEVER call an API or endpoint not written in this skill file.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
+- **While following this skill, don't call `discover` or `describe`, and don't call any API or endpoint not written here. This file already has every query and widget reference you need. (Outside this skill, they're available as normal.)** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
 <!-- /global-rules-bootstrap -->
 
 
@@ -68,22 +68,21 @@ When the data is assembled, call `display_widget`; a single one-line "Displaying
 
 ### Self-verification (before calling display_widget)
 
-- [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
+- [ ] `props` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 
 The layout is built into the renderer and registered by name — you send **only the widget name and its data**. Call `display_widget` once:
 
 ```
-display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "voice-profile", data: <object matching the schema below>, renderer: { body: [] } } })
+display_widget({ resourceType: "salesforce_widget", widget_resource_uri: "ui://widget/standard/voice-profile", props: <object matching the schema below> })
 ```
 
-- `renderer: { body: [] }` is a required placeholder — send it exactly as written; the renderer fills it in.
-- **CRITICAL — `widgetDefinition` and `data` must be nested JSON objects, NOT strings.** ❌ WRONG: `widgetDefinition: "{\"widget\":...}"`. ✅ RIGHT: `widgetDefinition: {"widget": "voice-profile", "data": {...}, "renderer": {"body": []}}`. If you hold a JSON string, `JSON.parse` it first.
+- **CRITICAL — `props` must be a nested JSON object, NOT a string.** ❌ WRONG: `props: "{\"title\":...}"`. ✅ RIGHT: `props: {"title": ...}`. If you hold a JSON string, `JSON.parse` it first.
 - **Quoted phrases use typographic quotes** (“Hi [Name],”), never straight double quotes: an unescaped `"` inside a value breaks the JSON and the call fails.
 - When `display_widget` is available the widget is the output; produce the section 4 text only as the fallback when the tool is unavailable (e.g. a terminal).
 
 ### What to send
 
-Follow the block order and the per-block inclusion rules in the `data` schema below (the root description and each property's `description`).
+Follow the block order and the per-block inclusion rules in the `props` schema below (the root description and each property's `description`).
 
 Rules:
 - **Next step (broad ask only):** send `nextStep.text` as one plain line telling the user to paste the profile into their assistant instructions so drafts sound like them. Never say the profile is saved, stored, set as default or applied: nothing here saves it. Omit `lead` unless a bold lead is natural.
@@ -104,7 +103,7 @@ The schema marks only `title`, `answer` and `sources` as required. **Every other
 | **Specific: several traits** ("how formal is my tone and how do I open?") | `title` + `answer` + **only** `voiceAttributes` with those rows + `sources` |
 | **Specific: examples** ("show me examples of how I write") | `title` + `answer` + **only** `anchorExamples` + `sources` |
 
-#### Worked examples (the `data` object only)
+#### Worked examples (the `props` object only)
 
 Names, counts and dates below are illustrative; every value comes from the sent emails and Slack messages you read.
 
@@ -142,7 +141,7 @@ Names, counts and dates below are illustrative; every value comes from the sent 
 }
 ```
 
-`data` schema (JSON Schema). Only `title`, `answer` and `sources` are required; follow the root description and each property's `description`:
+`props` schema (JSON Schema). Only `title`, `answer` and `sources` are required; follow the root description and each property's `description`:
 
 ```json
 {
@@ -249,7 +248,7 @@ Names, counts and dates below are illustrative; every value comes from the sent 
     },
     "callout": {
       "type": "object",
-      "description": "OPTIONAL tail, time-sensitive: rarely applies to a voice profile. Warning icon, a bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if there is a dated trigger AND the user can act on it now.",
+      "description": "OPTIONAL tail, time-sensitive: rarely applies to a voice profile. Warning icon, a bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if there is a dated trigger AND the user can act on it now. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "required": [
         "lead",
         "text",
@@ -259,11 +258,11 @@ Names, counts and dates below are illustrative; every value comes from the sent 
       "properties": {
         "lead": {
           "type": "string",
-          "description": "The bold first sentence: the trigger and the move in one sentence, ending with a period."
+          "description": "REQUIRED, visible (non-whitespace). The bold first sentence: the trigger and the move in one sentence, ending with a period."
         },
         "text": {
           "type": "string",
-          "description": "One to three sentences of normal-weight text after the bold lead: why it matters and what to do."
+          "description": "REQUIRED, visible (non-whitespace). One to three sentences of normal-weight text after the bold lead: why it matters and what to do."
         },
         "buttonLabel": {
           "type": "string",
@@ -294,7 +293,7 @@ Names, counts and dates below are illustrative; every value comes from the sent 
     },
     "sources": {
       "type": "array",
-      "description": "REQUIRED. What the profile was learned from: one entry per channel read (sent mail, Slack), with the count and the time span it covers (e.g. 'Sent emails – 42 to external recipients, Aug 2 – Oct 18', 'Slack – 18 messages you sent, Aug 2 – Oct 18'). Shown as a compact 'Salesforce · Sources (N)' toggle (the word comes from labels.sources).",
+      "description": "REQUIRED. What the profile was learned from: one entry per channel read (sent mail, Slack), with the count and the time span it covers (e.g. 'Sent emails – 42 to external recipients, Aug 2 – Oct 18', 'Slack – 18 messages you sent, Aug 2 – Oct 18'). Shown as a compact 'Salesforce · Sources (N)' toggle (the word comes from labels.sources). Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
       "items": {
         "type": "object",
         "required": [

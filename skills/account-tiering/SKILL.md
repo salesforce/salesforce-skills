@@ -17,8 +17,15 @@ description: "Rank an account list or full book into action tiers from Salesforc
 - **Use plain language.** Choose terms any reader understands on first read, with no domain knowledge or cultural context required. Avoid jargon and colloquialisms, and make labels signal what follows. Test: would a reader unfamiliar with the idiom understand the term and know what content to expect? Use "No engagement", not "went dark" or "ghosted".
 - **Reproduce Salesforce terminology exactly.** Use the field labels, object names, and stage values the data returns; do not paraphrase them. Spell out acronyms on first use unless the term is an industry framework (for example, MEDDIC).
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
-- **ONLY use the local instructions in this skill file, ONLY call MCP tools mentioned in the skill file and NEVER call an API or endpoint not written in this skill file.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
+- **While following this skill, don't call `discover` or `describe`, and don't call any API or endpoint not written here. This file already has every query and widget reference you need. (Outside this skill, they're available as normal.)** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
 <!-- /global-rules-bootstrap -->
+<!-- response-formatting -->
+## Response formatting
+
+- **Number formatting:** Format numbers for readability across the entire response, including values retrieved directly from Salesforce fields. Abbreviate large numbers with a suffix for their scale: K (thousand), M (million), B (billion), T (trillion), and the next suffix up for anything larger, never leaving a big number unabbreviated or spelling it out in full (e.g., $120K, $1.25M, $2.4B, $1.3T), and round percentages to whole numbers unless decimals are required for meaningful comparison.
+- **Empty table cells (structured data tables only):** keep empty states terse and never explain them inside a table cell.
+  - AI-generated cells: write "Not enough data" when the returned data cannot support a grounded answer (for example, a Suggested Action cell when no recommendation can be supported).
+  - Cells filled directly from CRM fields: leave the cell blank when the source field was queried and confirmed empty or null. Keep valid values such as 0.
 # Rules:
 
 - Resolve to ONE account before the deep read. When the name is ambiguous, ask the user to pick — don't probe candidates or guess.
@@ -52,13 +59,18 @@ Insert `<ACCOUNT_CUSTOM>` = confirmed scalar `__c { value }` fields relevant to 
 
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Account(%SCOPE%, first: 200, orderBy: { Id: { order: ASC } }) { edges { node { Id Name { value } Industry { value } NumberOfEmployees { value } AnnualRevenue { value displayValue } Website { value } Type { value } LastActivityDate { value } <ACCOUNT_CUSTOM> Owner { Name { value } } <REL_BLOCKS> Opportunities(where: { IsClosed: { eq: false } }, first: 200, orderBy: { CloseDate: { order: ASC } }) { edges { node { Id Name { value } StageName { value } CloseDate { value } Amount { value } } } } ClosedWonOpportunities: Opportunities(where: { IsClosed: { eq: true }, IsWon: { eq: true } }, first: 200, orderBy: { CloseDate: { order: DESC } }) { edges { node { Id CloseDate { value } Amount { value } } } } Contacts(first: 10) { edges { node { Id Title { value } } } } } } pageInfo { hasNextPage } totalCount } } } }\"}" })
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Account(%SCOPE%, first: 200, orderBy: { Id: { order: ASC } }) { edges { node { Id Name { value } Industry { value } NumberOfEmployees { value } AnnualRevenue { value displayValue } Website { value } Type { value } LastActivityDate { value } <ACCOUNT_CUSTOM> Owner { Name { value } } <REL_BLOCKS> Tasks(where: { ActivityDate: { gte: { range: { last_n_days: 30 } } } }) { totalCount } Events(where: { ActivityDate: { gte: { range: { last_n_days: 30 } } } }) { totalCount } Contacts(first: 10) { edges { node { Id Title { value } } } } } } pageInfo { hasNextPage } totalCount } } } }\"}" })
 ```
 
-**Opportunity reads:**
-- `Opportunities` (open): Changed `first: 1` to `first: 200` and added `Amount { value }` to calculate whitespace (sum of open opportunity amounts)
-- `ClosedWonOpportunities` (alias): New read of closed-won opportunities to calculate ARR (sum of amounts from last 12 months)
-- Step 4's "Open opportunity exists" = a non-empty `Opportunities.edges` (unchanged)
+**Opportunity reads (HXL): root-level Opportunity queries, joined to Accounts by `AccountId`.** The Account query above has no Opportunity span. Send these two root-level queries in the same GraphQL operation (one dispatch):
+```
+dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { openOpportunities: Opportunity(where: { IsClosed: { eq: false } }, first: 200, orderBy: { CloseDate: { order: ASC } }) { edges { node { Id AccountId { value } Name { value } StageName { value } CloseDate { value } Amount { value } } } } closedWonOpportunities: Opportunity(where: { IsClosed: { eq: true }, IsWon: { eq: true }, CloseDate: { gte: { range: { last_n_days: 365 } } } }, first: 200, orderBy: { CloseDate: { order: DESC } }) { edges { node { Id AccountId { value } CloseDate { value } Amount { value } } } } } } }\"}" })
+```
+- Join each Opportunity to its Account on `AccountId.value == Account.Id`. Do not read Opportunities through the Account relationship.
+- **Open Amount** = sum of `Amount.value` for the Account's open Opportunities.
+- **Closed Won Amount** = sum of `Amount.value` for the Account's closed-won Opportunities in the last 12 months.
+- Step 4's "Open opportunity exists" = at least one open Opportunity joined to the Account.
 - Empty `Account` `edges` → for `scope: MINE`, follow the empty-`MINE` rule; for a named list, confirm the account names.
 
 **Bounds.** `Account(first: 200)` is the whole book up to 200 accounts. `pageInfo.hasNextPage: true` → the book is larger (`totalCount` accounts): tier the 200 you have and disclose the partial book (Step 5) — never call them the whole book. `Contacts(first: 10)` is a bounded sample per account — enough for the 3+ contacts signal; a full 10 with no target title scores the persona check `maybe`, not `none`.
@@ -87,47 +99,53 @@ A criterion the user didn't state falls back to its derived value; if that value
 | Target persona present (Contact titles) | 2 | yes=2, maybe=1, none=0 |
 | No disqualifiers | 2 | clean=2, soft DQ=1, hard DQ=0 |
 
-## 4. Score engagement (0-10)
+## 4. Recent activity
 
-| Signal | Weight | Scoring |
-|---|---|---|
-| Open opportunity exists (Step 2) | 3 | yes=3, no=0 |
-| LastActivityDate recency | 3 | <30d=3, 30-90d=2, 90-180d=1, >180d=0 |
-| Inbound signal (Step 2b email, last 90d) | 2 | yes=2, no=0 |
-| Multiple contacts engaged | 2 | 3+=2, 2=1, ≤1=0 |
+**Recent Activity Count** = Tasks + Events logged directly on the Account in the last 30 days (`Tasks.totalCount + Events.totalCount` from Step 2). Contacts and Opportunities are not counted.
 
-## 4b. Calculate ARR, whitespace, and engagement % (HXL widgets only)
+**High-activity threshold (org-scaled, from the account book):**
+1. Use every Account in the readable book (the Step 2 read, up to 200). If `pageInfo.hasNextPage` is true, the threshold is calculated from the first 200 Accounts; disclose that in Step 5.
+2. Keep Accounts whose Recent Activity Count is above 0. Sort those counts ascending.
+3. `index = ceil(nonzeroCount × 0.75) - 1`; `highActivityThreshold = max(1, sorted[index])`.
+4. An Account is **high activity** when its Recent Activity Count ≥ `highActivityThreshold` (ties included). Otherwise it is **low activity**.
+5. If every Account's count is 0, no Account is high activity.
 
-For each account, compute these display values from Step 2 data:
+Worked check: nonzero counts `[1, 1, 2, 3, 8, 12, 16, 21]` give index 5 and threshold 12. Counts `[1, 1, 1, 1]` give threshold 1, so all are high.
 
-**ARR (Annual Recurring Revenue):**
+The table shows the raw count. Only the tier decision uses the threshold, so an Account's tier does not change with the prompt's scope.
+
+## 4b. Calculate Closed Won Amount, Open Amount, and Recent Activity Count (HXL widgets only)
+
+For each account, compute these display values from Step 2 data (Closed Won Amount, Open Amount, and the Recent Activity Count; none is a percentage):
+
+**Closed Won Amount:**
 - Sum `Amount.value` from `ClosedWonOpportunities` where `CloseDate` is within the last 12 months
 - Format as compact currency: "$75K", "$1.2M" (K for thousands, M for millions)
 - If no closed-won opportunities in last 12 months, set to "$0"
 
-**Whitespace (expansion opportunity):**
+**Open Amount:**
 - Sum `Amount.value` from open `Opportunities` (IsClosed = false)
 - Format as compact currency: "$640K", "$2.3M"
 - If no open opportunities, set to "$0"
 
-**Engagement % (for display):**
-- Convert the 0-10 engagement score from Step 4 to a percentage string
-- Formula: `Math.round((engagementScore / 10) * 100)` + "%"
-- Example: score of 6 → "60%"
+**Recent Activity Count (for display):**
+- Count of activities logged directly on the account in the last 30 days: `Tasks.totalCount + Events.totalCount` from the Step 2 Account read
+- Account only: exclude activity attached just to its Contacts or Opportunities
+- Display as an integer, e.g. `18`. This is the same count that drives tier assignment in Step 5.
 
 
 ## 5. Tier and recommend
 
 Assign each account to **Tier A** (active pursuit), **Tier B** (nurture), or **Tier C** (monitor) based on **four factors**:
 1. **ICP fit** (0-10 from section 3)
-2. **Engagement** (0-10 from section 4)
-3. **Annual Recurring Revenue (ARR)** — existing revenue relationship
-4. **Whitespace** — expansion / upsell opportunity
+2. **Recent activity** (high or low, from the section 4 threshold)
+3. **Closed Won Amount** — existing revenue relationship (closed-won, last 12 months)
+4. **Open Amount** — expansion / upsell opportunity (open pipeline)
 
 **Tier assignment guidance:**
-- **Tier A** (active pursuit): High ICP fit (≥6) AND high engagement (≥6) AND (ARR >$0 OR whitespace >$100K). These accounts warrant immediate, multi-threaded pursuit.
-- **Tier B** (nurture): Exactly one strength — (ICP fit ≥6 XOR engagement ≥6). Keep warm with light touch; revisit when signals improve.
-- **Tier C** (monitor): Both low — ICP fit <6 AND engagement <6. Periodic check-ins; escalate if conditions change.
+- **Tier A** (active pursuit): ICP fit ≥6 AND high recent activity AND (Closed Won Amount >$0 OR Open Amount >$100K). These accounts warrant immediate, multi-threaded pursuit.
+- **Tier B** (nurture): Exactly one of ICP fit ≥6 or high recent activity. Keep warm with light touch; revisit when signals improve.
+- **Tier C** (monitor): ICP fit <6 AND low recent activity. Periodic check-ins; escalate if conditions change.
 
 
 **Disclosures** — carry each that applies into the output (the widget `subtitle`; in the text fallback, a line under the heading):
@@ -141,19 +159,16 @@ Assign each account to **Tier A** (active pursuit), **Tier B** (nurture), or **T
 
 ```javascript
 display_widget({ 
-  resourceType: "dynamic", 
-  widgetDefinition: { 
-    widget: "account-tiering", 
-    data: <object matching the schema below>, 
-    renderer: { body: [] } 
-  } 
+  resourceType: "salesforce_widget", 
+  widget_resource_uri: "ui://widget/standard/account-tiering", 
+  props: <object matching the schema below> 
 })
 ```
 
-- **DO NOT omit `resourceType: "dynamic"` or `widgetDefinition`** — the tool requires this envelope.
-- **DO NOT construct tile layouts yourself** (tile/container, tile/row, tile/markdown, etc.) inside `widgetDefinition`.
-- **Your job is DATA ONLY**: compute the `data` object per the schema below. The `renderer: { body: [] }` part stays empty.
-- The `widget: "account-tiering"` value tells the renderer to use the pre-designed layout from renderer.json, which handles all visual structure (the segmented bar, collapsible Sources, datagrid, callouts, etc.).
+- **DO NOT omit `resourceType: "salesforce_widget"`, `widget_resource_uri` or `props`** — the tool requires them.
+- **DO NOT construct tile layouts yourself** (tile/container, tile/row, tile/markdown, etc.) inside `props`.
+- **Your job is DATA ONLY**: compute the `props` object per the schema below.
+- The `ui://widget/standard/account-tiering` URI tells the renderer to use the pre-designed layout from renderer.json, which handles all visual structure (the segmented bar, collapsible Sources, datagrid, callouts, etc.).
 - **If you send a different format or build custom tile layouts, the layout will be wrong.**
 
 The schema below names every key (all optional except `title`, `answer`, `sources`), its type, and when to include it.
@@ -163,7 +178,7 @@ The schema below names every key (all optional except `title`, `answer`, `source
 - **Always include**: `title`, `answer`, `sources`. Optional: `tierBar` (tier distribution counts), `labels`, `accounts`, `nextStep`.
 - **Prompt scoping**: Include the accounts datagrid when the prompt calls for a detailed breakdown (not just tier counts). For a summary-level prompt ("How should I tier my accounts?"), include accounts. For a tier-count-only prompt, omit accounts.
 - **tierBar — REQUIRED, SEGMENTED BAR ONLY**: Always populate as nested objects with three keys: `tierA`, `tierB`, `tierC`. Each has `value` (count as number) and `label` (display string, e.g., "Tier A - 4"). This renders a **horizontal segmented bar chart** showing tier distribution. **DO NOT use a donut/pie chart, circular chart, or any other chart type — the tierBar must always be a horizontal segmented bar.** This layout is fixed by design and must not be changed.
-- **Tier badge variants** (semantic, HXL design system): Tier A = `"success"` (green, top priority), Tier B = `"info"` (blue, medium priority), Tier C = `"neutral"` (gray, low priority). Every tier badge in the accounts datagrid must include both `value` (the letter) and `badgeVariant` (the semantic color).
+- **Tier badge variants** (semantic, HXL design system): Tier A = `"info"` (blue, top priority), Tier B = `"warning"` (amber, nurture), Tier C = `"neutral"` (grey, monitor). Every tier badge in the accounts datagrid must include both `value` (the letter) and `badgeVariant` (the semantic color).
 - **Account names**: Pass account names as plain text strings. DO NOT include Markdown link syntax like `[Name](URL)` in the account field — the datagrid renders it literally. Clickable account links belong in the `sources` array at the bottom.
 
 ```json
@@ -173,11 +188,11 @@ The schema below names every key (all optional except `title`, `answer`, `source
   "properties": {
     "title": {
       "type": "string",
-      "description": "Contextual title — the tier-count takeaway in one sentence (e.g., 'Your 10 accounts are sorted into 4 Tier A, 4 Tier B, and 2 Tier C — so you can pour your time into the 4 worth pursuing now.')."
+      "description": "Contextual title: one plain-text introductory sentence with the tier counts. The title is not Markdown, so do not add ** bold. E.g. 'Your 10 accounts sorted into 4 Tier A, 4 Tier B, and 2 Tier C — so you can pour your time into the 4 worth pursuing now.'"
     },
     "answer": {
       "type": "string",
-      "description": "Answer in markdown format — 2-4 bullet items with **bold** facts. Explains how accounts were tiered (ICP fit, engagement, ARR, whitespace) and what each tier means (Tier A = active pursuit, Tier B = nurture, Tier C = monitor)."
+      "description": "Answer in markdown, exactly three short bullets: (1) how tiers are set, with the column names in bold (**ICP Fit**, **Recent Activity Count**, **Closed Won Amount**, **Open Amount**); (2) what Tier A means, starting with **Tier A**; (3) what Tier B and Tier C mean, starting with **Tier B**. Bold every count and tier label such as **4 Tier B**. Keep each sentence short. The tier bar and table carry the detail."
     },
     "labels": {
       "type": "object",
@@ -203,30 +218,29 @@ The schema below names every key (all optional except `title`, `answer`, `source
           "description": "ICP Fit column header.",
           "default": "ICP Fit"
         },
-        "engagementHeader": {
+        "recentActivityHeader": {
           "type": "string",
-          "description": "Engagement column header.",
-          "default": "Engagement"
+          "description": "Recent Activity Count column header.",
+          "default": "Recent Activity Count"
         },
         "arrHeader": {
           "type": "string",
-          "description": "ARR column header.",
-          "default": "ARR"
+          "description": "Closed Won Amount column header.",
+          "default": "Closed Won Amount"
         },
         "whitespaceHeader": {
           "type": "string",
-          "description": "Whitespace column header.",
-          "default": "Whitespace"
-        },
-        "motionHeader": {
-          "type": "string",
-          "description": "Motion column header.",
-          "default": "Motion"
+          "description": "Open Amount column header.",
+          "default": "Open Amount"
         },
         "sourcesToggle": {
           "type": "string",
           "description": "Sources toggle label.",
           "default": "Sources"
+        },
+        "sourceLabel": {
+          "type": "string",
+          "description": "Name of the AI client the answer is shown in, shown under the tier bar as 'Source: <name>'. Set it to the client you are running in; omit it when you do not know, and the line is not shown."
         },
         "tierBarCaption": {
           "type": "string",
@@ -286,7 +300,7 @@ The schema below names every key (all optional except `title`, `answer`, `source
     },
     "accounts": {
       "type": "array",
-      "description": "OPTIONAL card 'ACCOUNTS'. One row per account, showing Tier, Account name, ICP Fit, Engagement %, ARR, Whitespace, and Motion. Include ONLY when the prompt calls for a detailed account breakdown. Omit the key otherwise; never an empty array.",
+      "description": "OPTIONAL card 'ACCOUNTS'. One row per account, showing Tier, Account name, ICP Fit, Recent Activity Count, Closed Won Amount, and Open Amount. Include ONLY when the prompt calls for a detailed account breakdown. Omit the key otherwise; never an empty array.",
       "items": {
         "type": "object",
         "properties": {
@@ -300,8 +314,8 @@ The schema below names every key (all optional except `title`, `answer`, `source
               },
               "badgeVariant": {
                 "type": "string",
-                "description": "Badge variant: 'success' (green, Tier A), 'info' (blue, Tier B), or 'neutral' (gray, Tier C).",
-                "enum": ["success", "info", "neutral"]
+                "description": "Badge variant: 'info' (blue, Tier A), 'warning' (amber, Tier B), or 'neutral' (grey, Tier C).",
+                "enum": ["info", "warning", "neutral"]
               }
             },
             "required": ["value", "badgeVariant"]
@@ -316,22 +330,18 @@ The schema below names every key (all optional except `title`, `answer`, `source
           },
           "engagement": {
             "type": "string",
-            "description": "Engagement percentage derived from 0-10 score (display-ready, e.g., '60%'). Calculated as (score/10)*100%."
+            "description": "Recent Activity Count: activities (Tasks + Events) logged directly on the account in the last 30 days (display-ready integer string, e.g., '18'). Account only; exclude contact- and opportunity-level activity."
           },
           "arr": {
             "type": "string",
-            "description": "Annual recurring revenue - sum of closed-won opportunity amounts from last 12 months (display-ready currency, e.g., '$75K', '$0' if none)."
+            "description": "Closed Won Amount - sum of closed-won opportunity amounts from the last 12 months (display-ready currency, e.g., '$75K', '$0' if none)."
           },
           "whitespace": {
             "type": "string",
-            "description": "Whitespace / expansion opportunity - sum of open opportunity amounts (display-ready currency, e.g., '$640K', '$0' if none)."
-          },
-          "motion": {
-            "type": "string",
-            "description": "Recommended sales motion (e.g., 'Active pursuit', 'Nurture', 'Monitor')."
+            "description": "Open Amount - sum of open opportunity amounts (display-ready currency, e.g., '$640K', '$0' if none)."
           }
         },
-        "required": ["tier", "account", "icpFit", "engagement", "arr", "whitespace", "motion"]
+        "required": ["tier", "account", "icpFit", "engagement", "arr", "whitespace"]
       }
     },
     "nextStep": {
@@ -351,7 +361,7 @@ The schema below names every key (all optional except `title`, `answer`, `source
     },
     "sources": {
       "type": "array",
-      "description": "Source citations — where the answer came from (Account records, list views). Required.",
+      "description": "Source citations — where the answer came from (Account records, list views). Required. Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
       "items": {
         "type": "object",
         "properties": {
@@ -389,31 +399,32 @@ Rules:
 - **Omit a key and its block is not shown.** Never send empty arrays, empty strings or placeholders. Drop `accounts` or `nextStep` when you have no data for them.
 - **Scope reading and output to the prompt.** Steps 1–5 still tier the full book, but a summary-prompt outputs counts only; a specific-account prompt returns that account's tier.
 - **Display-ready strings:** Format percentages as "60%", currency as "$75K", tier letters as "A"/"B"/"C" with matching `badgeVariant`.
-- **Tier badges:** Every account row's `tier` field must be an object with `value` (the letter) and `badgeVariant` (`"success"` for A, `"info"` for B, `"neutral"` for C).
+- **Tier badges:** Every account row's `tier` field must be an object with `value` (the letter) and `badgeVariant` (`"info"` for A, `"warning"` for B, `"neutral"` for C).
 - **Account names** are plain text, never Markdown links. Clickable account URLs go in `sources`.
 - **Source URLs:** Construct Salesforce record URLs as `https://{orgMyDomain}/lightning/r/{SObjectType}/{Id}/view` (e.g., `https://example.my.salesforce.com/lightning/r/Account/001xx000003DHhfAAG/view`). Omit the `url` field when the record ID is unknown.
 - **Language:** omit `labels` for English. For any other response language, translate all `labels` values (tierBar segment labels like tierA/tierB/tierC detail strings, column headers, sources toggle) and keep tier badge letters (A/B/C) and account names unchanged.
-- **Before calling:** no `{!…}` or `{{…}}` anywhere in `data`, and no keys outside the schema.
+- **Source line:** set `labels.sourceLabel` to the name of the AI client you are running in. Use the client's own name, not a placeholder. Do not guess: if you do not know your client's name, omit `sourceLabel` and no source line is shown.
+- **Before calling:** no `{!…}` or `{{…}}` anywhere in `props`, and no keys outside the schema.
 
-#### Worked examples (the `data` object only)
+#### Worked examples (the `props` object only)
 
 **Broad — "Tier my accounts."** (includes accounts datagrid; trimmed):
 
 ```json
 {
-  "title": "Your 10 accounts are sorted into 4 Tier A, 4 Tier B, and 2 Tier C — so you can pour your time into the 4 worth pursuing now.",
-  "answer": "- Your book of 10 accounts breaks down: **4 Tier A** (active pursuit), **4 Tier B** (nurture), and **2 Tier C** (monitor).\n- Tiers are set by **Ideal Customer Profile (ICP) fit**, **engagement**, **annual recurring revenue (ARR)**, and **whitespace** — not a single score.\n- Tier A accounts score high on ICP fit and carry the most open whitespace, so each warrants active pursuit this quarter.\n- Tier B are a fit but earlier or quieter — worth nurturing. Tier C are lower fit or engagement; monitor them and revisit if a signal changes.",
+  "title": "Your 10 accounts sorted into 4 Tier A, 4 Tier B, and 2 Tier C — so you can pour your time into the 4 worth pursuing now.",
+  "answer": "- Tiers are set by **ICP Fit**, **Recent Activity Count**, **Closed Won Amount**, and **Open Amount**, not a single score.\n- **Tier A** accounts fit well and carry active pursuit this quarter.\n- **Tier B** accounts fit but need nurturing. **Tier C** accounts are monitored until a signal changes.",
   "tierBar": {
     "tierA": { "value": 4, "label": "Tier A - 4" },
     "tierB": { "value": 4, "label": "Tier B - 4" },
     "tierC": { "value": 2, "label": "Tier C - 2" }
   },
   "accounts": [
-    { "tier": { "value": "A", "badgeVariant": "success" }, "account": "Cedarline Financial", "icpFit": 4, "engagement": "60%", "arr": "$75K", "whitespace": "$640K", "motion": "Active pursuit" }
+    { "tier": { "value": "A", "badgeVariant": "info" }, "account": "Cedarline Financial", "icpFit": 4, "engagement": "18", "arr": "$75K", "whitespace": "$640K" }
   ],
   "nextStep": {
     "lead": "Put this week's energy into the 4 Tier A accounts.",
-    "text": "Cedarline, Brightwave, Northpeak, and Summit Health score highest on fit and carry the most open whitespace — they're where active pursuit pays off now. Keep Tier B warm with light nurture, and leave Tier C on monitor until engagement or fit improves. Want me to build a pursuit plan for the 4 Tier A accounts?"
+    "text": "Cedarline, Brightwave, Northpeak, and Summit Health score highest on fit and carry the most open amount — they're where active pursuit pays off now. Keep Tier B warm with light nurture, and leave Tier C on monitor until activity or fit improves. Want me to build a pursuit plan for the 4 Tier A accounts?"
   },
   "sources": [
     { "label": "Account: Cedarline Financial", "url": "https://org.lightning.force.com/..." }
@@ -426,7 +437,7 @@ Rules:
 ```json
 {
   "title": "You have 4 Tier A accounts out of 10 total — the ones worth active pursuit now.",
-  "answer": "- Your book breaks down: **4 Tier A** (active pursuit), **4 Tier B** (nurture), and **2 Tier C** (monitor).\n- Tier A accounts are high-fit, high-engagement, and carry the most whitespace — each is worth pursuing this quarter.",
+  "answer": "- Your book breaks down: **4 Tier A** (active pursuit), **4 Tier B** (nurture), and **2 Tier C** (monitor).\n- Tier A accounts are high-fit, high-activity, and carry the most open amount — each is worth pursuing this quarter.",
   "tierBar": {
     "tierA": { "value": 4, "label": "Tier A - 4" },
     "tierB": { "value": 4, "label": "Tier B - 4" },
@@ -442,8 +453,8 @@ Rules:
 
 ```json
 {
-  "title": "Cedarline Financial is Tier A — high fit and engagement, worth active pursuit.",
-  "answer": "- **Cedarline Financial** is **Tier A** (active pursuit): ICP fit 4/5, 60% engagement, $75K ARR, $640K whitespace.\n- The high ICP fit and significant whitespace make this account worth pursuing actively this quarter.",
+  "title": "Cedarline Financial is Tier A — high fit and high recent activity, worth active pursuit.",
+  "answer": "- **Cedarline Financial** is **Tier A** (active pursuit): ICP fit 4/5, 18 activities in the last 30 days, $75K closed won amount, $640K open amount.\n- The high ICP fit and significant whitespace make this account worth pursuing actively this quarter.",
   "sources": [
     { "label": "Account: Cedarline Financial", "url": "https://org.lightning.force.com/..." }
   ]
@@ -457,7 +468,7 @@ Rules:
 # Account Tiering - [N] accounts
 
 ## Tier A - Active Pursuit ([N])
-| Account | Fit | Eng | Open Opp | Last Touch | Next Action |
+| Account | Fit | Recent Activity | Open Opp | Last Touch | Next Action |
 |---|---|---|---|---|---|
 ...
 

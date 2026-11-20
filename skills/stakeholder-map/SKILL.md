@@ -1,6 +1,6 @@
 ---
 name: stakeholder-map
-description: "Build a stakeholder map from Salesforce contacts and roles plus email, calendar, calls and Slack, showing influence, stance, gaps and access paths. Use to identify decision makers, assess single-threading or plan introductions. Account brief: account-context."
+description: "Identify who's making the decision, who the players are, who to win over, or map stakeholders and lay out the buying committee on a specific deal or at a specific account. Requires deal name or account name. Pulls from Salesforce contacts and roles plus email, calendar, calls and Slack, showing influence, stance, gaps and access paths. Use to identify decision makers, assess single-threading or plan introductions. Account brief: account-context."
 ---
 <!-- global-rules-bootstrap -->
 
@@ -17,8 +17,15 @@ description: "Build a stakeholder map from Salesforce contacts and roles plus em
 - **Use plain language.** Choose terms any reader understands on first read, with no domain knowledge or cultural context required. Avoid jargon and colloquialisms, and make labels signal what follows. Test: would a reader unfamiliar with the idiom understand the term and know what content to expect? Use "No engagement", not "went dark" or "ghosted".
 - **Reproduce Salesforce terminology exactly.** Use the field labels, object names, and stage values the data returns; do not paraphrase them. Spell out acronyms on first use unless the term is an industry framework (for example, MEDDIC).
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
-- **ONLY use the local instructions in this skill file, ONLY call MCP tools mentioned in the skill file and NEVER call an API or endpoint not written in this skill file.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
+- **While following this skill, don't call `discover` or `describe`, and don't call any API or endpoint not written here. This file already has every query and widget reference you need. (Outside this skill, they're available as normal.)** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
 <!-- /global-rules-bootstrap -->
+<!-- response-formatting -->
+## Response formatting
+
+- **Number formatting:** Format numbers for readability across the entire response, including values retrieved directly from Salesforce fields. Abbreviate large numbers with a suffix for their scale: K (thousand), M (million), B (billion), T (trillion), and the next suffix up for anything larger, never leaving a big number unabbreviated or spelling it out in full (e.g., $120K, $1.25M, $2.4B, $1.3T), and round percentages to whole numbers unless decimals are required for meaningful comparison.
+- **Empty table cells (structured data tables only):** keep empty states terse and never explain them inside a table cell.
+  - AI-generated cells: write "Not enough data" when the returned data cannot support a grounded answer (for example, a Suggested Action cell when no recommendation can be supported).
+  - Cells filled directly from CRM fields: leave the cell blank when the source field was queried and confirmed empty or null. Keep valid values such as 0.
 # Rules:
 - Resolve to ONE account before the deep read. When the name is ambiguous, ask the user to pick — don't probe candidates or guess.
 - **Scope reading and output to the prompt.** A broad map can use both visual blocks; a specific hierarchy question needs only the relationship evidence, and a direct next-action question needs only the relevant contact/opportunity evidence. Skip unrelated evidence reads when possible, and never show a block merely because data was fetched.
@@ -147,17 +154,16 @@ When the data is assembled, call `display_widget`; a single one-line "Displaying
 
 ### Self-verification (before calling display_widget)
 
-- [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
+- [ ] `props` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 
 The layout is built into the renderer and registered by name — send **only the widget name and its data**:
 
 ```
-display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "stakeholder-map", data: <object matching the schema below>, renderer: { body: [] } } })
+display_widget({ resourceType: "salesforce_widget", widget_resource_uri: "ui://widget/standard/stakeholder-map", props: <object matching the schema below> })
 ```
 
-- `renderer: { body: [] }` is a required placeholder; send it exactly as written.
 - **Send data only; never author presentation** (layout, HTML, colors, badges, icons, or `{!…}` expressions).
-- **`widgetDefinition` and `data` are nested JSON objects, NOT strings.** Parse a JSON string before the call; do not stringify the envelope.
+- **`props` is a nested JSON object, NOT a string.** Parse a JSON string before the call; do not stringify the envelope.
 - The widget is the output. Section 6 is only a fallback when `display_widget` is unavailable or fails.
 - For the relationship-map badge, use a grounded buyer-relationship attribute only when all three hold: (a) a Contact field labelled Buyer Relationship is present in the grounded Contact ObjectInfo, (b) the host or user context states that the Buyer Relationship Map feature is enabled, and (c) the contact's value is non-null and maps to exactly one of `Supportive`, `Neutral`, `Unsupportive`, or `Stance Unknown`. If any condition fails, including a null value, fall through to the step 3 stance rubric and run the step 2b evidence reads; do not default straight to `Stance Unknown`. Never infer feature enablement from field presence alone. Use exactly `Supportive`, `Neutral`, `Unsupportive`, or `Stance Unknown`. `Supportive` is not proof of Champion.
 
@@ -168,7 +174,7 @@ Follow the block order and per-block inclusion rules in the data schema below. S
 1. `title` (required): contextual takeaway, never the skill name.
 2. `answer` (required): concise response to the prompt; do not repeat card details. It may be empty when the title alone fully answers, as in the broad mock.
 3. `relationshipMap` (optional): stakeholder rows under the fixed **Relationship map** caption, following the Design Framework component: name, title/role/reporting detail (no date), and a right-side sentiment pill.
-4. `stakeholders` (optional): a table of key contacts with **Stakeholder**, **Role**, and **Next Step** columns under the fixed **Stakeholders** caption. Set `role` to `<Title> · <Deal role>` (separator ` · `) and put the last-touch date in the separate `lastTouch` field as a phrase like `Last touch Aug 24`, which the table shows on a muted second line under the role; the date is the most recent `LastActivityDate` or dated activity/connected evidence actually read for that contact, and when none was read, omit `lastTouch` for that contact (never write "unknown" or guess). Write the `lastTouch` phrase in the user's language. On narrow layouts the datagrid stacks these same fields per contact; do not replace it with unlabeled prose or add a count to the caption.
+4. `stakeholders` (optional): a table of key contacts with **Stakeholder**, **Role**, and **Suggested Action** columns under the fixed **Stakeholders** caption. Set `role` to `<Title> · <Deal role>` (separator ` · `) and put the last-touch date in the separate `lastTouch` field as a phrase like `Last touch Aug 24`, which the table shows on a muted second line under the role; the date is the most recent `LastActivityDate` or dated activity/connected evidence actually read for that contact, and when none was read, omit `lastTouch` for that contact (never write "unknown" or guess). Write the `lastTouch` phrase in the user's language. On narrow layouts the datagrid stacks these same fields per contact; do not replace it with unlabeled prose or add a count to the caption.
 5. `callout` OR `nextStep` (optional): dated/urgent action with at most one primary action button, or a plain non-urgent suggestion with no button. Never both.
 6. `sources` (required): records and evidence actually read.
 
@@ -190,7 +196,7 @@ Rules:
 - The tail is exclusive: use `callout` only for a time-sensitive action, otherwise use `nextStep`; do not send both. Use the lowest fitting callout level (`tip`, `note`, or `blocker`), and no more than one primary button.
 - Visible names and roles are plain strings extracted from GraphQL `.value` fields. Dates and other display values are preformatted. Never send response objects, serialized JSON, markdown links, or raw Lightning URLs in visible text. Put a record URL only in a source `url` field.
 - Build each `relationshipMap` row from one contact: put grounded title, buying role and `ReportsTo` manager in `role` (no date; the last-touch date belongs only in the Stakeholders table's `lastTouch` field). Set the pill per the Buyer Relationship rule above, otherwise from the step 3 stance rubric, with the exact labels `Supportive`, `Neutral`, `Unsupportive`, or `Stance Unknown`. Stance Unknown uses the `secondary` tone. A champion requires demonstrated advocacy (an introduction, internal information, or a meeting push), not a supportive stance alone. Set `isReorged` only when the source confirms the person left the role or was affected by a reorganization.
-- Before calling, verify that there are no `{!…}` or `{{…}}` expressions in `data`, no keys outside the schema, and every optional key is justified by the prompt.
+- Before calling, verify that there are no `{!…}` or `{{…}}` expressions in `props`, no keys outside the schema, and every optional key is justified by the prompt.
 
 #### Worked examples (the data object only)
 
@@ -240,7 +246,7 @@ Rules:
 }
 ```
 
-`data` schema (JSON Schema). Only `title`, `answer`, and `sources` are required; include optional keys only when the prompt and evidence call for them (see the scope table):
+`props` schema (JSON Schema). Only `title`, `answer`, and `sources` are required; include optional keys only when the prompt and evidence call for them (see the scope table):
 
 ```json
 {
@@ -276,8 +282,8 @@ Rules:
         },
         "colNextStep": {
           "type": "string",
-          "default": "Next Step",
-          "description": "Stakeholder table's next-action column header. English: 'Next Step'."
+          "default": "Suggested Action",
+          "description": "Stakeholder table's next-action column header. English: 'Suggested Action'."
         },
         "sources": {
           "type": "string",
@@ -365,11 +371,11 @@ Rules:
     "callout": {
       "type": "object",
       "additionalProperties": false,
-      "description": "OPTIONAL tail for a time-sensitive action the user can take now. Use INSTEAD of nextStep, never both. The design-system emphasis level is a recommendation, not a status color.",
+      "description": "OPTIONAL tail for a time-sensitive action the user can take now. Use INSTEAD of nextStep, never both. The design-system emphasis level is a recommendation, not a status color. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "required": ["lead", "text"],
       "properties": {
-        "lead": {"type": "string", "description": "Bold one-sentence urgent action or risk."},
-        "text": {"type": "string", "description": "Why it matters and the immediate move, in one or two sentences."},
+        "lead": {"type": "string", "description": "REQUIRED, visible (non-whitespace). Bold one-sentence urgent action or risk."},
+        "text": {"type": "string", "description": "REQUIRED, visible (non-whitespace). Why it matters and the immediate move, in one or two sentences."},
         "level": {"type": "string", "enum": ["tip", "note", "blocker"], "description": "OPTIONAL emphasis: tip for helpful context, note for one clear move, blocker only for a time-sensitive deadline or blocked deal."},
         "buttonLabel": {"type": "string", "description": "OPTIONAL primary action label. Include only when an immediate action can be safely represented as a first-person message."},
         "actionMsg": {"type": "string", "description": "OPTIONAL first-person message sent when the primary action is clicked. Include only with buttonLabel."}
@@ -387,7 +393,7 @@ Rules:
     },
     "sources": {
       "type": "array",
-      "description": "REQUIRED. Salesforce records or connected evidence sources actually read. Rendered in a collapsed Salesforce Sources (N) footer. Use scalar labels and put record URLs only in url fields.",
+      "description": "REQUIRED. Salesforce records or connected evidence sources actually read. Rendered in a collapsed Salesforce Sources (N) footer. Use scalar labels and put record URLs only in url fields. Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
       "items": {
         "type": "object",
         "additionalProperties": false,

@@ -17,8 +17,15 @@ description: "Answer questions about expansion whitespace, scoped to what was as
 - **Use plain language.** Choose terms any reader understands on first read, with no domain knowledge or cultural context required. Avoid jargon and colloquialisms, and make labels signal what follows. Test: would a reader unfamiliar with the idiom understand the term and know what content to expect? Use "No engagement", not "went dark" or "ghosted".
 - **Reproduce Salesforce terminology exactly.** Use the field labels, object names, and stage values the data returns; do not paraphrase them. Spell out acronyms on first use unless the term is an industry framework (for example, MEDDIC).
 - **Empty `MINE` scope → fail fast, then ask which scope.** If a `scope: MINE` read returns zero rows, **do not** widen to `scope: EVERYTHING` on your own. Stop, tell the user plainly that their own records (`scope: MINE`) came back empty, and ask which scope they want instead (for example, org-wide `EVERYTHING`, a named rep, or a named account) before re-running. Never invent records, and never silently fall back to org-wide.
-- **ONLY use the local instructions in this skill file, ONLY call MCP tools mentioned in the skill file and NEVER call an API or endpoint not written in this skill file.** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
+- **While following this skill, don't call `discover` or `describe`, and don't call any API or endpoint not written here. This file already has every query and widget reference you need. (Outside this skill, they're available as normal.)** Every Salesforce URL you need is in the skill. Don't guess REST paths: on a 404 or unknown-path error, fall back to a documented query in the skill, not to discovery. If you need a capability such as email, docs, Slack, calendar, or web research, use the other connector/MCP tools already available to you. Endpoint guessing and discovery add needless round-trips. Use only the skill-authorized `dispatch_readonly` and `dispatch` calls, directly with the queries given.
 <!-- /global-rules-bootstrap -->
+<!-- response-formatting -->
+## Response formatting
+
+- **Number formatting:** Format numbers for readability across the entire response, including values retrieved directly from Salesforce fields. Abbreviate large numbers with a suffix for their scale: K (thousand), M (million), B (billion), T (trillion), and the next suffix up for anything larger, never leaving a big number unabbreviated or spelling it out in full (e.g., $120K, $1.25M, $2.4B, $1.3T), and round percentages to whole numbers unless decimals are required for meaningful comparison.
+- **Empty table cells (structured data tables only):** keep empty states terse and never explain them inside a table cell.
+  - AI-generated cells: write "Not enough data" when the returned data cannot support a grounded answer (for example, a Suggested Action cell when no recommendation can be supported).
+  - Cells filled directly from CRM fields: leave the cell blank when the source field was queried and confirmed empty or null. Keep valid values such as 0.
 # Goal:
 Answer what the user asked about expansion whitespace (product coverage across their accounts, open white space to pitch, or ranked plays) in one pass. **Read only what the question needs** and present only that: a broad sweep ("where's my expansion whitespace this quarter?") reads and shows the whole book; a specific ask ("what white space does Orion Manufacturing have?", "which of my accounts own Marketing Cloud?") reads and shows only that.
 
@@ -29,7 +36,7 @@ Answer what the user asked about expansion whitespace (product coverage across t
 
 # Expansion Whitespace
 
-Resolve account → ground → read → map whitespace → output. Product catalog is external knowledge — ask once.
+Resolve account → ground → read → extract products → map whitespace → output. Product catalog derived from OpportunityLineItems — limited to top 5-7 by revenue.
 
 ## 1. Resolve the account
 
@@ -113,11 +120,26 @@ Run this only when the ask needs white space or plays; a coverage or direct owne
 
 Use whatever email/doc/Slack search tools are available. If none present, skip silently (SF-only is fine). Cite source + date for anything you use. **Prioritize evidence from last 90 days for recency/relevance.**
 
+## 3.5. Extract product catalog
+
+From the OpportunityLineItems fetched in steps 3 (Dispatch B and Dispatch C), extract and rank products:
+
+1. **Collect all Product2.Name values** from won opportunities (Dispatch B) and open/lost opportunities (Dispatch C if using HXL widgets)
+2. **Aggregate by product name**: For each unique product, calculate:
+   - Total revenue (sum of all TotalPrice values)
+   - Frequency (count of OpportunityLineItems)
+3. **Rank products** by: (1) total revenue DESC, (2) frequency DESC
+4. **Take top 5-7 products only** to ensure mobile compatibility
+5. **Fallback**: If fewer than 3 products with line items, parse `Opportunity.Name` fields for product keywords (Sales Cloud, Service, Marketing Cloud, Data Cloud, Agentforce, Revenue, Commerce, etc.)
+6. **Normalize names**: Strip common prefixes ("Salesforce ", "SFDC ") to get short display names
+
+Use this extracted, limited product list for the coverage matrix and whitespace analysis.
+
 ## 4. Map whitespace
 
 Map and rank only what the prompt needs: a coverage ask needs the cell states above, not the dimension grid, ranking or plays.
 
-**Product catalog (external):** ask user for the product/SKU list once — never invent. Build owned-vs-possible grid:
+**Product catalog (derived):** Use the top 5-7 products extracted in step 3.5. Build owned-vs-possible grid:
 
 | Dimension | Owned today | Whitespace | Evidence |
 |---|---|---|---|
@@ -154,7 +176,7 @@ When the data is assembled, call `display_widget`; a single one-line "Displaying
 
 ### Self-verification (before calling display_widget)
 
-- [ ] `widgetDefinition` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
+- [ ] `props` is passed as a native JSON object — not a quoted string, not a code block pasted as text. If the value starts with `"{"`, it is wrong.
 - [ ] Every populated row contains Play, Target, Evidence (`source · date — fact`), and Next step.
 - [ ] The no-evidence state has an empty row array and the exact no-play callout.
 
@@ -167,17 +189,16 @@ When the data is assembled, call `display_widget`; a single one-line "Displaying
 The layout is built into the renderer and registered by name — you send **only the widget name and its data**. Call `display_widget` once:
 
 ```
-display_widget({ resourceType: "dynamic", widgetDefinition: { widget: "expansion-whitespace", data: <object matching the schema below>, renderer: { body: [] } } })
+display_widget({ resourceType: "salesforce_widget", widget_resource_uri: "ui://widget/standard/expansion-whitespace", props: <object matching the schema below> })
 ```
 
-- `renderer: { body: [] }` is a required placeholder — send it exactly as written; the renderer fills it in.
 - **Send data only; never author presentation** (colours, pills, icons, HTML, emoji, layout keys, `{!…}`/`{{…}}`): the renderer owns the look and shows or hides each block from the keys you send. Keys outside the schema are rejected.
-- **CRITICAL — `widgetDefinition` and `data` must be nested JSON objects, NOT strings.** ❌ WRONG: `widgetDefinition: "{\"widget\":...}"`. ✅ RIGHT: `widgetDefinition: {"widget": "expansion-whitespace", "data": {...}, "renderer": {"body": []}}`. If you hold a JSON string, `JSON.parse` it first.
+- **CRITICAL — `props` must be a nested JSON object, NOT a string.** ❌ WRONG: `props: "{\"title\":...}"`. ✅ RIGHT: `props: {"title": ...}`. If you hold a JSON string, `JSON.parse` it first.
 - When `display_widget` is available the widget is the output; produce the section 7 text only as the fallback when the tool is unavailable (e.g. a terminal).
 
 ### What to send
 
-Follow the block order and the per-block inclusion rules in the `data` schema below (the root description and each property's `description`).
+Follow the block order and the per-block inclusion rules in the `props` schema below (the root description and each property's `description`).
 
 Rules:
 - **Language:** when the user writes in English, omit `labels`. When they write in another language, send `labels` with EVERY key translated (headings in upper case) and write every free-text field (`title`, `answer`, `whyNow`, `actionMsg`, `note`, ...) in that language. Never join translated text with English fragments: each phrase is written whole, because word order differs.
@@ -188,7 +209,7 @@ The schema marks only `title`, `answer` and `sources` as required. **Every other
 
 | The prompt is… | Send |
 |---|---|
-| Broad ("Where's my expansion whitespace this quarter?", "expansion whitespace", "where can I expand?") | `title` + `answer` (bullets) + `coverage` + `whitespace` + one tail (`callout` or `nextStep`) + `sources` |
+| Broad ("Where's my expansion whitespace this quarter?", "expansion whitespace", "where can I expand?") | `title` + `answer` (bullets) + `coverage` + `whitespace` + one tail (`callout` or `suggestedAction`) + `sources` |
 | Specific, one account ("What white space does Orion Manufacturing have?") | `title` + `answer` (paragraph) + `whitespace` only + `sources` |
 | Specific, coverage ("Which of my accounts own Marketing Cloud?") | `title` + `answer` (paragraph) + `coverage` only (just the products asked about) + `sources` |
 | Direct ("Does Summit Health Partners own Data Cloud?") | `title` + `answer` (paragraph) + `sources` — no card, no tail |
@@ -198,22 +219,22 @@ Rules:
 - **Scope the `answer` too:** answer only what was asked; do not restate the cards below it.
 - **`coverage`:** `products` are the columns, `accounts` the rows, and `cells` lists only the non-empty pairs: `x` is exactly one entry of `products`, `y` exactly one entry of `accounts`, and a pair you leave out renders as empty. Cell `state` follows the Dispatch C rules in step 3: `purchased` (closed-won product), `inPlay` (open opportunity), `lost` (Closed Lost), `whitespace` (gap worth pitching). `label` is the display-ready amount ("$220K") on `purchased` and `inPlay` cells only; omit it for `whitespace` (dashes) and `lost` (the Closed Lost legend text).
 - **`whitespace`:** a row only for a gap that meets step 4's evidence rule (a stakeholder, transcript or org-structure signal); warmest first; `actionMsg` is a first-person request. Never a product the account already owns or is pursuing.
-- **Tail fork:** `callout` when one move is time-sensitive and the user can act on it (one button, a first-person `actionMsg`); otherwise a `nextStep` line, which is the normal choice for white space; if nothing applies, neither. Never both (if both are sent only the callout renders). A direct or coverage-only ask usually gets no tail.
+- **Tail fork:** `callout` when one move is time-sensitive and the user can act on it (one button, a first-person `actionMsg`); otherwise a `suggestedAction` line, which is the normal choice for white space; if nothing applies, neither. Never both (if both are sent only the callout renders). A direct or coverage-only ask usually gets no tail.
 - **Sources:** a record is `https://<myDomain>/lightning/r/<SObjectType>/<Id>/view`; the book is `https://<myDomain>/lightning/o/Account/list`. Omit `url` if you have no Id.
 - Format every value as a ready-to-display string (currency such as "$220K", dates). Names are plain strings, never objects.
-- Before calling: `data` has no `{!…}`/`{{…}}`, no keys outside the schema, and every optional key you included (`labels`, `coverage`, `whitespace`, `callout`, `nextStep`) is justified by the prompt.
+- Before calling: `props` has no `{!…}`/`{{…}}`, no keys outside the schema, and every optional key you included (`labels`, `coverage`, `whitespace`, `callout`, `suggestedAction`) is justified by the prompt.
 
-#### Worked examples (the `data` object only)
+#### Worked examples (the `props` object only)
 
-**Specific — "What white space does Orion Manufacturing have?"** (a paragraph answer, only the white space card, a `nextStep` tail):
+**Specific — "What white space does Orion Manufacturing have?"** (a paragraph answer, only the white space card, a `suggestedAction` tail):
 
 ```json
 {
   "title": "Orion Manufacturing has open white space in Data Cloud and Tableau.",
   "answer": "Orion owns **Sales Cloud ($160K)** and nothing else. The one gap I'd pitch is **Data Cloud + Tableau**: a CIO discussion is open but there is no formal opportunity yet.",
   "whitespace": {"rows": [{"account": "Orion Manufacturing", "product": "Data Cloud + Tableau", "whyNow": "Discussion open with the CIO; no formal opportunity yet. Q4 target.", "actionMsg": "Create an opportunity for Data Cloud + Tableau on Orion Manufacturing."}]},
-  "nextStep": {"lead": "Open the Data Cloud conversation with the CIO.", "text": "Orion is your warmest white space with a Q4 target. Want me to draft the pitch?"},
-  "sources": [{"label": "Account: Orion Manufacturing"}, {"label": "Product catalog · 6 clouds"}]
+  "suggestedAction": {"lead": "Open the Data Cloud conversation with the CIO.", "text": "Orion is your warmest white space with a Q4 target. Want me to draft the pitch?"},
+  "sources": [{"label": "Account: Orion Manufacturing"}, {"label": "Opportunities and products"}]
 }
 ```
 
@@ -247,12 +268,12 @@ Rules:
 ```
 
 
-`data` schema (JSON Schema). Only `title`, `answer` and `sources` are required; include any other key only when the prompt asks for it or it clearly speeds up the answer (see "Scope the blocks to the prompt"):
+`props` schema (JSON Schema). Only `title`, `answer` and `sources` are required; include any other key only when the prompt asks for it or it clearly speeds up the answer (see "Scope the blocks to the prompt"):
 
 ```json
 {
   "type": "object",
-  "description": "Block order: title, answer, then the optional cards (coverage, whitespace), then at most one tail (callout OR nextStep), then sources. Only title, answer and sources are required. Which optional cards to include: see the scope table in the skill instructions. Omit a key and its block is not shown: never send empty arrays, empty strings, placeholders or 'N/A', and never a card the prompt did not ask for. A direct question ('does Summit Health own Data Cloud?') usually gets no tail. Format every value as a ready-to-display string (currency, dates); names are plain strings, never objects.",
+  "description": "Block order: title, answer, then the optional cards (coverage, whitespace), then at most one tail (callout OR suggestedAction), then sources. Only title, answer and sources are required. Which optional cards to include: see the scope table in the skill instructions. Omit a key and its block is not shown: never send empty arrays, empty strings, placeholders or 'N/A', and never a card the prompt did not ask for. A direct question ('does Summit Health own Data Cloud?') usually gets no tail. Format every value as a ready-to-display string (currency, dates); names are plain strings, never objects.",
   "required": [
     "title",
     "answer",
@@ -288,10 +309,10 @@ Rules:
           "default": "Why now",
           "description": "White space table header. English: 'Why now'."
         },
-        "colNextSteps": {
+        "colSuggestedAction": {
           "type": "string",
-          "default": "Next Steps",
-          "description": "White space table header. English: 'Next Steps'."
+          "default": "Suggested Action",
+          "description": "White space table header. English: 'Suggested Action'."
         },
         "createOpportunity": {
           "type": "string",
@@ -349,7 +370,7 @@ Rules:
       "properties": {
         "products": {
           "type": "array",
-          "description": "Column headers, one short name per cloud, in display order (e.g. ['Sales Cloud','Service','Marketing','Data Cloud','Agentforce','Revenue']). Shown uppercase. Each cell's x must be one of these, spelled identically.",
+          "description": "Column headers, one short name per cloud, in display order (e.g. ['Sales Cloud','Service','Marketing','Data Cloud','Agentforce','Revenue']). **Limited to top 5-7 products by revenue to ensure mobile compatibility.** Shown uppercase. Each cell's x must be one of these, spelled identically.",
           "items": {
             "type": "string"
           }
@@ -446,7 +467,7 @@ Rules:
     },
     "callout": {
       "type": "object",
-      "description": "OPTIONAL tail, time-sensitive. A bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of nextStep, never both (if both are sent only the callout renders). Include only if one move is time-sensitive (a close date is days away) AND the user can act on it now. White space is rarely time-sensitive: prefer nextStep.",
+      "description": "OPTIONAL tail, time-sensitive. A bold first sentence followed by normal text, then ONE blue primary button. Use INSTEAD of suggestedAction, never both (if both are sent only the callout renders). Include only if one move is time-sensitive (a close date is days away) AND the user can act on it now. White space is rarely time-sensitive: prefer suggestedAction. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
       "required": [
         "lead",
         "text",
@@ -456,11 +477,11 @@ Rules:
       "properties": {
         "lead": {
           "type": "string",
-          "description": "The bold first sentence of the callout (the stake in one sentence, ending with a period, e.g. '$930K of Marketing Cloud closes within two weeks.')."
+          "description": "REQUIRED, visible (non-whitespace). The bold first sentence of the callout (the stake in one sentence, ending with a period, e.g. '$930K of Marketing Cloud closes within two weeks.')."
         },
         "text": {
           "type": "string",
-          "description": "One to three sentences: what, why now, and the move."
+          "description": "REQUIRED, visible (non-whitespace). One to three sentences: what, why now, and the move."
         },
         "buttonLabel": {
           "type": "string",
@@ -472,7 +493,7 @@ Rules:
         }
       }
     },
-    "nextStep": {
+    "suggestedAction": {
       "type": "object",
       "description": "OPTIONAL tail, not time-sensitive: a plain suggestion line with NO button. Use INSTEAD of callout, never both.",
       "required": [
@@ -492,7 +513,7 @@ Rules:
     },
     "sources": {
       "type": "array",
-      "description": "REQUIRED. Where the answer came from: the Salesforce records/lists you actually read, linked. Shown as a compact 'Salesforce · Sources (N)' toggle (the word comes from labels.sources).",
+      "description": "REQUIRED. Where the answer came from: the Salesforce records/lists you actually read, linked. Shown as a compact 'Salesforce · Sources (N)' toggle (the word comes from labels.sources). Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
       "items": {
         "type": "object",
         "required": [
