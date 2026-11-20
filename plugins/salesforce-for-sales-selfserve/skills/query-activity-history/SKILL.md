@@ -59,9 +59,10 @@ dispatch_readonly(method: "GET", url: "/services/data/v63.0/query",
          queryParams: { "q": "SELECT (SELECT ActivityDate, ActivitySubtype, ActivityType, CompletedDateTime, Description, Subject, OwnerId, Owner.Name, CreatedById, CreatedBy.Name, WhoId, Who.Name, StartDateTime, EndDateTime, LastModifiedDate FROM ActivityHistories ORDER BY ActivityDate DESC NULLS LAST, LastModifiedDate DESC LIMIT 500) FROM [objectName] WHERE Id = '[recordId]'" })
 ```
 
-- **On error `"There is an implementation restriction on ActivityHistories"`** (very large history) → retry the exact same query with `LIMIT 500` appended inside the subquery (before the closing `)`).
+- **On error `"There is an implementation restriction on ActivityHistories"`** (very large history) → report the platform restriction and stop. The query already contains `LIMIT 500`; do not append a second limit, repeat the same request, or invent an unvalidated lower bound.
 - Response is one parent record with a nested `ActivityHistories` collection. Absent/empty collection = valid "no activity", not an error.
 - Use `ActivitySubtype` for the type; `ActivityType` is often blank.
+- **Day counts:** pick one as-of date and timezone from the current host context for "today", the 12-week window, and every day count or age. If either is unavailable, show the latest absolute `ActivityDate` and omit relative-age wording.
 
 ## 4. Render → **Step R**.
 

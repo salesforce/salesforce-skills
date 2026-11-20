@@ -44,10 +44,12 @@ Ground `Opportunity`. Its fields reveal this org's custom deal signals; the fixe
 
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { objectInfos(apiNames: [\\\"Opportunity\\\"]) { fields { ApiName label } } } }\"}" })
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { objectInfos(apiNames: [\\\"Opportunity\\\"]) { fields { ApiName label } } stages: objectInfos(objectInfoInputs: [{ apiName: \\\"Opportunity\\\", recordTypeIDs: [\\\"012000000000000AAA\\\"], fieldNames: [\\\"StageName\\\"] }]) { fields { ApiName ... on PicklistField { picklistValuesByRecordTypeIDs { recordTypeID picklistValues { label value } } } } } } }\"}" })
 ```
 
 Step 1 is the authority on names — use exact strings from it, never guess. Select relevant `__c` fields (health, next-step, exec-sponsor, forecast, risk signals, etc.) as `{ value }` and keep each field's `label`. **Build an ApiName→label map now and use the `label` in ALL output** (e.g. render `Executive_Sponsor__c` as "Executive Sponsor", `Health_Score__c` as "Health Score") — never print a `__c` API name to the user.
+
+**Stage order:** `stages` lists the Stage picklist in the org's order, read from the master record type (`012000000000000AAA`). Take `kpiStageNum` from the deal's position in it (two digits, for example `04`) and `kpiStageSub` from the stages after it up to and including Closed Won (for example, "5 stages to close"). Never infer either from general sales knowledge.
 
 Every ask needs this grounding. It also tells you whether the org has a **qualification scorecard**: Opportunity fields whose label or ApiName names a qualification methodology's criteria (e.g. MEDDIC/MEDDPICC: Metrics, Economic Buyer, Decision Criteria, Decision Process, Paper Process, Identify Pain, Champion, Competition). It is a scorecard only when **at least three distinct criteria** each have their own field; select those as `<OPP_CUSTOM>`. One or two matches (e.g. a lone "Competition Notes" field) are ordinary deal fields: read them as evidence, but there is no scorecard.
 
@@ -61,7 +63,20 @@ Every ask sends this one read: the verdict, the risks and the activity all come 
 
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Opportunity(where: { Name: { like: \\\"%DEALNAME%\\\" } }, orderBy: { CloseDate: { order: DESC } }, first: 1) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } CreatedDate { value } Type { value displayValue } Probability { value } ForecastCategory { value } NextStep { value } LastActivityDate { value } <OPP_CUSTOM> Account { Name { value } } Owner { Name { value } } OpportunityContactRoles { edges { node { Role { value } IsPrimary { value } Contact { Name { value } Title { value } } } } } Tasks(first: 15, orderBy: { ActivityDate: { order: DESC } }) { edges { node { Subject { value } ActivityDate { value } Status { value } Description { value } TaskSubtype { value } } } } Events(first: 10, orderBy: { ActivityDate: { order: DESC } }) { edges { node { Subject { value } ActivityDate { value } Description { value } } } } OpportunityHistories(first: 200, orderBy: { CreatedDate: { order: DESC } }) { edges { node { CreatedDate { value } StageName { value } Amount { value displayValue } PrevAmount { value displayValue } CloseDate { value } PrevCloseDate { value } } } } } } } } } }\"}" })
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Opportunity(where: { Name: { like: \\\"%DEALNAME%\\\" } }, orderBy: { CloseDate: { order: DESC } }, first: 1) { totalCount edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } CreatedDate { value } Type { value displayValue } Probability { value } ForecastCategory { value } NextStep { value } LastActivityDate { value } <OPP_CUSTOM> Account { Name { value } } Owner { Name { value } } OpportunityContactRoles { edges { node { Role { value } IsPrimary { value } Contact { Name { value } Title { value } } } } } Tasks(first: 15, orderBy: { ActivityDate: { order: DESC } }) { edges { node { Subject { value } ActivityDate { value } Status { value } Description { value } TaskSubtype { value } } } } Events(first: 10, orderBy: { ActivityDate: { order: DESC } }) { edges { node { Subject { value } ActivityDate { value } Description { value } } } } OpportunityHistories(first: 200, orderBy: { CreatedDate: { order: DESC } }) { edges { node { CreatedDate { value } StageName { value } Amount { value displayValue } PrevAmount { value displayValue } CloseDate { value } PrevCloseDate { value } } } } } } } } } }\"}" })
+```
+
+**Multiple matches:** `first: 1` returns one deal even when `totalCount` shows that several matched, and the latest close date can belong to a different deal. When `totalCount` is above 1, run the candidate read below before using the result. If `totalCount` is above 10, its list would be cut off, so first narrow `%DEALNAME%` with the account or other words from the request (for example `%Acme%Renewal%`), never with a name from a returned deal. Then:
+- if the list is empty or still cut off (`totalCount` above the rows returned), or narrowing was needed and the request had nothing to narrow with, say how many deals matched and ask for the full deal name or the account instead of listing a partial set;
+- if exactly one candidate's `Name` equals the deal name the user gave, take it;
+- otherwise, if exactly one candidate is open, take it;
+- otherwise list the candidates (Account · Name · Stage · close) and ask which.
+
+Keep the step 2 result when the chosen deal is the one it returned; otherwise rerun the full template with `where: { Id: { eq: "<ID>" } }`.
+
+```
+dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Opportunity(where: { Name: { like: \\\"%DEALNAME%\\\" } }, orderBy: { CloseDate: { order: DESC } }, first: 10) { totalCount edges { node { Id Name { value } StageName { value displayValue } CloseDate { value } IsClosed { value } Account { Name { value } } } } } } } }\"}" })
 ```
 
 Empty `edges` → use a broad resolver selecting only `Id Name { value }`, choose the target, then rerun the full template with `where: { Id: { eq: "<ID>" } }`; never run the rich template across multiple matches. The `orderBy: { CloseDate: { order: DESC } }` makes `first: 1` favor the active/current deal on a multi-match name (not an arbitrary stale closed-won). `Task.Description`/`TaskSubtype` carry the "what happened" detail behind each timeline row. The `Tasks`/`Events` children carry the activity timeline — read them as **three separate states** (see next paragraph); a scalar `LastActivityDate` alone can't distinguish an open task or a future meeting from a completed touch.

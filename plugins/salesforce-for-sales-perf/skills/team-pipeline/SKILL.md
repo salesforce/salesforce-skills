@@ -1,6 +1,6 @@
 ---
 name: team-pipeline
-description: "Answer questions about a manager’s team pipeline, scoped to what was asked: rep attainment, stage distribution, or opportunities needing attention and coaching. Use for a team pipeline review or pipeline meeting. One rep: pipeline-review."
+description: "Answer questions about a manager’s team pipeline, scoped to what was asked: rep attainment, stage distribution, or opportunities needing attention and coaching. Use for a manager's team, two or more named reps, a named rep list, or a multi-rep pipeline comparison. Exactly one rep or one owner's book: pipeline-review."
 ---
 <!-- global-rules-bootstrap -->
 
@@ -115,6 +115,8 @@ dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
 
 Map each row's `OwnerId` → rep name using the User list from step 2 — no extra lookup needed.
 
+**Team-wide sample scope:** Let `R` be the number of returned detail rows and `C` be the sum of `Id.count.value` across the matching in-period forecast-category aggregate rows. Only when `R == C` may the detail rows be called complete for exactly the selected owners and period. Otherwise describe every row-derived deal, Account, stage, activity, risk, hygiene overlap, Monday question, average, and swing claim as "among the team-wide top R by Amount"; never generalize it per rep or to the complete in-period/full-open book. The aggregate remains authoritative for complete in-period count, Amount, Commit, Best Case, and Weighted totals.
+
 **If a GraphQL `aggregate` query errors** (some orgs throw grouping a picklist/Id field), don't retry the same shape — fall to the SOQL `GROUP BY` equivalent, which groups cleanly. **For the combined sample request specifically**, the grouped `aggregate` sibling (`OwnerId`/`ForecastCategory`) can take the whole request down with it — re-fire the sample as the detail `query` alone (drop the `aggregate` block) to keep the named deals, and get the per-rep rollup from this SOQL:
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v63.0/query",
@@ -140,10 +142,10 @@ Fire these in the same turn as the rollup/closed-won/sample queries above. If `a
 
 **Perf guardrail:** Do NOT fire per-opp SF follow-ups (`EmailMessage`, `Task`, `OpportunityFieldHistory`) — the rollups + sample above already have the data. Email/doc/Slack searches for flagged accounts only (step 3b).
 
-## 3b. Evidence (run IN PARALLEL with step 3 — same turn)
-Skip evidence for attainment-only, stage-only and direct fact asks. For attention/coaching, search only already-known flagged account names; if the sample has not returned, wait for it. Never guess account names to co-issue searches. This sequencing overrides the parallel instruction below when account names are not yet known. Tableau still completes its query waves before evidence.
+## 3b. Evidence (run after step 3 returns)
+Skip evidence for attainment-only, stage-only and direct fact asks. For attention/coaching, run this step after step 3 returns and search only the flagged account names it surfaced. Never guess account names. Tableau still completes its query waves before evidence.
 
-**Issue step 3 and step 3b as tool calls in a single turn.** Fire email/doc/Slack searches for top 3–5 at-risk accounts only (keyed on account name, not the SF result):
+**Run step 3b after step 3 returns.** Then fire email/doc/Slack searches for top 3–5 at-risk accounts only, as tool calls in a single turn:
 - **slack**: internal mentions in team channel (if configured) → reps already flagging something
 
 Use whatever Slack search tools are available. If none present, skip silently. Cite source + date for anything you use.
