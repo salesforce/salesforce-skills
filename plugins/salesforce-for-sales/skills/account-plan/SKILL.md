@@ -391,118 +391,7 @@ The following is a compact **shape example**, not a substitute for the live V2 r
     "labels": {
       "type": "object",
       "description": "OPTIONAL. Fixed widget labels. Omit for English; for another language send every key translated. Missing or blank keys use their English defaults.",
-      "properties": {
-        "accountMetrics": {
-          "type": "string",
-          "default": "ACCOUNT METRICS",
-          "description": "Metrics-card heading."
-        },
-        "openOpportunities": {
-          "type": "string",
-          "default": "Open opportunities",
-          "description": "Opportunity-stage chart series label."
-        },
-        "revenue": {
-          "type": "string",
-          "default": "REVENUE",
-          "description": "Revenue comparison label."
-        },
-        "winRate": {
-          "type": "string",
-          "default": "OPPORTUNITY WIN RATE",
-          "description": "Win-rate comparison label."
-        },
-        "objectives": {
-          "type": "string",
-          "default": "OBJECTIVES",
-          "description": "Objectives-card heading."
-        },
-        "colStatus": {
-          "type": "string",
-          "default": "Status",
-          "description": "Objectives table header."
-        },
-        "colObjective": {
-          "type": "string",
-          "default": "Objective",
-          "description": "Objectives table header."
-        },
-        "colProgress": {
-          "type": "string",
-          "default": "Progress",
-          "description": "Objectives table header."
-        },
-        "colDue": {
-          "type": "string",
-          "default": "Due Date",
-          "description": "Objectives table header."
-        },
-         "products": {
-           "type": "string",
-           "default": "PRODUCTS & WHITESPACE",
-           "description": "Products-card heading."
-         },
-        "purchased": {
-          "type": "string",
-          "default": "PURCHASED",
-          "description": "Owned-products row label."
-        },
-        "opportunities": {
-          "type": "string",
-          "default": "OPPORTUNITIES",
-          "description": "In-flight products row label."
-        },
-        "whitespace": {
-          "type": "string",
-          "default": "WHITESPACE",
-          "description": "Expansion whitespace row label."
-        },
-        "swot": {
-          "type": "string",
-          "default": "SWOT ANALYSIS",
-          "description": "SWOT-card heading."
-        },
-        "strengths": {
-          "type": "string",
-          "default": "Strengths",
-          "description": "SWOT quadrant label."
-        },
-        "weaknesses": {
-          "type": "string",
-          "default": "Weaknesses",
-          "description": "SWOT quadrant label."
-        },
-        "opportunitiesSwot": {
-          "type": "string",
-          "default": "Opportunities",
-          "description": "SWOT quadrant label."
-        },
-        "threats": {
-          "type": "string",
-          "default": "Threats",
-          "description": "SWOT quadrant label."
-        },
-        "customerLandscape": {
-          "type": "string",
-          "default": "Customer landscape",
-          "description": "Customer-landscape heading."
-        },
-        "competitiveLandscape": {
-          "type": "string",
-          "default": "Competitive landscape",
-          "description": "Competitive-landscape heading."
-        },
-        "expansionThemes": {
-          "type": "string",
-          "default": "GROWTH AREAS",
-          "description": "Growth-areas heading (static). In another language, send the translation of \"Growth areas\"."
-        },
-        "sources": {
-          "type": "string",
-          "default": "Sources",
-          "description": "Sources-toggle label; the renderer appends the count."
-        }
-      }
+      "properties": {"accountMetrics": {"type": "string", "default": "ACCOUNT METRICS", "description": "Metrics-card heading."}, "openOpportunities": {"type": "string", "default": "Open opportunities", "description": "Opportunity-stage chart series label."}, "revenue": {"type": "string", "default": "REVENUE", "description": "Revenue comparison label."}, "winRate": {"type": "string", "default": "OPPORTUNITY WIN RATE", "description": "Win-rate comparison label."}, "objectives": {"type": "string", "default": "OBJECTIVES", "description": "Objectives-card heading."}, "colStatus": {"type": "string", "default": "Status", "description": "Objectives table header."}, "colObjective": {"type": "string", "default": "Objective", "description": "Objectives table header."}, "colProgress": {"type": "string", "default": "Progress", "description": "Objectives table header."}, "colDue": {"type": "string", "default": "Due Date", "description": "Objectives table header."}, "products": {"type": "string", "default": "PRODUCTS & WHITESPACE", "description": "Products-card heading."}, "purchased": {"type": "string", "default": "PURCHASED", "description": "Owned-products row label."}, "opportunities": {"type": "string", "default": "OPPORTUNITIES", "description": "In-flight products row label."}, "whitespace": {"type": "string", "default": "WHITESPACE", "description": "Expansion whitespace row label."}, "swot": {"type": "string", "default": "SWOT ANALYSIS", "description": "SWOT-card heading."}, "strengths": {"type": "string", "default": "Strengths", "description": "SWOT quadrant label."}, "weaknesses": {"type": "string", "default": "Weaknesses", "description": "SWOT quadrant label."}, "opportunitiesSwot": {"type": "string", "default": "Opportunities", "description": "SWOT quadrant label."}, "threats": {"type": "string", "default": "Threats", "description": "SWOT quadrant label."}, "customerLandscape": {"type": "string", "default": "Customer landscape", "description": "Customer-landscape heading."}, "competitiveLandscape": {"type": "string", "default": "Competitive landscape", "description": "Competitive-landscape heading."}, "expansionThemes": {"type": "string", "default": "GROWTH AREAS", "description": "Growth-areas heading (static). In another language, send the translation of \"Growth areas\"."}, "sources": {"type": "string", "default": "Sources", "description": "Sources-toggle label; the renderer appends the count."}}
     },
     "title": {
       "type": "string",
@@ -515,197 +404,23 @@ The following is a compact **shape example**, not a substitute for the live V2 r
     "accountMetrics": {
       "type": "object",
       "description": "OPTIONAL. Include ONLY for a broad account-plan request when actual opportunity-stage counts or period comparisons were read. Omit when the data is not grounded.",
-      "properties": {
-        "stages": {
-          "type": "array",
-          "description": "Open-opportunity stages as split-meter segments, ordered by count descending. Each item is {value, label, detail}: value and label are the count (value numeric, label the count as a string shown inside the bar), detail is the stage name shown in the legend. The bar colors the segments with a dark-to-light blue scale in this order (largest count darkest), so order carries the color — no per-segment color field is needed. Never empty when accountMetrics is included.",
-          "items": {
-            "type": "object",
-            "required": [
-              "value",
-              "label",
-              "detail"
-            ],
-            "properties": {
-              "value": {
-                "type": "number",
-                "description": "Opportunity count for this stage (drives segment width)."
-              },
-              "label": {
-                "type": "string",
-                "description": "The count as a string, printed inside the bar segment."
-              },
-              "detail": {
-                "type": "string",
-                "description": "Stage name, shown in the legend."
-              }
-            }
-          }
-        },
-        "revenue": {
-          "type": "object",
-          "description": "Optional revenue comparison. Include only with both grounded periods.",
-          "properties": {
-            "previous": {
-              "type": "string"
-            },
-            "current": {
-              "type": "string"
-            },
-            "previousLabel": {
-              "type": "string"
-            },
-            "currentLabel": {
-              "type": "string"
-            }
-          }
-        },
-        "winRate": {
-          "type": "object",
-          "description": "Optional win-rate comparison. Include only with both grounded periods.",
-          "properties": {
-            "previous": {
-              "type": "string"
-            },
-            "current": {
-              "type": "string"
-            },
-            "previousLabel": {
-              "type": "string"
-            },
-            "currentLabel": {
-              "type": "string"
-            }
-          }
-        }
-      }
+      "properties": {"stages": {"type": "array", "description": "Open-opportunity stages as split-meter segments, ordered by count descending. Each item is {value, label, detail}: value and label are the count (value numeric, label the count as a string shown inside the bar), detail is the stage name shown in the legend. The bar colors the segments with a dark-to-light blue scale in this order (largest count darkest), so order carries the color — no per-segment color field is needed. Never empty when accountMetrics is included.", "items": {"type": "object", "required": ["value", "label", "detail"], "properties": {"value": {"type": "number", "description": "Opportunity count for this stage (drives segment width)."}, "label": {"type": "string", "description": "The count as a string, printed inside the bar segment."}, "detail": {"type": "string", "description": "Stage name, shown in the legend."}}}}, "revenue": {"type": "object", "description": "Optional revenue comparison. Include only with both grounded periods.", "properties": {"previous": {"type": "string"}, "current": {"type": "string"}, "previousLabel": {"type": "string"}, "currentLabel": {"type": "string"}}}, "winRate": {"type": "object", "description": "Optional win-rate comparison. Include only with both grounded periods.", "properties": {"previous": {"type": "string"}, "current": {"type": "string"}, "previousLabel": {"type": "string"}, "currentLabel": {"type": "string"}}}}
     },
     "objectives": {
       "type": "object",
       "description": "OPTIONAL. Include ONLY when structured account-plan objectives, progress, and due dates are grounded.",
-      "required": [
-        "items"
-      ],
-      "properties": {
-        "items": {
-          "type": "array",
-          "description": "One row per objective; omit objectives instead of sending an empty array.",
-          "items": {
-            "type": "object",
-            "required": [
-              "status",
-              "objective",
-              "progress",
-              "due"
-            ],
-            "properties": {
-              "status": {
-                "type": "string"
-              },
-              "objective": {
-                "type": "string"
-              },
-              "detail": {
-                "type": "string"
-              },
-              "progress": {
-                "type": "number",
-                "description": "Raw 0-100 progress for the databar."
-              },
-              "progressLabel": {
-                "type": "string"
-              },
-              "due": {
-                "type": "string",
-                "description": "Display-ready due date."
-              }
-            }
-          }
-        }
-      }
+      "required": ["items"],
+      "properties": {"items": {"type": "array", "description": "One row per objective; omit objectives instead of sending an empty array.", "items": {"type": "object", "required": ["status", "objective", "progress", "due"], "properties": {"status": {"type": "string"}, "objective": {"type": "string"}, "detail": {"type": "string"}, "progress": {"type": "number", "description": "Raw 0-100 progress for the databar."}, "progressLabel": {"type": "string"}, "due": {"type": "string", "description": "Display-ready due date."}}}}}
     },
     "products": {
       "type": "object",
       "description": "OPTIONAL. Include ONLY when purchased products, in-flight opportunities, or whitespace are grounded.",
-       "properties": {
-         "purchased": {
-           "type": "array",
-           "items": {
-             "type": "string"
-           }
-         },
-         "opportunities": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": [
-              "label",
-              "url"
-            ],
-            "properties": {
-              "label": {
-                "type": "string"
-              },
-              "url": {
-                "type": "string"
-              }
-            }
-          }
-        },
-        "whitespace": {
-          "type": "array",
-          "description": "Whitespace / expansion product names as plain strings, rendered as static badges (aligned with account-context). No per-item action.",
-          "items": {
-            "type": "string"
-          }
-        }
-      }
+      "properties": {"purchased": {"type": "array", "items": {"type": "string"}}, "opportunities": {"type": "array", "items": {"type": "object", "required": ["label", "url"], "properties": {"label": {"type": "string"}, "url": {"type": "string"}}}}, "whitespace": {"type": "array", "description": "Whitespace / expansion product names as plain strings, rendered as static badges (aligned with account-context). No per-item action.", "items": {"type": "string"}}}
     },
     "swot": {
       "type": "object",
       "description": "OPTIONAL. Include ONLY when account-plan relationship and competitive fields support a SWOT view. Four named quadrants, each with a markdown body; tone is fixed by position (strengths=success, weaknesses=warning, opportunities=info, threats=error).",
-      "properties": {
-        "strengths": {
-          "type": "object",
-          "description": "Strengths quadrant. Omit (or omit body) to hide this cell; its row partner then fills the row.",
-          "properties": {
-            "body": {
-              "type": "string",
-              "description": "Strengths as a markdown bullet list."
-            }
-          }
-        },
-        "weaknesses": {
-          "type": "object",
-          "description": "Weaknesses quadrant. Omit (or omit body) to hide this cell; its row partner then fills the row.",
-          "properties": {
-            "body": {
-              "type": "string",
-              "description": "Weaknesses as a markdown bullet list."
-            }
-          }
-        },
-        "opportunities": {
-          "type": "object",
-          "description": "Opportunities quadrant. Omit (or omit body) to hide this cell; its row partner then fills the row.",
-          "properties": {
-            "body": {
-              "type": "string",
-              "description": "Opportunities as a markdown bullet list."
-            }
-          }
-        },
-        "threats": {
-          "type": "object",
-          "description": "Threats quadrant. Omit (or omit body) to hide this cell; its row partner then fills the row.",
-          "properties": {
-            "body": {
-              "type": "string",
-              "description": "Threats as a markdown bullet list."
-            }
-          }
-        }
-      }
+      "properties": {"strengths": {"type": "object", "description": "Strengths quadrant. Omit (or omit body) to hide this cell; its row partner then fills the row.", "properties": {"body": {"type": "string", "description": "Strengths as a markdown bullet list."}}}, "weaknesses": {"type": "object", "description": "Weaknesses quadrant. Omit (or omit body) to hide this cell; its row partner then fills the row.", "properties": {"body": {"type": "string", "description": "Weaknesses as a markdown bullet list."}}}, "opportunities": {"type": "object", "description": "Opportunities quadrant. Omit (or omit body) to hide this cell; its row partner then fills the row.", "properties": {"body": {"type": "string", "description": "Opportunities as a markdown bullet list."}}}, "threats": {"type": "object", "description": "Threats quadrant. Omit (or omit body) to hide this cell; its row partner then fills the row.", "properties": {"body": {"type": "string", "description": "Threats as a markdown bullet list."}}}}
     },
     "customerLandscape": {
       "type": "string",
@@ -718,100 +433,25 @@ The following is a compact **shape example**, not a substitute for the live V2 r
     "expansionThemes": {
       "type": "object",
       "description": "OPTIONAL. Include ONLY when a grounded expansion theme has a clear account-specific reason. Omit instead of sending an empty array.",
-      "required": [
-        "items"
-      ],
-      "properties": {
-        "items": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": [
-              "title"
-            ],
-            "properties": {
-              "title": {
-                "type": "string"
-              },
-              "amount": {
-                "type": "string"
-              },
-              "detail": {
-                "type": "string"
-              }
-             }
-           }
-         }
-       }
-     },
-     "callout": {
+      "required": ["items"],
+      "properties": {"items": {"type": "array", "items": {"type": "object", "required": ["title"], "properties": {"title": {"type": "string"}, "amount": {"type": "string"}, "detail": {"type": "string"}}}}}
+    },
+    "callout": {
       "type": "object",
       "description": "OPTIONAL tail for a time-sensitive or blocked move. Use INSTEAD of nextStep, never both. Send only when an urgent action is grounded. Requires BOTH a visible one-sentence lead and visible explanatory text (non-whitespace); if either is unavailable, omit the ENTIRE callout object (never send blank or whitespace-only lead/text).",
-      "required": [
-        "lead",
-        "text",
-        "buttonLabel",
-        "actionMsg",
-        "level"
-      ],
-      "properties": {
-        "lead": {
-          "type": "string",
-          "description": "REQUIRED, visible (non-whitespace)."
-        },
-        "text": {
-          "type": "string",
-          "description": "REQUIRED, visible (non-whitespace)."
-        },
-        "buttonLabel": {
-          "type": "string"
-        },
-        "actionMsg": {
-          "type": "string"
-        },
-        "level": {
-          "type": "string",
-          "enum": [
-            "tip",
-            "note",
-            "blocker"
-          ],
-          "description": "Lowest fitting recommendation emphasis level."
-        }
-      }
+      "required": ["lead", "text", "buttonLabel", "actionMsg", "level"],
+      "properties": {"lead": {"type": "string", "description": "REQUIRED, visible (non-whitespace)."}, "text": {"type": "string", "description": "REQUIRED, visible (non-whitespace)."}, "buttonLabel": {"type": "string"}, "actionMsg": {"type": "string"}, "level": {"type": "string", "enum": ["tip", "note", "blocker"], "description": "Lowest fitting recommendation emphasis level."}}
     },
     "nextStep": {
       "type": "object",
       "description": "OPTIONAL tail for a useful but non-time-sensitive move. Use INSTEAD of callout, never both.",
-      "required": [
-        "text"
-      ],
-      "properties": {
-        "lead": {
-          "type": "string"
-        },
-        "text": {
-          "type": "string"
-        }
-      }
+      "required": ["text"],
+      "properties": {"lead": {"type": "string"}, "text": {"type": "string"}}
     },
     "sources": {
       "type": "array",
-      "description": "REQUIRED. Salesforce records or lists actually read. Linked records use a dedicated url; unlinked sources remain plain text. Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11\u201324)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
-      "items": {
-        "type": "object",
-        "required": [
-          "label"
-        ],
-        "properties": {
-          "label": {
-            "type": "string"
-          },
-          "url": {
-            "type": "string"
-          }
-        }
-      }
+      "description": "REQUIRED. Salesforce records or lists actually read. Linked records use a dedicated url; unlinked sources remain plain text. Every source needs its record `url`. If a source has no URL of its own, label it specifically (object and record, e.g. 'Activities: Northpeak Logistics (Aug 11–24)'), never vaguely ('contacts and activity history'); leave out any source you cannot name specifically. Never add a timestamp.",
+      "items": {"type": "object", "required": ["label"], "properties": {"label": {"type": "string"}, "url": {"type": "string"}}}
     }
   }
 }

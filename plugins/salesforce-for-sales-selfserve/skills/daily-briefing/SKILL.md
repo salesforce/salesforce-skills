@@ -37,7 +37,7 @@ Answer what the user asked about their day — today's meetings, deals closing s
 
 # Daily Briefing
 
-Ground → (calendar + closing-soon + inbox, ALL in ONE turn) → match meetings to accounts (one batched turn) → flag → output. This is today's rundown, not a pipeline review — closing-soon is a small bounded set, so pull concrete rows, don't aggregate.
+Ground → (calendar + closing-soon + inbox, ALL in ONE turn) → match meetings to accounts (one batched turn) → flag → output. This is today's rundown, not a pipeline review — keep closing-soon and past-due detail rows bounded, and pair each list with a population aggregate for count and Amount totals.
 
 ## 1. Ground (hardcoded — Opportunity only; fire with the step-2 batch)
 
@@ -66,6 +66,7 @@ dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
 `scope: MINE` returns events **you own** (organize). Meetings where you're only an invitee live under `EventRelation` and may not appear here — an empty calendar usually means that or a genuinely clear day, not a failure; say which. Extract each event's external-attendee email domains, its `WhatId`, and (for an Opportunity `WhatId`) its `What.AccountId`; those are the input to step 3.
 
 **2b. Closing soon** — the rep's open opps closing in the next 14 days. A small filtered set — pull concrete rows (`first: 50`), not an aggregate.
+**2b. Closing soon** — the rep's open opps closing in the next 14 days. Keep concrete rows bounded at `first: 50` and take population count/Amount from the paired aggregate in the same request.
 
 **Date filters take a `DateInput` object, never a bare string** (`gte: \"…\"` fails `WrongType … must be an object type`). Three forms, each nested under a comparison op (`gte`/`lte`/`eq`); multiple ops on one field are AND'd automatically (no `and: [...]` wrapper):
 - **relative window** (preferred here — no client-side date math): `{ range: { next_n_days: 14 } }` / `{ range: { last_n_days: 30 } }`. Keys come in `last_n_*` / `next_n_*` / `n_*_ago` families over `days|weeks|months|quarters|years` (e.g. `last_n_months: 3`, `n_days_ago: 2`).
@@ -75,15 +76,17 @@ dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
 So "closing in the next 14 days" = `CloseDate: { gte: { literal: TODAY }, lte: { range: { next_n_days: 14 } } }`:
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Opportunity(scope: MINE, where: { IsClosed: { eq: false }, CloseDate: { gte: { literal: TODAY }, lte: { range: { next_n_days: 14 } } } }, first: 50, orderBy: { CloseDate: { order: ASC } }) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } NextStep { value } LastActivityDate { value } <OPP_CUSTOM> Account { Name { value } } } } } } } }\"}" })
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Opportunity(scope: MINE, where: { IsClosed: { eq: false }, CloseDate: { gte: { literal: TODAY }, lte: { range: { next_n_days: 14 } } } }, first: 50, orderBy: { CloseDate: { order: ASC } }) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } NextStep { value } LastActivityDate { value } <OPP_CUSTOM> Account { Name { value } } } } } } aggregate { Opportunity(scope: MINE, where: { IsClosed: { eq: false }, CloseDate: { gte: { literal: TODAY }, lte: { range: { next_n_days: 14 } } } }) { edges { node { aggregate { Id { count { value } } Amount { sum { value displayValue } } } } } totalCount } } } }\"}" })
 ```
 (To widen the window, change `next_n_days`; for a named period the user gives, swap to the exact-date form `{ value: \"YYYY-MM-DD\" }` on both bounds.)
 
-**2c. Past due** — the rep's open opps with close date in the past (still not closed); 2b starts at today, so this is the only read that finds them. Pull concrete rows (`first: 50`). They have no card of their own: a past-due deal is a `needsMove` row with tone `error`, and the `answer` says so (or "nothing is past due"):
+**2c. Past due** — the rep's open opps with close date in the past (still not closed); 2b starts at today, so this is the only read that finds them. Keep concrete rows bounded at `first: 50` and take population count/Amount from the paired aggregate in the same request. They have no card of their own: a past-due deal is a `needsMove` row with tone `error`, and the `answer` says so (or "nothing is past due"):
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Opportunity(scope: MINE, where: { IsClosed: { eq: false }, CloseDate: { lt: { literal: TODAY } } }, first: 50, orderBy: { CloseDate: { order: ASC } }) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } NextStep { value } LastActivityDate { value } <OPP_CUSTOM> Account { Name { value } } } } } } } }\"}" })
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Opportunity(scope: MINE, where: { IsClosed: { eq: false }, CloseDate: { lt: { literal: TODAY } } }, first: 50, orderBy: { CloseDate: { order: ASC } }) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } NextStep { value } LastActivityDate { value } <OPP_CUSTOM> Account { Name { value } } } } } } aggregate { Opportunity(scope: MINE, where: { IsClosed: { eq: false }, CloseDate: { lt: { literal: TODAY } } }) { edges { node { aggregate { Id { count { value } } Amount { sum { value displayValue } } } } } totalCount } } } }\"}" })
 ```
+
+**Population totals:** For each 2b/2c result, let `R` be returned detail edges, `C` be aggregate `Id.count.value` (or `totalCount`), and `T` be aggregate `Amount.sum`. Use `C` and `T` for every count and total shown for that list (labels, summary, closing-pipeline KPI). When `R < C`, say `showing R of C` and `T total`; qualify any detail-derived gap count as `among the R shown`. If the aggregate is absent or errors while detail rows are usable, say `R shown` and, if useful, `$S across shown rows`; never present `R`, `$S`, null, or an unavailable aggregate as a complete population total or zero.
 
 **2d. Inbox signal** — unread email from the last 48h whose sender domain matches an account you own (email tool). Sender, subject, domain only — don't read bodies (that's `inbox-sweep`).
 

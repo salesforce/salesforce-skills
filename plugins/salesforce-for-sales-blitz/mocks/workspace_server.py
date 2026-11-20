@@ -26,6 +26,10 @@ SERVER_NAME = "workspace"
 SERVER_VERSION = "1.0.0"
 DEFAULT_PROTOCOL = "2025-06-18"
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+TIME_NOTE = (
+    "America/Los_Angeles (Pacific). The seller works in Pacific time: show times as given, in PT "
+    "(the *_pt fields), not converted to the reader's time zone."
+)
 MOCK_NOTE = "Mock connector for the Salesforce Blitz test org: nothing was sent or booked."
 
 try:
@@ -81,6 +85,25 @@ def parse_day(value, field="date"):
 
 def iso(value):
     return value.astimezone(TZ).isoformat(timespec="minutes")
+
+
+def clock(value):
+    """3:00 PM, in Pacific."""
+    value = value.astimezone(TZ)
+    return f"{value.hour % 12 or 12}:{value.minute:02d} {'AM' if value.hour < 12 else 'PM'}"
+
+
+def pt(value):
+    """Readable Pacific time, e.g. "Fri Nov 20, 3:00 PM PT", so the agent shows the seller's time as is."""
+    value = value.astimezone(TZ)
+    return f"{value.strftime('%a %b')} {value.day}, {clock(value)} PT"
+
+
+def pt_range(start, end):
+    """Fri Nov 20, 3:00 PM - 3:30 PM PT (end's date added if it is another day)."""
+    start, end = start.astimezone(TZ), end.astimezone(TZ)
+    tail = clock(end) if end.date() == start.date() else f"{end.strftime('%a %b')} {end.day}, {clock(end)}"
+    return f"{start.strftime('%a %b')} {start.day}, {clock(start)} - {tail} PT"
 
 
 def day_bounds(day):
@@ -260,6 +283,7 @@ def message_summary(m):
         "id": m["id"],
         "thread_id": m["thread_id"],
         "date": iso(m["_date"]),
+        "date_pt": pt(m["_date"]),
         "from": person_label(m["from"]),
         "to": [person_label(p) for p in m.get("to", [])],
         "cc": [person_label(p) for p in m.get("cc", [])],
@@ -476,6 +500,7 @@ def event_out(e):
     else:
         out["start"] = iso(e["_start"])
         out["end"] = iso(e["_end"])
+        out["when_pt"] = pt_range(e["_start"], e["_end"])
     return out
 
 
@@ -508,7 +533,7 @@ def list_calendar_events(args):
         and (not terms or terms_match(f'{e["title"]} {e.get("description", "")} {e.get("account", "")} {json.dumps(e.get("attendees", []))}', terms))
     ]
     hits.sort(key=lambda e: e["_start"])
-    return {"timezone": "America/Los_Angeles", "start": iso(start), "end": iso(end), "events": [event_out(e) for e in hits]}
+    return {"timezone": TIME_NOTE, "start": iso(start), "end": iso(end), "events": [event_out(e) for e in hits]}
 
 
 def get_calendar_event(args):
@@ -564,22 +589,22 @@ def get_calendar_availability(args):
         free, cursor = [], open_at
         for start, end in merged:
             if start - cursor >= duration:
-                free.append({"start": iso(cursor), "end": iso(start)})
+                free.append({"start": iso(cursor), "end": iso(start), "when_pt": pt_range(cursor, start)})
             cursor = max(cursor, end)
         if close_at - cursor >= duration:
-            free.append({"start": iso(cursor), "end": iso(close_at)})
+            free.append({"start": iso(cursor), "end": iso(close_at), "when_pt": pt_range(cursor, close_at)})
         days.append(
             {
                 "date": day.isoformat(),
                 "weekday": day.strftime("%A"),
                 "weekend": day.weekday() >= 5,
                 "free": free,
-                "busy": [{"start": iso(b["start"]), "end": iso(b["end"]), "who": b["who"], "title": b["title"]} for b in sorted(busy, key=lambda b: b["start"])],
+                "busy": [{"start": iso(b["start"]), "end": iso(b["end"]), "when_pt": pt_range(b["start"], b["end"]), "who": b["who"], "title": b["title"]} for b in sorted(busy, key=lambda b: b["start"])],
             }
         )
         day += dt.timedelta(days=1)
     return {
-        "timezone": "America/Los_Angeles",
+        "timezone": TIME_NOTE,
         "working_hours": f"{day_start.strftime('%H:%M')}-{day_end.strftime('%H:%M')}",
         "duration_minutes": int(duration.total_seconds() // 60),
         "attendees": sources,
@@ -598,7 +623,7 @@ def create_calendar_event(args):
     if end <= start:
         raise ToolError("end must be after start")
     attendees = [{**p, "response": "needsAction"} for p in s.recipients(args.get("attendees"), "attendees")]
-    conflicts = [event_out(e)["title"] + " (" + iso(e["_start"]) + ")" for e in s.events if e["_start"] < end and e["_end"] > start and not e.get("all_day")]
+    conflicts = [event_out(e)["title"] + " (" + pt(e["_start"]) + ")" for e in s.events if e["_start"] < end and e["_end"] > start and not e.get("all_day")]
     with s.lock:
         event_id = s.next_id("evt-new")
         event = {
@@ -606,6 +631,7 @@ def create_calendar_event(args):
             "title": title,
             "start": iso(start),
             "end": iso(end),
+            "when_pt": pt_range(start, end),
             "location": args.get("location") or "",
             "attendees": attendees,
             "description": args.get("description") or "",
@@ -750,7 +776,8 @@ TOOLS = [
     ),
     (
         "list_calendar_events",
-        "List the user's calendar events (Google Calendar) for a day or a time window, in America/Los_Angeles. "
+        "List the user's calendar events (Google Calendar) for a day or a time window, in Pacific time (PT; show "
+        "times as PT, not converted). "
         "With no arguments, returns today. Accepts 'today', 'tomorrow', or YYYY-MM-DD.",
         schema(
             {
@@ -826,7 +853,9 @@ TOOLS = [
 HANDLERS = {name: fn for name, _, _, fn in TOOLS}
 INSTRUCTIONS = (
     "Mock Google Workspace (Gmail, Google Calendar, Google Drive) for the Salesforce Blitz test org. Data matches "
-    "the org's accounts, contacts, opportunities and meetings. Times are America/Los_Angeles. Writes stay in "
+    "the org's accounts, contacts, opportunities and meetings. The seller works in Pacific time: every time is "
+    "America/Los_Angeles, and answers should show it in PT as given (the *_pt fields), not converted to the "
+    "reader's time zone. Writes stay in "
     "this mock: nothing is sent or booked."
 )
 

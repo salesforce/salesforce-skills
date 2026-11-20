@@ -73,9 +73,9 @@ From the result, select only relevant `__c` fields (ARR, renewal type, usage sig
 
 Insert `<OPP_CUSTOM>` = confirmed scalar `__c { value }` fields from Step 2. **Nest Account and Owner in this one query.**
 
-**Date filter:** user can specify window as "next N days" (default 120) or "Q1 FY26" / "Q2 FY26" etc.
-- **"next N days"** → use `CloseDate: { gte: { literal: TODAY }, lte: { range: { next_n_days: 120 } } }`
-- **"Q1 FY26"** → compute quarter ISO dates, use `CloseDate: { gte: { value: "2026-02-01" }, lte: { value: "2026-04-30" } }`
+**Date filter:** user can specify a window as "next N days" (default 120) or a named fiscal quarter.
+- **"next N days"** → replace `120` in both date clauses with the requested positive integer; by default use `CloseDate: { gte: { literal: TODAY }, lte: { range: { next_n_days: 120 } } }`.
+- **Named fiscal quarter** → use only explicit ISO start/end dates supplied by the user or trusted org context. Replace both date clauses with `CloseDate: { gte: { value: "<START>" }, lte: { value: "<END>" } }`. If the fiscal boundaries are unavailable, ask for the quarter's exact start and end dates and wait; never assume a fiscal-year start month or a calendar-year quarter.
 
 **Primary query (`like`/`or` catches both Type picklist values and Name patterns) — ONE combined dispatch: a bounded `query` for the detail rows plus an `aggregate` sibling on the IDENTICAL `where` for the authoritative total renewal Amount + count.** Do not sum the capped `query` rows for the headline total — read it from the `aggregate` block's `Amount.sum.value` / `Id.count.value` (or `totalCount`).
 
@@ -92,9 +92,9 @@ Replace the `CloseDate` clause in **both** the `query` and `aggregate` blocks wi
 - **Named account**: replace it with `AccountId: { eq: "<accountId>" }`
 - **Team**: omit the owner clause
 
-## 3b. Evidence (run IN PARALLEL with step 3 — same turn)
+## 3b. Evidence (run after step 3 returns)
 
-For a date-only lookup, skip unrelated external evidence. For risk/expansion asks, search only the known account names within the requested scope; if names are not yet known, wait for step 3 rather than searching the whole book. Issue independent scoped searches in parallel when names are known:
+For a date-only lookup, skip unrelated external evidence. For risk/expansion asks, search only the known account names within the requested scope; never search the whole book. Run this step after step 3 returns, then issue the independent scoped searches in parallel:
 - **email**: threads mentioning each account name in last 90d → escalations, sentiment, exec engagement
 - **docs**: docs mentioning account names → prioritize files with "escalation", "churn", "expansion" in title, most recent first. Read top 1–2 per account and extract: risk signals, expansion discussions.
 - **slack**: account names in last 30d → internal context (support escalations, CSM warnings, expansion threads)

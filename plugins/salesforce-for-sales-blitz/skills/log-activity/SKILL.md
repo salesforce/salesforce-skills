@@ -51,9 +51,9 @@ Independent — issue both in one turn, not sequentially.
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
   queryParams: { "queryInput": "{\"query\":\"query { uiapi { objectInfos(apiNames: [\\\"Task\\\"]) { defaultRecordTypeId fields { ApiName dataType } } } }\"}" })
+Then ground against it, with `<RECORD_TYPE_ID>` = the returned `defaultRecordTypeId`. This reveals TaskSubtype's real picklist values, each picklist's default, and any custom required fields. Substitute only the value returned by the preceding read. Never hardcode the master record type `012000000000000AAA` when the returned default differs; if Salesforce itself returns that value, use it as the user's actual default. The same call reads the running user (`currentUser` needs **v66.0**):
 ```
 
-Then ground against it, with `<RECORD_TYPE_ID>` = the returned `defaultRecordTypeId`. This reveals TaskSubtype's real picklist values, each picklist's default, and any custom required fields. Never substitute the master record type `012000000000000AAA`: it lists every value in the org, including ones the user's record type rejects on save. The same call reads the running user (`currentUser` needs **v66.0**):
 
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v66.0/graphql",

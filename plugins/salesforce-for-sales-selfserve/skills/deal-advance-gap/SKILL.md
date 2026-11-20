@@ -51,13 +51,14 @@ Step 1 is the authority on names. Note: (a) scalar `__c` fields carrying stage-e
 
 ## 2a. Resolve to ONE opportunity Id (before the detail read)
 
-Given an SFDC **Id** already → skip to 2b with `Id: { eq: "<Id>" }`. Given a **name**, resolve it first — `first: 1` on a `Name like` only caps the response; it does **not** pick the right deal, so on a multi-match it returns an arbitrary one. Run a bounded, ordered candidate query (`%DEALNAME%` = 1–2 distinctive words):
+Given an SFDC **Id** already → skip to 2b with `Id: { eq: "<Id>" }`. Given a **name**, resolve it first — `first: 1` on a `Name like` only caps the response; it does **not** pick the right deal, so on a multi-match it returns an arbitrary one. Run a bounded, ordered candidate query over open deals, since only an open deal can advance (`%DEALNAME%` = 1–2 distinctive words; when the request also names the account, use `%<account word>%<deal words>%`):
 
 ```
 dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
-  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Opportunity(where: { Name: { like: \\\"%DEALNAME%\\\" } }, orderBy: { CloseDate: { order: ASC } }, first: 10) { edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } Account { Name { value } } } } } } } }\"}" })
+  queryParams: { "queryInput": "{\"query\":\"query { uiapi { query { Opportunity(where: { Name: { like: \\\"%DEALNAME%\\\" }, IsClosed: { eq: false } }, orderBy: { CloseDate: { order: ASC } }, first: 10) { totalCount edges { node { Id Name { value } StageName { value displayValue } Amount { value displayValue } CloseDate { value } Account { Name { value } } } } } } } }\"}" })
 ```
 
+- **`totalCount` above the rows returned** → the list is cut off and may not include the requested deal. Narrow `%DEALNAME%` (add the account or another distinctive word) and retry once; if it is still cut off, say how many open deals match and ask for the account. Never ask the user to choose from a cut-off list.
 - **Exactly one** candidate → take its `Id`, go to 2b.
 - **Several** → list them (Account · Name · Stage · $ · close) and **ask which**; don't guess.
 - **None** → broaden `%…%` and retry once.
