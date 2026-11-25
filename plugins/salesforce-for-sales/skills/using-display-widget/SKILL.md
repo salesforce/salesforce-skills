@@ -120,14 +120,25 @@ The server also accepts a few shorthands and wraps them into this envelope for
 you: a bare `tile/mosaic` root, a plain array of blocks, or a single block. Prefer
 authoring the full envelope — it's unambiguous.
 
-### Two rules that keep it from rendering blank
+### Three rules that keep it from rendering blank
 
-1. **Author fully-hydrated literals.** Put real values in `attributes`
+1. **Use only supported tiles.** The renderer paints only the blocks it
+   registers. Any other `definition` renders as a red "No renderer config for
+   block: tile/…" box instead of your content. The full, closed set is:
+
+   `tile/accordion`, `tile/accordionItem`, `tile/avatar`, `tile/badge`, `tile/button`, `tile/buttonMenu`, `tile/callout`, `tile/chart`, `tile/checkbox`, `tile/code`, `tile/column`, `tile/container`, `tile/datagrid`, `tile/heatmap`, `tile/icon`, `tile/image`, `tile/link`, `tile/list`, `tile/listItem`, `tile/markdown`, `tile/menuItem`, `tile/meter`, `tile/numberField`, `tile/piechart`, `tile/progress`, `tile/radio`, `tile/rangeband`, `tile/richText`, `tile/row`, `tile/scatter`, `tile/select`, `tile/separator`, `tile/spacer`, `tile/sparkline`, `tile/spinner`, `tile/stepper`, `tile/switch`, `tile/tab`, `tile/tabSet`, `tile/table`, `tile/text`, `tile/textField`, `tile/textarea`, `tile/timeline`, `tile/waterfall`
+   (plus the `tile/widget` / `tile/mosaic` root, used only at the top).
+
+   Use only tiles from this list. Never create or guess a tile name, even when
+   the request asks for a shape the list doesn't name — build it from the tiles
+   above. Check every `definition` against this list before calling
+   `display_widget`.
+2. **Author fully-hydrated literals.** Put real values in `attributes`
    (`"text": "Acme Corp"`), not Mosaic expressions. This echo path does **no**
    compilation — `{!$record.Name}`-style bindings are not resolved and unhydrated
    `{!…}` attribute values are stripped before render. Resolve your data in the
    agent, then write the final strings/numbers into the widget definition.
-2. **Use each block's real attribute name.** Notably `tile/text` takes `text`
+3. **Use each block's real attribute name.** Notably `tile/text` takes `text`
    (not `content` or `value`), `tile/badge` takes `label`, `tile/markdown` takes
    `source`. See the vocabulary below.
 
@@ -181,8 +192,11 @@ Attributes are optional unless marked **required**. Enum values are the full set
     values are strings** — format numbers/dates into display-ready strings
     yourself (e.g. `"$4,200,000"`, `"2026-07-01"`). Missing keys render empty.
 
-Other available blocks (same `{definition, attributes, children}` shape):
-`tile/image`, `tile/icon`, `tile/avatar`, `tile/button`, `tile/code`,
+Other available blocks (same `{definition, attributes, children}` shape; see
+`widget-definition.schema.json` for their attributes):
+`tile/image`, `tile/icon`, `tile/avatar`, `tile/button`, `tile/buttonMenu` +
+`tile/menuItem`, `tile/code`, `tile/richText`, `tile/timeline`, `tile/rangeband`,
+`tile/scatter`, `tile/tabSet` + `tile/tab`,
 `tile/progress`, `tile/spinner`, `tile/spacer`,
 `tile/accordion` + `tile/accordionItem`, and the form inputs (`tile/textField`,
 `tile/textarea`, `tile/numberField`, `tile/select`, `tile/checkbox`,
@@ -205,6 +219,23 @@ description and the text-fallback line. `valueFormat` (where present) is
 `sm` | `md` | `lg`. Values are labelled on the marks, so the read never rests on
 color alone.
 
+**Localized tile text.** A few tiles draw built-in English words of their own (an
+"Other" slice, a "no data" readout, a past-due footnote). Each has an optional
+`…Label` attribute, listed per tile below. When the user is not writing in English,
+set every one that the widget can show, in the user's language; leave them out for
+English (they default to it). `{0}`, `{1}` mark where the tile inserts a value, so
+place them where the translation's grammar needs them, e.g. a timeline's
+`"daysPastCloseLabel": "{0} jours après la clôture"`. Your own text (captions,
+labels, headers) is already in the user's language and needs no extra attribute.
+`tile/timeline` and `tile/rangeband` (described in the schema) carry them too:
+timeline `todayLabel` ("today · {0}", `{0}` the date), `daysPastCloseLabel` ("{0} days
+past close") and `dayPastCloseLabel` ("{0} day past close") in the bar tooltip,
+`dateRangeLabel` ("{0} to {1}", the bar tooltip's dates), `daysPastShortLabel`
+("{0}d past · {1}", `{1}` the close date), and the past-due footnote
+`pastDueOneLabel` ("1 item is past its close date — {0}.", `{0}` the name) /
+`pastDueManyLabel` ("{0} items are past their close date — {1}.", `{0}` the count,
+`{1}` the names) when `pastDueNote` is unset; rangeband `noDataLabel` ("No data.").
+
 - **`tile/chart`** — `chartType` (**required**, `bar`|`line`|`area`|`column`),
   `categories` (**required**, `string[]` — the x-axis), `series` (**required**,
   array of `{ name, data: (number|null)[], type? }`; `type` per-series overrides
@@ -216,23 +247,27 @@ color alone.
   (**required**). Optional: `variant` (`line`|`bar`|`area`), `baseline` (number),
   `showEndpoint`, `highlightExtremes`, `valueFormat`, `role`
   (`neutral`|`positive`|`negative`|`emphasis`), `size` (`sm`|`md`). A compact
-  inline trend for a KPI.
+  inline trend for a KPI. Localized text: `noDataLabel` ("no data", when `data` is empty).
 - **`tile/meter`** — `value` (**required**, number), `valueLabel` (**required**,
   the formatted read). Optional: `min` (0), `max` (100), `target` (number),
   `bands` (array of `{ from, to, variant: error|success|info|warning, label }`),
   `label`, `targetLabel`, `status`, `overAttainment`, `orientation`
   (`horizontal`|`vertical`), `size`, `showValue`. A bullet graph for
-  goal/attainment.
+  goal/attainment. Localized text: `overTargetLabel` ("over target", the tooltip on the
+  over-attainment marker).
 - **`tile/piechart`** — `slices` (**required**, array of `{ label, value,
   role?: normal|highlight }`), `caption` (**required**). Optional: `variant`
   (`pie`|`donut`), `valueFormat`, `showValues`, `showLegend`, `maxSlices`
   (buckets the rest into "Other"), `centerLabel` + `centerValue` (donut only),
-  `size`. Part-to-whole composition.
+  `size`. Part-to-whole composition. Localized text: `otherLabel` ("Other", the bucketed
+  slice).
 - **`tile/waterfall`** — `start` (**required**, `{ label, value }`), `steps`
   (**required**, array of `{ label, delta, role?: auto|increase|decrease }`),
   `end` (**required**, `{ label, value? }` — value computed when omitted).
   Optional: `valueFormat` (`number`|`percent`|`currency`), `showConnectors`,
   `showValues`, `caption`, `size`. A running-total bridge; each step is signed.
+  Localized text: `residualLabel` ("Residual", the reconciling bar drawn when the steps
+  don't add up to `end.value`).
 - **`tile/heatmap`** — `caption` (**required**), `domain` (**required** except for the state
   layout, `[min, max]`). Matrix layout: `xLabels`, `yLabels` (`string[]`) and `cells`
   (array of `{ x, y, value, valueLabel? }`). Calendar layout (`layout:
@@ -242,7 +277,10 @@ color alone.
   State layout (`layout: "state"`, no `domain`): categorical account x product
   grid; `cells` are `{ x, y, state, label? }` with `state` one of `purchased`,
   `inPlay`, `whitespace`, `lost`, `empty` (a missing cell is `empty`), plus
-  `legend` (array of `{ state, label }`).
+  `legend` (array of `{ state, label }`). Localized text: `openOpportunityLabel` (matrix,
+  missing-cell tooltip, `{0}` row, `{1}` column: "{0} — {1}: open opportunity"); calendar
+  `noActivityLabel` ("no activity") and `outsideRangeLabel` ("outside the range") day
+  tooltips, and `noActivityRecordedLabel` ("No activity recorded.", when `days` is empty).
 - **`tile/datagrid`** — a richer `tile/table`: typed, sortable columns and
   per-row status. `caption` (**required**), `columns` (**required**, array of
   `{ key, header, type?, align?, sortable?, width?, priority?, target? }`), `rows`
@@ -257,6 +295,9 @@ color alone.
   label?, value }`), `appearance`, `size` (`sm`|`md`), `isStickyHeader`,
   `emptyText`, `totalRows`. Reach for it over `tile/table` when you want sorting,
   typed formatting, or risk tinting; use `tile/table` for a plain read-only grid.
+  Localized text: `trendLabels` (`[rising, falling, flat]`, the trend word in a `sparkline`
+  cell's tooltip) and `showingRowsLabel` ("showing {0} of {1}", `{0}` rows shown, `{1}`
+  `totalRows`).
   `headerColor` (`muted`|`ink`) defaults to the existing muted headers; `ink`
   opts into the ink token for column/status headers and phone card labels,
   without changing cell values.

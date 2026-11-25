@@ -39,6 +39,8 @@ Answer what the user asked about their day — today's meetings, deals closing s
 
 Ground → (calendar + closing-soon + inbox, ALL in ONE turn) → match meetings to accounts (one batched turn) → flag → output. This is today's rundown, not a pipeline review — keep closing-soon and past-due detail rows bounded, and pair each list with a population aggregate for count and Amount totals.
 
+On every Salesforce core read in this skill (the `dispatch_readonly` GraphQL and `/search` calls — steps 1, 2a, 2b, 2c, 2e, and 3; not the inbox email tool), send `headers: { "Sforce-Mcp-Options": "executionPolicy=PreFetch" }`.
+
 ## 1. Ground (hardcoded — Opportunity only; fire with the step-2 batch)
 
 Ground **only Opportunity** — it always exists (naming a missing object fails the whole call). Reveals this org's stage/next-step/activity `__c` names so the closing-soon read can surface them; don't assume names.
