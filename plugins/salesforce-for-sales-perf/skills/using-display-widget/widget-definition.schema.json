@@ -84,51 +84,51 @@
         "definition": {
           "type": "string",
           "enum": [
-            "tile/text",
-            "tile/markdown",
-            "tile/badge",
-            "tile/link",
-            "tile/callout",
-            "tile/separator",
-            "tile/column",
-            "tile/row",
-            "tile/list",
-            "tile/listItem",
-            "tile/container",
-            "tile/table",
-            "tile/image",
-            "tile/icon",
-            "tile/avatar",
-            "tile/button",
-            "tile/buttonMenu",
-            "tile/menuItem",
-            "tile/code",
-            "tile/progress",
-            "tile/spinner",
-            "tile/spacer",
             "tile/accordion",
             "tile/accordionItem",
+            "tile/avatar",
+            "tile/badge",
+            "tile/button",
+            "tile/buttonMenu",
+            "tile/callout",
+            "tile/chart",
+            "tile/checkbox",
+            "tile/code",
+            "tile/column",
+            "tile/container",
+            "tile/datagrid",
+            "tile/heatmap",
+            "tile/icon",
+            "tile/image",
+            "tile/link",
+            "tile/list",
+            "tile/listItem",
+            "tile/markdown",
+            "tile/menuItem",
+            "tile/meter",
+            "tile/numberField",
+            "tile/piechart",
+            "tile/progress",
+            "tile/radio",
+            "tile/rangeband",
+            "tile/richText",
+            "tile/row",
+            "tile/scatter",
+            "tile/select",
+            "tile/separator",
+            "tile/spacer",
+            "tile/sparkline",
+            "tile/spinner",
+            "tile/stepper",
+            "tile/switch",
+            "tile/tab",
+            "tile/tabSet",
+            "tile/table",
+            "tile/text",
             "tile/textField",
             "tile/textarea",
-            "tile/numberField",
-            "tile/select",
-            "tile/checkbox",
-            "tile/radio",
-            "tile/switch",
-            "tile/chart",
-            "tile/sparkline",
-            "tile/meter",
-            "tile/piechart",
-            "tile/waterfall",
-            "tile/heatmap",
-            "tile/datagrid",
-            "tile/scatter",
             "tile/timeline",
-            "tile/rangeband",
-            "tile/stepper",
-            "tile/tabSet",
-            "tile/tab",
-            "tile/richText"
+            "tile/waterfall"
           ],
           "description": "Which tile to render, e.g. tile/text. See the per-definition attribute rules under allOf."
         },
@@ -1479,6 +1479,10 @@
             "md"
           ],
           "description": "Rendered size. Defaults to sm."
+        },
+        "noDataLabel": {
+          "type": "string",
+          "description": "Localized text shown when there are no data points; defaults to \"no data\"."
         }
       }
     },
@@ -1777,6 +1781,10 @@
           "minimum": 0,
           "maximum": 7,
           "description": "Dot appearance only: the data-palette slot of the dot. Use the same slot a chart gives the series at that position (series N uses slot N-1)."
+        },
+        "overTargetLabel": {
+          "type": "string",
+          "description": "Localized tooltip on the over-attainment marker; defaults to \"over target\"."
         }
       }
     },
@@ -1855,6 +1863,10 @@
         },
         "size": {
           "$ref": "#/$defs/vizSize"
+        },
+        "otherLabel": {
+          "type": "string",
+          "description": "Localized name of the slice that groups the rest when maxSlices caps the count; defaults to \"Other\"."
         }
       }
     },
@@ -2083,6 +2095,10 @@
         "note": {
           "type": "string",
           "description": "Optional one-line reading of the chart (e.g. 'Commit totals **$505K** – under the **$800K** quota'). Shown only in the compact layout the chart switches to under a 420px-wide widget (label + value rows with bars, no target line); **bold** spans render bold. Not drawn on the wide chart."
+        },
+        "residualLabel": {
+          "type": "string",
+          "description": "Localized name of the reconciling bar drawn when the steps do not add up to the end value; defaults to \"Residual\"."
         }
       }
     },
@@ -2279,6 +2295,22 @@
               }
             }
           }
+        },
+        "openOpportunityLabel": {
+          "type": "string",
+          "description": "layout \"matrix\": localized tooltip for a missing cell; {0} is the row, {1} the column. Defaults to \"{0} — {1}: open opportunity\"."
+        },
+        "noActivityLabel": {
+          "type": "string",
+          "description": "layout \"calendar\": localized tooltip for a day without activity; defaults to \"no activity\"."
+        },
+        "outsideRangeLabel": {
+          "type": "string",
+          "description": "layout \"calendar\": localized tooltip for a day outside the range; defaults to \"outside the range\"."
+        },
+        "noActivityRecordedLabel": {
+          "type": "string",
+          "description": "layout \"calendar\": localized text shown when no day has activity; defaults to \"No activity recorded.\"."
         }
       }
     },
@@ -2772,7 +2804,10 @@
         },
         "headerColor": {
           "type": "string",
-          "enum": ["muted", "ink"],
+          "enum": [
+            "muted",
+            "ink"
+          ],
           "default": "muted",
           "description": "Column and status header text color, including phone card labels. muted preserves the existing appearance (default); ink opts into the design-system ink token. Does not change cell values."
         },
@@ -2861,6 +2896,17 @@
             "top"
           ],
           "description": "Cell vertical alignment. Use top when cells wrap to several lines. Defaults to middle."
+        },
+        "trendLabels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Localized trend words in a sparkline cell's tooltip, in the order [rising, falling, flat]; defaults to English."
+        },
+        "showingRowsLabel": {
+          "type": "string",
+          "description": "Localized caption-row note when totalRows exceeds the rows shown; {0} is the shown count, {1} the total. Defaults to \"showing {0} of {1}\"."
         }
       }
     },
@@ -3067,6 +3113,34 @@
         },
         "size": {
           "$ref": "#/$defs/vizSize"
+        },
+        "todayLabel": {
+          "type": "string",
+          "description": "Localized label under the today line; {0} is the date. Defaults to \"today · {0}\"."
+        },
+        "daysPastCloseLabel": {
+          "type": "string",
+          "description": "Localized tooltip suffix for a past-due bar; {0} is the number of days. Defaults to \"{0} days past close\"."
+        },
+        "dayPastCloseLabel": {
+          "type": "string",
+          "description": "Localized tooltip suffix for a bar one day past due; {0} is 1. Defaults to \"{0} day past close\" (falls back to daysPastCloseLabel when only that is sent)."
+        },
+        "daysPastShortLabel": {
+          "type": "string",
+          "description": "Localized tag beside a past-due bar; {0} is the number of days, {1} the close date. Defaults to \"{0}d past · {1}\"."
+        },
+        "dateRangeLabel": {
+          "type": "string",
+          "description": "Localized date span in the bar tooltip; {0} start, {1} end. Defaults to \"{0} to {1}\"."
+        },
+        "pastDueOneLabel": {
+          "type": "string",
+          "description": "Localized footnote when one item is past due (and pastDueNote is unset); {0} is its name. Defaults to \"1 item is past its close date — {0}.\"."
+        },
+        "pastDueManyLabel": {
+          "type": "string",
+          "description": "Localized footnote when several items are past due (and pastDueNote is unset); {0} is the count, {1} the names. Defaults to \"{0} items are past their close date — {1}.\"."
         }
       }
     },
@@ -3217,6 +3291,10 @@
         },
         "size": {
           "$ref": "#/$defs/vizSize"
+        },
+        "noDataLabel": {
+          "type": "string",
+          "description": "Localized text shown when there are no points; defaults to \"No data.\"."
         }
       }
     }

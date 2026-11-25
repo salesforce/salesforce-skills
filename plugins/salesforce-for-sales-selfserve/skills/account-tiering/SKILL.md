@@ -79,7 +79,8 @@ dispatch_readonly(method: "GET", url: "/services/data/v65.0/graphql",
 
 Issue step 2 and step 2b together in one turn; don't wait for the SF read. Keyed on the account scope (names/domains), not the SF result:
 - **email**: inbound threads from account domains in the last 90d → which accounts, last date
-- **docs/slack**: any account mentions → triggers, concerns
+- **docs**: transcripts, notes, and documents mentioning these accounts in the last 90 days, from whichever document source is connected (Google Drive or SharePoint/OneDrive) → triggers, concerns
+- **slack**: any account mentions → triggers, concerns
 
 Use whatever tools are available; skip silently if none (SFDC-only is fine). Never block on these; cite source + date for anything you use.
 

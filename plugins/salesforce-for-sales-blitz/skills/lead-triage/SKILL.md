@@ -197,7 +197,8 @@ The schema marks only `title`, `answer` and `sources` as required. **Every other
 
 Rules:
 - **Omit a key and its block is not shown.** Never send empty arrays, empty strings, placeholder text, or "N/A" to fill a block.
-- **Tail fork:** `callout` when something is time-sensitive and the user can act on it (one button, a first-person `actionMsg`); otherwise a `nextStep` line when there is a genuinely useful move; if nothing applies, neither. Never both (if both are sent only the callout renders).- **Sources:** a record is `https://<myDomain>/lightning/r/<SObjectType>/<Id>/view` (Lead, Account); a list is `https://<myDomain>/lightning/o/<SObjectType>/list`. Omit `url` if you have no Id.
+- **Tail fork:** `callout` when something is time-sensitive and the user can act on it (one button, a first-person `actionMsg`); otherwise a `nextStep` line when there is a genuinely useful move; if nothing applies, neither. Never both (if both are sent only the callout renders).
+- **Sources:** a record is `https://<myDomain>/lightning/r/<SObjectType>/<Id>/view` (Lead, Account); a list is `https://<myDomain>/lightning/o/<SObjectType>/list`. Omit `url` if you have no Id.
 - Format every value as a ready-to-display string (dates as "Oct 18"). Names are plain strings, never objects (use `Owner.Name.value`).
 - Before calling: `props` has no `{!…}`/`{{…}}`, no keys outside the schema, and every optional key you included is justified by the prompt.
 
@@ -317,7 +318,7 @@ Rules:
 {
   "type": "object",
   "additionalProperties": false,
-  "description": "Block order: title, answer, then the optional worklist card, then at most one tail (callout OR nextStep), then sources. Only title, answer and sources are required. Which optional blocks to include: see the scope table in the skill instructions. Omit a key and its block is not shown: never send empty arrays, empty strings, placeholders or 'N/A', and never a card the prompt did not ask for. A pure lookup question usually gets no tail. Format every value as a ready-to-display string (dates, counts); names are plain strings, never objects (use `Owner.Name.value`).",
+  "description": "Block order: title, answer, then the optional worklist card, then the optional callout, then the optional grid line (only when the skill instructions enable it), then the optional nextStep, then sources. At most one tail: callout OR nextStep, never both. Only title, answer and sources are required. Which optional blocks to include: see the scope table in the skill instructions. Omit a key and its block is not shown: never send empty arrays, empty strings, placeholders or 'N/A', and never a card the prompt did not ask for. A pure lookup question usually gets no tail. Format every value as a ready-to-display string (dates, counts); names are plain strings, never objects (use `Owner.Name.value`).",
   "required": [
     "title",
     "answer",
@@ -436,6 +437,34 @@ Rules:
               }
             }
           }
+        }
+      }
+    },
+    "grid": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "OPTIONAL line that offers to create an Agentforce Grid from the worklist rows, with one button. It renders under the worklist card (under the callout when one is sent). When a callout is sent, the callout comes first and keeps the primary button, and this button turns secondary on its own, so send the same `grid` either way. Send it only when the skill instructions enable the Grid handoff and the worklist has rows; otherwise omit the key.",
+      "required": [
+        "text",
+        "buttonLabel",
+        "actionMsg"
+      ],
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "One fixed sentence, with no count and no link (the widget adds the help link after it). English: 'Create an Agentforce Grid, a spreadsheet-like view in Salesforce where you can explore, edit and enrich these results with AI, and take bulk actions like updating records and sending emails.'"
+        },
+        "learnMoreLabel": {
+          "type": "string",
+          "description": "OPTIONAL label of the help link the widget adds after the text; it opens the Agentforce Grid help page. English: 'Learn more'. Defaults to 'Learn more'."
+        },
+        "buttonLabel": {
+          "type": "string",
+          "description": "Label of the button. English: 'Create Agentforce Grid'."
+        },
+        "actionMsg": {
+          "type": "string",
+          "description": "The message sent to chat when the button is clicked. English: 'Create Agentforce Grid'."
         }
       }
     },
